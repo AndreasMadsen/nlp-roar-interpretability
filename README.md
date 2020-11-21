@@ -5,7 +5,7 @@
 ## Install
 
 ```bash
-git clone https://github.com/AndreasMadsen/python-comp550-interpretability comp550-interpretability
+git clone https://github.com/AndreasMadsen/python-comp550-interpretability.git comp550-interpretability
 cd comp550-interpretability
 pip install -e .
 ```
