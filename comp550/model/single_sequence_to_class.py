@@ -110,19 +110,24 @@ class SingleSequenceToClass(pl.LightningModule):
     def _valid_test_epoch_end(self, outputs, name='val'):
         predict = torch.cat([output['predict'] for output in outputs], dim=0)
         target = torch.cat([output['target'] for output in outputs], dim=0)
+        predict_label = torch.argmax(predict, dim=1)
 
         loss = self.ce_loss(predict, target)
         self.log(f'loss_{name}', loss, on_epoch=True, prog_bar=True)
 
-        is_correct = torch.argmax(predict, dim=1) == target
-        acc = torch.mean(is_correct.type(torch.FloatTensor))
-        self.log(f'acc_{name}', acc, on_epoch=True, prog_bar=True)
+        acc = torch.mean((predict_label == target).type(torch.float32))
+        self.log(f'acc_{name}', acc, on_epoch=True)
 
         auc = torch.tensor(sklearn.metrics.roc_auc_score(
             F.one_hot(target, predict.shape[1]).numpy(),
-            F.softmax(predict, dim=1).numpy()
-        ))
+            F.softmax(predict, dim=1).numpy()), dtype=torch.float32)
         self.log(f'auc_{name}', auc, on_epoch=True, prog_bar=True)
+
+        f1 = torch.tensor(sklearn.metrics.f1_score(
+            target.numpy(),
+            predict_label.numpy(),
+            average='macro'), dtype=torch.float32)
+        self.log(f'f1_{name}', f1, on_epoch=True, prog_bar=True)
 
     def validation_epoch_end(self, outputs):
         return self._valid_test_epoch_end(outputs, name='val')

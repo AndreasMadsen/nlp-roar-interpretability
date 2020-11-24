@@ -33,9 +33,6 @@ if __name__ == '__main__':
 
     thisdir = path.dirname(path.realpath(__file__))
 
-    # NOTE: UserWarning: The given NumPy array is not writeable, is related to
-    # https://github.com/huggingface/datasets/issues/616
-    # Maybe use `python3 -W ignore standford_sentiment.py` for now.
     dataset = StanfordSentimentDataset(seed=args.seed, cachedir=thisdir + '/../cache')
     dataset.prepare_data()
     dataset.setup()
@@ -50,8 +47,9 @@ if __name__ == '__main__':
         dirpath=thisdir + '/../checkpoints/standford_sentiment',
         filename='checkpoint-{epoch:02d}-{auc_val:.2f}',
         mode='max')
+    pl.seed_everything(args.seed)
     trainer = pl.Trainer(max_epochs=args.max_epochs, check_val_every_n_epoch=1,
-                         callbacks=[checkpoint_callback],
+                         callbacks=[checkpoint_callback], deterministic=True,
                          logger=logger, gpus=int(args.use_gpu))
     trainer.fit(model, dataset)
 
@@ -59,5 +57,4 @@ if __name__ == '__main__':
         checkpoint_callback.best_model_path,
         thisdir + '/../checkpoints/standford_sentiment/checkpoint.ckpt')
 
-    # TODO: SST does not have test-labels defined, so this doesn't work
-    # trainer.test(datamodule=dataset)
+    print(trainer.test(datamodule=dataset, verbose=False)[0])
