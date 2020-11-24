@@ -87,17 +87,18 @@ class SingleSequenceToClass(pl.LightningModule):
         h1, mask = self.encoder(x)
         h2, alpha = self.attention(h1, mask)
         h3 = self.decoder(h2)
-        return h3
+        return h3, alpha
 
     def training_step(self, batch, batch_idx):
-        y = self.forward(batch['sentence'])
+        y, alpha = self.forward(batch['sentence'])
         train_loss = self.ce_loss(y, batch['label'])
         self.log('loss_train', train_loss, on_step=True)
         return train_loss
 
     def _valid_test_step(self, batch):
+        y, alpha = self.forward(batch['sentence'])
         return {
-            'predict': self.forward(batch['sentence']),
+            'predict': y,
             'target': batch['label']
         }
 
