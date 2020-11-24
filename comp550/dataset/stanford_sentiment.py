@@ -95,20 +95,14 @@ class StanfordSentimentDataset(pl.LightningDataModule):
      * Replaces \W = [^a-zA-Z0-9_] with <space>
      * Removes "-LRB-"
      * Replaces "-RRB-" with <space>
-     * Removes sentences shorter than 5
+     * Removes sentences shorter than 5 (https://github.com/successar/AttentionExplanation/blob/master/Trainers/DatasetBC.py#L103)
+     * Batch size of 32 (https://github.com/successar/AttentionExplanation/blob/master/configurations.py#L19)
 
     The paper's embedding code is in:
         https://github.com/successar/AttentionExplanation/blob/master/preprocess/vectorizer.py#L103
     In general:
     * use 'fasttext.simple.300d'
     * set [PAD] embedding to zero
-    * if word does not exist in 'fasttext.simple.300d' use `np.random.randn(300)`
-
-    Batch-size is defined in:
-    * https://github.com/successar/AttentionExplanation/blob/master/configurations.py#L19
-
-    Min-length is defined in:
-    * https://github.com/successar/AttentionExplanation/blob/master/Trainers/DatasetBC.py#L103
     """
     def __init__(self, cachedir, batch_size=32, seed=0, num_workers=4):
         super().__init__()
@@ -130,10 +124,8 @@ class StanfordSentimentDataset(pl.LightningDataModule):
 
         embeddings = []
         for word in self.tokenizer.ids_to_token:
-            if word == self.tokenizer.pad_token:
+            if word in set(self.tokenizer.special_symbols) or word not in lookup.stoi:
                 embeddings.append(np.zeros(300))
-            elif word in set(self.tokenizer.special_symbols) or word not in lookup.stoi:
-                embeddings.append(rng.randn(300))
             else:
                 embeddings.append(lookup[word].numpy())
 
