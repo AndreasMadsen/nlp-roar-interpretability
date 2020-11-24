@@ -1,2 +1,2 @@
 
-from .example import ExampleDataset
+from .stanford_sentiment import StanfordSentimentDataset

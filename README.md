@@ -7,5 +7,13 @@
 ```bash
 git clone https://github.com/AndreasMadsen/python-comp550-interpretability.git comp550-interpretability
 cd comp550-interpretability
-pip install -e .
+python3 -m pip install -e .
+```
+
+## Experiments
+
+#### Stanford Sentiment analysis
+
+```
+python3 experiments/stanford_sentiment.py
 ```
