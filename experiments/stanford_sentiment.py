@@ -57,4 +57,5 @@ if __name__ == '__main__':
         checkpoint_callback.best_model_path,
         thisdir + '/../checkpoints/standford_sentiment/checkpoint.ckpt')
 
-    print(trainer.test(datamodule=dataset, verbose=False)[0])
+    print('best checkpoint:', checkpoint_callback.best_model_path)
+    print(trainer.test(datamodule=dataset, verbose=False, ckpt_path=checkpoint_callback.best_model_path)[0])

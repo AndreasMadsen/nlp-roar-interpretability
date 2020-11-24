@@ -115,7 +115,7 @@ class StanfordSentimentDataset(pl.LightningDataModule):
         self._cachedir = path.realpath(cachedir)
         self._batch_size = batch_size
         self._seed = seed
-        self._num_workers = 4
+        self._num_workers = num_workers
         self.tokenizer = _Tokenizer()
         self.label_names = ['negative', 'positive']
         self._setup_complete = False
