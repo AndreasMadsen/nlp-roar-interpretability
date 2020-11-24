@@ -2,13 +2,15 @@
 import os.path as path
 import re
 import os
+import random
+import pickle
+import warnings
 
 import torchtext
 import torch
 import spacy
 import numpy as np
 import pytorch_lightning as pl
-from datasets import load_dataset
 from torch.utils.data import DataLoader
 
 class _Tokenizer:
@@ -36,7 +38,7 @@ class _Tokenizer:
 
     def from_file(self, filepath):
         with open(filepath, 'r') as fp:
-            self.ids_to_token = list(line.strip() for line in fp)
+            self.ids_to_token = [line.strip() for line in fp]
         self._update_token_to_ids()
 
     def to_file(self, filepath):
@@ -110,11 +112,12 @@ class StanfordSentimentDataset(pl.LightningDataModule):
     """
     def __init__(self, cachedir, batch_size=32, seed=0, num_workers=4):
         super().__init__()
-        self._cachedir = cachedir
+        self._cachedir = path.realpath(cachedir)
         self._batch_size = batch_size
         self._seed = seed
         self._num_workers = 4
         self.tokenizer = _Tokenizer()
+        self.label_names = ['negative', 'positive']
         self._setup_complete = False
 
     @property
@@ -141,46 +144,75 @@ class StanfordSentimentDataset(pl.LightningDataModule):
         torchtext.vocab.pretrained_aliases['fasttext.simple.300d'](cache=self._cachedir + '/embeddings')
 
         # Load dataset
-        datasets = load_dataset('glue', 'sst2', cache_dir=self._cachedir + '/datasets')
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=UserWarning)
+            train, val, test = torchtext.datasets.SST.splits(
+                torchtext.data.Field(), torchtext.data.Field(sequential=False),
+                filter_pred=lambda ex: len(ex.text) > 5 and ex.label != 'neutral',
+                root=self._cachedir + '/datasets')
 
         # Create vocabulary from training data, if it hasn't already been done
-        if not path.exists(self._cachedir + '/vocab/sst2.vocab'):
+        if not path.exists(self._cachedir + '/vocab/sst.vocab'):
             os.makedirs(self._cachedir + '/vocab', exist_ok=True)
 
-            self.tokenizer.from_iterable(row['sentence'] for row in datasets['train'])
-            self.tokenizer.to_file(self._cachedir + '/vocab/sst2.vocab')
+            self.tokenizer.from_iterable(' '.join(row.text) for row in train)
+            self.tokenizer.to_file(self._cachedir + '/vocab/sst.vocab')
         else:
-            self.tokenizer.from_file(self._cachedir + '/vocab/sst2.vocab')
+            self.tokenizer.from_file(self._cachedir + '/vocab/sst.vocab')
 
-    def _process_dataset(self, dataset):
-        dataset = dataset.map(lambda x: {
-            'sentence': self.tokenizer.encode(x['sentence']),
-            'label': x['label']
-        })
-        dataset = dataset.filter(lambda x: len(x['sentence']) >= 5)
-        dataset = dataset.shuffle(seed=self._seed)
-        dataset.set_format(type='torch', columns=['sentence', 'label'])
-        return dataset
+        # Encode data
+        if not path.exists(self._cachedir + '/encoded/sst.pkl'):
+            os.makedirs(self._cachedir + '/encoded', exist_ok=True)
+
+            rng = random.Random(self._seed)
+            data = {}
+            for name, dataset in [('train', train), ('val', val), ('test', test)]:
+                observations = []
+                for index, observation in enumerate(dataset):
+                    observations.append({
+                        'sentence': self.tokenizer.encode(' '.join(observation.text)),
+                        'label': self.label_names.index(observation.label),
+                        'index': index
+                    })
+                data[name] = rng.sample(observations, len(observations))
+
+            with open(self._cachedir + '/encoded/sst.pkl', 'wb') as fp:
+                pickle.dump(data, fp)
+
+    def _process_data(self, data):
+        return [{
+            'sentence': torch.tensor(x['sentence'], dtype=torch.int64),
+            'label': torch.tensor(x['label'], dtype=torch.int64),
+            'index': torch.tensor(x['index'], dtype=torch.int64)
+        } for x in data]
 
     def setup(self, stage=None):
         if not self._setup_complete:
-            datsets = load_dataset('glue', 'sst2', cache_dir=self._cachedir + '/datasets')
-            self._train = self._process_dataset(datsets['train'])
-            self._validation = self._process_dataset(datsets['validation'])
-            self._test = self._process_dataset(datsets['test'])
+            with open(self._cachedir + '/encoded/sst.pkl', 'rb') as fp:
+                data = pickle.load(fp)
+            self._train = self._process_data(data['train'])
+            self._val = self._process_data(data['val'])
+            self._test = self._process_data(data['test'])
             self._setup_complete = True
 
     def _collate(self, observations):
         return {
             'sentence': self.tokenizer.stack_pad([observation['sentence'] for observation in observations]),
-            'label': torch.stack([observation['label'] for observation in observations])
+            'label': torch.stack([observation['label'] for observation in observations]),
+            'index': torch.stack([observation['index'] for observation in observations])
         }
 
     def train_dataloader(self):
-        return DataLoader(self._train, batch_size=self._batch_size, collate_fn=self._collate, num_workers=self._num_workers)
+        return DataLoader(self._train,
+                          batch_size=self._batch_size, collate_fn=self._collate,
+                          num_workers=self._num_workers, shuffle=True)
 
     def val_dataloader(self):
-        return DataLoader(self._validation, batch_size=self._batch_size, collate_fn=self._collate, num_workers=self._num_workers)
+        return DataLoader(self._val,
+                          batch_size=self._batch_size, collate_fn=self._collate,
+                          num_workers=self._num_workers)
 
     def test_dataloader(self):
-        return DataLoader(self._test, batch_size=self._batch_size, collate_fn=self._collate, num_workers=self._num_workers)
+        return DataLoader(self._test,
+                          batch_size=self._batch_size, collate_fn=self._collate,
+                          num_workers=self._num_workers)
