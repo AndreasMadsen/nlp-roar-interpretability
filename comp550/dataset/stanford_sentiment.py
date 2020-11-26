@@ -19,10 +19,15 @@ class _Tokenizer:
         self.token_to_ids = {}
 
         self.pad_token = '[PAD]'
+        self.pad_token_id = 0
         self.start_token = '[CLS]'
+        self.start_token_id = 1
         self.end_token = '[EOS]'
+        self.end_token_id = 2
         self.mask_token = '[MASK]'
+        self.mask_token_id = 3
         self.unknown_token = '[UNK]'
+        self.unknown_token_id = 4
         self.special_symbols = [
             self.pad_token,
             self.start_token, self.end_token,
@@ -62,13 +67,13 @@ class _Tokenizer:
         return [t.text.lower() for t in self._tokenizer(sentence)]
 
     def encode(self, sentence):
-        return [2] + [
+        return [self.start_token_id] + [
             self.token_to_ids.get(word, 4)
             for word in self.tokenizer(sentence)
-        ] + [3]
+        ] + [self.end_token_id]
 
     def mask(self, token_ids):
-        return [token_id > 2 for token_id in token_ids]
+        return [token_id >= self.mask_token_id for token_id in token_ids]
 
     def decode(self, token_ids):
         return ' '.join([
