@@ -15,11 +15,12 @@ class _Encoder(nn.Module):
                                       padding_idx=0, _weight=torch.Tensor(embedding))
         self.rnn = nn.LSTM(embedding_size, output_size // 2, batch_first=True, bidirectional=True)
 
-    def forward(self, x):
-        mask = x == 0
+    def forward(self, x, length):
         h1 = self.embedding(x)
-        h2, _ = self.rnn(h1)
-        return h2, mask
+        h1_packed = nn.utils.rnn.pack_padded_sequence(h1, length, batch_first=True, enforce_sorted=False)
+        h2_packed, _ = self.rnn(h1_packed)
+        h2_unpacked, _ = nn.utils.rnn.pad_packed_sequence(h2_packed, batch_first=True, padding_value=0)
+        return h2_unpacked
 
 class _Attention(nn.Module):
     def __init__(self,
@@ -45,7 +46,8 @@ class _Attention(nn.Module):
 
         # Compute masked attention weights, given the score values.
         # alpha_t.shape = (batch_size, max_length)
-        score_t.masked_fill_(mask, -np.inf)
+        # Mask = False, indicates that data should be ignored
+        score_t.masked_fill_(torch.logical_not(mask), -np.inf)
         alpha_t = self.softmax(score_t)
 
         # Compute context vector
@@ -83,20 +85,21 @@ class SingleSequenceToClass(pl.LightningModule):
         self.decoder = nn.Linear(2 * hidden_size, num_of_classes)
         self.ce_loss = nn.CrossEntropyLoss()
 
-    def forward(self, x):
-        h1, mask = self.encoder(x)
-        h2, alpha = self.attention(h1, mask)
+    def forward(self, batch):
+        # Mask = True, indicates to use. Mask = False, indicates should be ignored.
+        h1 = self.encoder(batch['sentence'], batch['length'])
+        h2, alpha = self.attention(h1, batch['mask'])
         h3 = self.decoder(h2)
         return h3, alpha
 
     def training_step(self, batch, batch_idx):
-        y, alpha = self.forward(batch['sentence'])
+        y, alpha = self.forward(batch)
         train_loss = self.ce_loss(y, batch['label'])
         self.log('loss_train', train_loss, on_step=True)
         return train_loss
 
     def _valid_test_step(self, batch):
-        y, alpha = self.forward(batch['sentence'])
+        y, alpha = self.forward(batch)
         return {
             'predict': y,
             'target': batch['label']

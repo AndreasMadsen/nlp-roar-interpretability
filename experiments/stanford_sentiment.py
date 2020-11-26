@@ -35,7 +35,6 @@ if __name__ == '__main__':
 
     dataset = StanfordSentimentDataset(seed=args.seed, cachedir=thisdir + '/../cache')
     dataset.prepare_data()
-    dataset.setup()
 
     logger = TensorBoardLogger(thisdir + '/../tensorboard', name='standford_sentiment')
     model = SingleSequenceToClass(dataset.embedding())
