@@ -1,0 +1,1 @@
+from .multiple_sequence_to_class import MultipleSequenceToClass
