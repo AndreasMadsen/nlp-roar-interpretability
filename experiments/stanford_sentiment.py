@@ -16,6 +16,11 @@ parser.add_argument('--seed',
                     default=0,
                     type=int,
                     help='Random seed')
+parser.add_argument('--num-workers',
+                    action='store',
+                    default=4,
+                    type=int,
+                    help='The number of workers to use in data loading')
 # epochs = 8 (https://github.com/successar/AttentionExplanation/blob/master/ExperimentsBC.py#L11)
 parser.add_argument('--max-epochs',
                     action='store',
@@ -33,7 +38,8 @@ if __name__ == '__main__':
 
     thisdir = path.dirname(path.realpath(__file__))
 
-    dataset = StanfordSentimentDataset(seed=args.seed, cachedir=thisdir + '/../cache')
+    dataset = StanfordSentimentDataset(cachedir=thisdir + '/../cache',
+                                       seed=args.seed, num_workers=args.num_workers)
     dataset.prepare_data()
 
     logger = TensorBoardLogger(thisdir + '/../tensorboard', name='standford_sentiment')
