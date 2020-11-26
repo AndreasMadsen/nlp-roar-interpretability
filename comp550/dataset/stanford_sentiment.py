@@ -19,14 +19,14 @@ class _Tokenizer:
         self.token_to_ids = {}
 
         self.pad_token = '[PAD]'
-        self.mask_token = '[MASK]'
         self.start_token = '[CLS]'
         self.end_token = '[EOS]'
+        self.mask_token = '[MASK]'
         self.unknown_token = '[UNK]'
         self.special_symbols = [
-            self.pad_token, self.mask_token,
+            self.pad_token,
             self.start_token, self.end_token,
-            self.unknown_token
+            self.mask_token, self.unknown_token
         ]
 
         self._tokenizer = spacy.load('en_core_web_sm', disable=['parser', 'tagger', 'ner'])
@@ -66,6 +66,9 @@ class _Tokenizer:
             self.token_to_ids.get(word, 4)
             for word in self.tokenizer(sentence)
         ] + [3]
+
+    def mask(self, token_ids):
+        return [token_id > 2 for token_id in token_ids]
 
     def decode(self, token_ids):
         return ' '.join([
@@ -112,7 +115,6 @@ class StanfordSentimentDataset(pl.LightningDataModule):
         self._num_workers = num_workers
         self.tokenizer = _Tokenizer()
         self.label_names = ['negative', 'positive']
-        self._setup_complete = False
 
     @property
     def vocabulary(self):
@@ -174,22 +176,27 @@ class StanfordSentimentDataset(pl.LightningDataModule):
     def _process_data(self, data):
         return [{
             'sentence': torch.tensor(x['sentence'], dtype=torch.int64),
+            'mask': torch.tensor(self.tokenizer.mask(x['sentence']), dtype=torch.bool),
+            'length': torch.tensor(len(x['sentence']), dtype=torch.int64),
             'label': torch.tensor(x['label'], dtype=torch.int64),
             'index': torch.tensor(x['index'], dtype=torch.int64)
         } for x in data]
 
     def setup(self, stage=None):
-        if not self._setup_complete:
-            with open(self._cachedir + '/encoded/sst.pkl', 'rb') as fp:
-                data = pickle.load(fp)
+        with open(self._cachedir + '/encoded/sst.pkl', 'rb') as fp:
+            data = pickle.load(fp)
+        if stage == 'fit':
             self._train = self._process_data(data['train'])
             self._val = self._process_data(data['val'])
+        elif stage == 'test':
             self._test = self._process_data(data['test'])
-            self._setup_complete = True
-
+        else:
+            raise ValueError(f'unexpected setup stage: {stage}')
     def _collate(self, observations):
         return {
             'sentence': self.tokenizer.stack_pad([observation['sentence'] for observation in observations]),
+            'mask': self.tokenizer.stack_pad([observation['mask'] for observation in observations]),
+            'length': torch.stack([observation['length'] for observation in observations]),
             'label': torch.stack([observation['label'] for observation in observations]),
             'index': torch.stack([observation['index'] for observation in observations])
         }
