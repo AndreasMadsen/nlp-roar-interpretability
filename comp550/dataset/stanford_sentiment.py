@@ -64,6 +64,7 @@ class _Tokenizer:
         sentence = sentence.replace("-LRB-", '')
         sentence = sentence.replace("-RRB-", '  ')
         sentence = re.sub(r'\W+', ' ', sentence)
+        sentence = re.sub(r'\s+', ' ', sentence)
         return [t.text.lower() for t in self._tokenizer(sentence)]
 
     def encode(self, sentence):
