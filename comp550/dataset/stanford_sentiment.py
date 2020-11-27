@@ -183,7 +183,7 @@ class StanfordSentimentDataset(pl.LightningDataModule):
         return [{
             'sentence': torch.tensor(x['sentence'], dtype=torch.int64),
             'mask': torch.tensor(self.tokenizer.mask(x['sentence']), dtype=torch.bool),
-            'length': torch.tensor(len(x['sentence']), dtype=torch.int64),
+            'length': len(x['sentence']),
             'label': torch.tensor(x['label'], dtype=torch.int64),
             'index': torch.tensor(x['index'], dtype=torch.int64)
         } for x in data]
@@ -202,7 +202,7 @@ class StanfordSentimentDataset(pl.LightningDataModule):
         return {
             'sentence': self.tokenizer.stack_pad([observation['sentence'] for observation in observations]),
             'mask': self.tokenizer.stack_pad([observation['mask'] for observation in observations]),
-            'length': torch.stack([observation['length'] for observation in observations]),
+            'length': [observation['length'] for observation in observations],
             'label': torch.stack([observation['label'] for observation in observations]),
             'index': torch.stack([observation['index'] for observation in observations])
         }
