@@ -24,10 +24,15 @@ class _Tokenizer:
         self.token_to_ids = {}
 
         self.pad_token = '[PAD]'
+        self.pad_token_id = 0
         self.start_token = '[CLS]'
+        self.start_token_id = 1
         self.end_token = '[EOS]'
+        self.end_token_id = 2
         self.mask_token = '[MASK]'
+        self.mask_token_id = 3
         self.unknown_token = '[UNK]'
+        self.unknown_token_id = 4
         self.special_symbols = [
             self.pad_token,
             self.start_token, self.end_token,
@@ -73,13 +78,13 @@ class _Tokenizer:
         return sentence
 
     def encode(self, sentence):
-        return [1] + [
+        return [self.start_token_id] + [
             self.token_to_ids.get(word, 4)
             for word in self.tokenize(sentence)
-        ] + [2]
+        ] + [self.end_token_id]
 
     def mask(self, token_ids):
-        return [token_id > 2 for token_id in token_ids]
+        return [token_id >= self.mask_token_id for token_id in token_ids]
 
     def decode(self, token_ids):
         return ' '.join([
@@ -108,7 +113,7 @@ class SNLIDataModule(pl.LightningDataModule):
         super().__init__()
         self._cachedir = cachedir
         self._batch_size = batch_size
-        self._num_workers = 4
+        self._num_workers = num_workers
         self.tokenizer = _Tokenizer()
 
     @property
@@ -129,7 +134,6 @@ class SNLIDataModule(pl.LightningDataModule):
         return np.vstack(embeddings)
 
     def prepare_data(self):
-        print("prepare_data")
         '''
         In the Hugging Face distribution of the dataset,
         the label has 4 possible values, 0, 1, 2, -1.
@@ -175,17 +179,24 @@ class SNLIDataModule(pl.LightningDataModule):
                 pickle.dump(data, fp)
 
     def setup(self, stage=None):
+        with open(self._cachedir + '/encoded/snli.pkl', 'rb') as fp:
+            snli_dataset = pickle.load(fp)
         if stage == "fit":
-            with open(self._cachedir + '/encoded/snli.pkl', 'rb') as fp:
-                snli_dataset = pickle.load(fp)
             self._train = self._process_data(snli_dataset['train'])
             self._val = self._process_data(snli_dataset['val'])
+        elif stage == 'test':
             self._test = self._process_data(snli_dataset['test'])
+        else:
+            raise ValueError(f'unexpected setup stage: {stage}')
 
     def _process_data(self, data):
         return [{
             'premise': torch.tensor(x['premise'], dtype=torch.int64),
+            'premise_length': len(x['premise']),
+            'premise_mask': torch.tensor(self.tokenizer.mask(x['premise']), dtype=torch.bool),
             'hypothesis': torch.tensor(x['hypothesis'], dtype=torch.int64),
+            'hypothesis_length': len(x['hypothesis']),
+            'hypothesis_mask': torch.tensor(self.tokenizer.mask(x['hypothesis']), dtype=torch.bool),
             'label': torch.tensor(x['label'], dtype=torch.int64),
             'index': torch.tensor(idx, dtype=torch.int64)
         } for idx, x in enumerate(data)]
@@ -193,7 +204,11 @@ class SNLIDataModule(pl.LightningDataModule):
     def _collate(self, observations):
         return {
             'premise': self.tokenizer.stack_pad([observation['premise'] for observation in observations]),
+            'premise_length': [observation['premise_length'] for observation in observations],
+            'premise_mask': self.tokenizer.stack_pad([observation['premise_mask'] for observation in observations]),
             'hypothesis': self.tokenizer.stack_pad([observation['hypothesis'] for observation in observations]),
+            'hypothesis_length': [observation['hypothesis_length'] for observation in observations],
+            'hypothesis_mask': self.tokenizer.stack_pad([observation['hypothesis_mask'] for observation in observations]),
             'label': torch.stack([observation['label'] for observation in observations]),
             'index': torch.stack([observation['index'] for observation in observations])
         }

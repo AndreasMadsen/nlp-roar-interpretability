@@ -1,6 +1,7 @@
 import argparse
 import os.path as path
 import shutil
+import torch
 
 from comp550.dataset import SNLIDataModule
 from comp550.model import MultipleSequenceToClass
@@ -10,15 +11,27 @@ from pytorch_lightning.loggers import TensorBoardLogger
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--seed', default=0, type=int)
-parser.add_argument('--batch_size',
-                    required=False, type=int, default=128)
-'''
-Max epochs is 25
-https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/ExperimentsQA.py#L10
-'''
-
-parser = Trainer.add_argparse_args(parser)
+parser.add_argument('--seed',
+                    action='store',
+                    default=0,
+                    type=int,
+                    help='Random seed')
+parser.add_argument('--num-workers',
+                    action='store',
+                    default=4,
+                    type=int,
+                    help='The number of workers to use in data loading')
+# epochs = 25 (https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/ExperimentsQA.py#L10)
+parser.add_argument('--max-epochs',
+                    action='store',
+                    default=25,
+                    type=int,
+                    help='The max number of epochs to use')
+parser.add_argument('--use-gpu',
+                    action='store',
+                    default=torch.cuda.is_available(),
+                    type=bool,
+                    help=f'Should GPUs be used (detected automatically as {torch.cuda.is_available()})')
 
 if __name__ == "__main__":
 
@@ -28,9 +41,8 @@ if __name__ == "__main__":
     thisdir = path.dirname(path.realpath(__file__))
 
     dataset = SNLIDataModule(
-        cachedir=thisdir + '/../cache', batch_size=args.batch_size)
+        cachedir=thisdir + '/../cache', num_workers=args.num_workers)
     dataset.prepare_data()
-    dataset.setup(stage="fit")
 
     logger = TensorBoardLogger(
         thisdir + '/../tensorboard', name='standford_snli')
@@ -42,14 +54,17 @@ if __name__ == "__main__":
         filename='checkpoint-{epoch:02d}-{auc_val:.2f}',
         mode='max')
 
-    trainer = Trainer.from_argparse_args(args,
-                                         check_val_every_n_epoch=1,
-                                         callbacks=[checkpoint_callback],
-                                         logger=logger,
-                                         profiler=True,
-                                         num_sanity_val_steps=0)
+    trainer = Trainer(max_epochs=args.max_epochs,
+                      check_val_every_n_epoch=1,
+                      callbacks=[checkpoint_callback],
+                      logger=logger,
+                      gpus=int(args.use_gpu),
+                      profiler=True)
     trainer.fit(model, dataset)
 
     shutil.copyfile(
         checkpoint_callback.best_model_path,
         thisdir + '/../checkpoints/standford_snli/checkpoint.ckpt')
+    print('best checkpoint:', checkpoint_callback.best_model_path)
+    print(trainer.test(datamodule=dataset, verbose=False,
+                       ckpt_path=checkpoint_callback.best_model_path)[0])

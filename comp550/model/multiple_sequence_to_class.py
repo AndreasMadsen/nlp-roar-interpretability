@@ -30,16 +30,16 @@ class _Encoder(nn.Module):
         self.rnn = nn.LSTM(embedding_size, hidden_size,
                            batch_first=True, bidirectional=True)
 
-    def forward(self, x):
-        '''
-        Original implementation masks start token too
-        https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/model/modelUtils.py#L39
-        '''
-        mask = x == 0
+    def forward(self, x, length):
+
         h1 = self.embedding(x)
-        h2, (h, c) = self.rnn(h1)
+        h1_packed = nn.utils.rnn.pack_padded_sequence(
+            h1, length, batch_first=True, enforce_sorted=False)
+        h2_packed, (h, c) = self.rnn(h1_packed)
         last_hidden = torch.cat([h[0], h[1]], dim=-1)
-        return h2, last_hidden, mask
+        h2_unpacked, _ = nn.utils.rnn.pad_packed_sequence(
+            h2_packed, batch_first=True, padding_value=0)
+        return h2_unpacked, last_hidden
 
 
 class _Attention(nn.Module):
@@ -90,23 +90,24 @@ class MultipleSequenceToClass(pl.LightningModule):
         self.decoder = _Decoder(hidden_size, num_of_classes)
         self.ce_loss = nn.CrossEntropyLoss()
 
-    def forward(self, premise, hypothesis):
-        h1_premise, _, premise_mask = self.encoder_premise(premise)
-        _, last_hidden_hypothesis, _ = self.encoder_hypothesis(
-            hypothesis)
+    def forward(self, batch):
+        h1_premise, _ = self.encoder_premise(
+            batch['premise'], batch['premise_length'])
+        _, last_hidden_hypothesis = self.encoder_hypothesis(
+            batch['hypothesis'], batch['hypothesis_length'])
         h2, alpha = self.attention(
-            h1_premise, last_hidden_hypothesis, premise_mask)
+            h1_premise, last_hidden_hypothesis, batch['premise_mask'])
         predict = self.decoder(h2, last_hidden_hypothesis)
         return predict, alpha
 
     def training_step(self, batch, batch_idx):
-        y, alpha = self.forward(batch['premise'], batch['hypothesis'])
+        y, alpha = self.forward(batch)
         train_loss = self.ce_loss(y, batch['label'])
         self.log('loss_train', train_loss, on_step=True)
         return train_loss
 
     def _valid_test_step(self, batch):
-        y, alpha = self.forward(batch['premise'], batch['hypothesis'])
+        y, alpha = self.forward(batch)
         return {
             'predict': y,
             'target': batch['label']
@@ -130,13 +131,13 @@ class MultipleSequenceToClass(pl.LightningModule):
         self.log(f'acc_{name}', acc, on_epoch=True)
 
         auc = torch.tensor(sklearn.metrics.roc_auc_score(
-            F.one_hot(target, predict.shape[1]).numpy(),
-            F.softmax(predict, dim=1).numpy()), dtype=torch.float32)
+            F.one_hot(target, predict.shape[1]).cpu().numpy(),
+            F.softmax(predict, dim=1).cpu().numpy()), dtype=torch.float32)
         self.log(f'auc_{name}', auc, on_epoch=True, prog_bar=True)
 
         f1 = torch.tensor(sklearn.metrics.f1_score(
-            target.numpy(),
-            predict_label.numpy(),
+            target.cpu().numpy(),
+            predict_label.cpu().numpy(),
             average='macro'), dtype=torch.float32)
         self.log(f'f1_{name}', f1, on_epoch=True, prog_bar=True)
 
