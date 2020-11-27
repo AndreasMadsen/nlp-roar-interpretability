@@ -123,14 +123,16 @@ class SingleSequenceToClass(pl.LightningModule):
         self.log(f'acc_{name}', acc, on_epoch=True)
 
         auc = torch.tensor(sklearn.metrics.roc_auc_score(
-            F.one_hot(target, predict.shape[1]).numpy(),
-            F.softmax(predict, dim=1).numpy()), dtype=torch.float32)
+            F.one_hot(target, predict.shape[1]).cpu().numpy(),
+            F.softmax(predict, dim=1).cpu().numpy()
+        ), dtype=torch.float32)
         self.log(f'auc_{name}', auc, on_epoch=True, prog_bar=True)
 
         f1 = torch.tensor(sklearn.metrics.f1_score(
-            target.numpy(),
-            predict_label.numpy(),
-            average='macro'), dtype=torch.float32)
+            target.cpu().numpy(),
+            predict_label.cpu().numpy(),
+            average='macro'
+        ), dtype=torch.float32)
         self.log(f'f1_{name}', f1, on_epoch=True, prog_bar=True)
 
     def validation_epoch_end(self, outputs):
