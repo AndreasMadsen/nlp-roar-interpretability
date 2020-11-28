@@ -62,8 +62,7 @@ if __name__ == "__main__":
                       check_val_every_n_epoch=1,
                       callbacks=[checkpoint_callback],
                       logger=logger,
-                      gpus=int(args.use_gpu),
-                      profiler=True)
+                      gpus=int(args.use_gpu))
     trainer.fit(model, dataset)
 
     shutil.copyfile(
