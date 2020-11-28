@@ -8,6 +8,8 @@ import os
 import torch
 import numpy as np
 import pickle
+from itertools import chain
+from collections import Counter
 
 from datasets import load_dataset
 from torch.utils.data import Dataset
@@ -18,10 +20,11 @@ class _Tokenizer:
         '''
         Original implementation has "en", we are using "en_core_web_sm"
         https://github.com/successar/AttentionExplanation/blob/master/preprocess/vectorizer.py
-        https://github.com/successar/AttentionExplanation/blob/master/preprocess/SST/SST.ipynb
+        https://github.com/successar/AttentionExplanation/blob/master/preprocess/SNLI/SNLI.ipynb
         '''
         self.ids_to_token = []
         self.token_to_ids = {}
+        self.min_df = 3
 
         self.pad_token = '[PAD]'
         self.pad_token_id = 0
@@ -33,6 +36,8 @@ class _Tokenizer:
         self.mask_token_id = 3
         self.unknown_token = '[UNK]'
         self.unknown_token_id = 4
+        self.digits_token = '[DIGITS]'
+        self.digits_token_id = 5
         self.special_symbols = [
             self.pad_token,
             self.start_token, self.end_token,
@@ -58,28 +63,25 @@ class _Tokenizer:
                 print(token, file=fp)
 
     def from_iterable(self, iterable):
-        tokens = set()
+        counter = Counter()
         for sentence in iterable:
-            tokens |= set(self.tokenize(sentence))
+            counter.update(set(self.tokenize(sentence)))
 
-        self.ids_to_token = self.special_symbols + list(tokens)
+        tokens = [x for x in counter.keys() if counter[x] >= self.min_df]
+        self.ids_to_token = self.special_symbols + tokens
         self._update_token_to_ids()
 
     def tokenize(self, sentence):
 
         sentence = re.sub(r"\s+", " ", sentence.strip())
         sentence = [t.text.lower() for t in self._tokenizer(sentence)]
-        '''
-        TODO Why is this needed?
-        https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/preprocess/vectorizer.py#L23
-        '''
-        sentence = ["qqq" if any(char.isdigit()
-                                 for char in word) else word for word in sentence]
+        sentence = [self.digits_token if any(char.isdigit()
+                                             for char in word) else word for word in sentence]
         return sentence
 
     def encode(self, sentence):
         return [self.start_token_id] + [
-            self.token_to_ids.get(word, 4)
+            self.token_to_ids.get(word, self.unknown_token_id)
             for word in self.tokenize(sentence)
         ] + [self.end_token_id]
 
@@ -104,10 +106,22 @@ class _Tokenizer:
 
 class SNLIDataModule(pl.LightningDataModule):
 
-    '''
-    batch size is 128
-    https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/Trainers/DatasetQA.py#L94
-    '''
+    """Loads the Stanford Natural Language Inference Dataset
+    Uses the same tokenization procedure as in "Attention is not Explanation"
+    The paper's tokenizer can be found in:
+        https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/preprocess/vectorizer.py#L17
+    In general:
+     * Uses spacy tokenizer
+     * Lower case tokens
+     * Drops tokens with document frequency less than 3
+     * Replaces all digits with a special token
+     * Batch size of 128 (https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/Trainers/DatasetQA.py#L94)
+    The paper's embedding code is in:
+        https://github.com/successar/AttentionExplanation/blob/master/preprocess/vectorizer.py#L119
+    In general:
+    * use 'glove.840B.300d' (https://github.com/successar/AttentionExplanation/blob/master/preprocess/SNLI/SNLI.ipynb)
+    * set [PAD] embedding to zero
+    """
 
     def __init__(self, cachedir, batch_size=128, num_workers=4):
         super().__init__()
@@ -143,7 +157,7 @@ class SNLIDataModule(pl.LightningDataModule):
         https://github.com/huggingface/datasets/tree/master/datasets/snli
         '''
         snli_dataset = load_dataset(
-            'snli', cache_dir=self._cachedir + '/datasets')
+            'snli', cache_dir=self._cachedir + '/huggingface-datasets')
         torchtext.vocab.pretrained_aliases['glove.840B.300d'](
             cache=self._cachedir + '/embeddings')
 
@@ -151,8 +165,8 @@ class SNLIDataModule(pl.LightningDataModule):
         if not path.exists(self._cachedir + '/vocab/snli.vocab'):
             os.makedirs(self._cachedir + '/vocab', exist_ok=True)
 
-            self.tokenizer.from_iterable(
-                " ".join([row['premise'], row["hypothesis"]]) for row in snli_dataset['train'])
+            self.tokenizer.from_iterable(chain.from_iterable(
+                (row['premise'], row["hypothesis"]) for row in snli_dataset['train']))
             self.tokenizer.to_file(self._cachedir + '/vocab/snli.vocab')
         else:
             self.tokenizer.from_file(self._cachedir + '/vocab/snli.vocab')

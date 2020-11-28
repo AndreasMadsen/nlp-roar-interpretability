@@ -54,7 +54,8 @@ class _Attention(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def score(self, premise_hidden, hypothesis_hidden):
-        # x.shape == (batch_size, max_length, input_size)
+        # premise_hidden.shape == (batch_size, max_length, input_size)
+        # hypothesis_hidden.shape == (batch_size, input_size)
         # h_t.shape == (batch_size, max_length, attention_hidden_size)
         h_t = torch.tanh(self.W1_premise(premise_hidden) +
                          self.W1_hypothesis(hypothesis_hidden).unsqueeze(1))
@@ -63,7 +64,8 @@ class _Attention(nn.Module):
         return score_t.squeeze(2)  # (batch_size, max_length)
 
     def forward(self, premise_hidden, hypothesis_hidden, premise_mask):
-        # values.shape == (batch_size, max_length, hidden_size)
+        # premise_hidden.shape == (batch_size, max_length, hidden_size)
+        # hypothesis_hidden.shape == (batch_size, hidden_size)
         # score_t.shape = (batch_size, max_length)
         score_t = self.score(premise_hidden, hypothesis_hidden)
 
@@ -128,18 +130,18 @@ class MultipleSequenceToClass(pl.LightningModule):
         self.log(f'loss_{name}', loss, on_epoch=True, prog_bar=True)
 
         acc = torch.mean((predict_label == target).type(torch.float32))
-        self.log(f'acc_{name}', acc, on_epoch=True)
+        self.log(f'acc_{name}', acc, on_epoch=True, prog_bar=True)
 
         auc = torch.tensor(sklearn.metrics.roc_auc_score(
             F.one_hot(target, predict.shape[1]).cpu().numpy(),
             F.softmax(predict, dim=1).cpu().numpy()), dtype=torch.float32)
-        self.log(f'auc_{name}', auc, on_epoch=True, prog_bar=True)
+        self.log(f'auc_{name}', auc, on_epoch=True)
 
         f1 = torch.tensor(sklearn.metrics.f1_score(
             target.cpu().numpy(),
             predict_label.cpu().numpy(),
-            average='macro'), dtype=torch.float32)
-        self.log(f'f1_{name}', f1, on_epoch=True, prog_bar=True)
+            average='micro'), dtype=torch.float32)
+        self.log(f'f1_{name}', f1, on_epoch=True)
 
     def validation_epoch_end(self, outputs):
         return self._valid_test_epoch_end(outputs, name='val')
@@ -152,4 +154,4 @@ class MultipleSequenceToClass(pl.LightningModule):
         Weight decay is applied on all parameters for SNLI
         https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/model/Question_Answering.py#L98
         '''
-        return torch.optim.Adam(list(self.parameters()), weight_decay=1e-5, amsgrad=True)
+        return torch.optim.Adam(self.parameters(), weight_decay=1e-5, amsgrad=True)

@@ -48,10 +48,14 @@ if __name__ == "__main__":
         thisdir + '/../tensorboard', name='standford_snli')
     model = MultipleSequenceToClass(dataset.embedding())
 
+    '''
+    Original implementation chooses the best checkpoint on the basis of accuracy
+    https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/Trainers/TrainerQA.py#L12
+    '''
     checkpoint_callback = ModelCheckpoint(
-        monitor='auc_val',
+        monitor='acc_val',
         dirpath=thisdir + '/../checkpoints/standford_snli',
-        filename='checkpoint-{epoch:02d}-{auc_val:.2f}',
+        filename='checkpoint-{epoch:02d}-{acc_val:.2f}',
         mode='max')
 
     trainer = Trainer(max_epochs=args.max_epochs,
