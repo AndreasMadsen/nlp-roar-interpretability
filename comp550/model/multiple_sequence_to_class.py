@@ -132,10 +132,12 @@ class MultipleSequenceToClass(pl.LightningModule):
         acc = torch.mean((predict_label == target).type(torch.float32))
         self.log(f'acc_{name}', acc, on_epoch=True, prog_bar=True)
 
-        auc = torch.tensor(sklearn.metrics.roc_auc_score(
-            F.one_hot(target, predict.shape[1]).cpu().numpy(),
-            F.softmax(predict, dim=1).cpu().numpy()), dtype=torch.float32)
-        self.log(f'auc_{name}', auc, on_epoch=True)
+        # auc = torch.tensor(sklearn.metrics.roc_auc_score(
+        #     F.one_hot(target, predict.shape[1]).cpu().numpy(),
+        #     F.softmax(predict, dim=1).cpu().numpy()), dtype=torch.float32)
+        # self.log(f'auc_{name}', auc, on_epoch=True)
+        # print(
+        #     np.sum(F.one_hot(target, predict.shape[1]).cpu().numpy(), axis=0))
 
         f1 = torch.tensor(sklearn.metrics.f1_score(
             target.cpu().numpy(),

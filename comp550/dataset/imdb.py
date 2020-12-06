@@ -95,7 +95,7 @@ class _Tokenizer:
 
 class IMDBDataModule(pl.LightningDataModule):
 
-    def __init__(self, cachedir, batch_size=128, num_workers=4):
+    def __init__(self, cachedir, batch_size=32, num_workers=4):
         super().__init__()
         self._cachedir = cachedir
         self._batch_size = batch_size
