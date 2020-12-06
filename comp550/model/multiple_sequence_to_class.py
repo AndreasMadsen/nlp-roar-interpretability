@@ -94,11 +94,11 @@ class MultipleSequenceToClass(pl.LightningModule):
 
     def forward(self, batch):
         h1_premise, _ = self.encoder_premise(
-            batch['premise'], batch['premise_length'])
+            batch['sentence'], batch['length'])
         _, last_hidden_hypothesis = self.encoder_hypothesis(
             batch['hypothesis'], batch['hypothesis_length'])
         h2, alpha = self.attention(
-            h1_premise, last_hidden_hypothesis, batch['premise_mask'])
+            h1_premise, last_hidden_hypothesis, batch['mask'])
         predict = self.decoder(h2, last_hidden_hypothesis)
         return predict, alpha
 

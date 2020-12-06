@@ -17,3 +17,8 @@ python3 -m pip install -e .
 ```
 python3 experiments/stanford_sentiment.py
 ```
+
+### Stanford Natural Language Inference
+```
+python3 experiments/stanford_nli.py
+```

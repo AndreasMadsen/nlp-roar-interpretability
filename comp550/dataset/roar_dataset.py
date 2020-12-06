@@ -1,3 +1,5 @@
+import math
+
 from tqdm import tqdm
 import pytorch_lightning as pl
 import torch
@@ -5,43 +7,68 @@ from torch.utils.data import DataLoader
 
 
 class ROARDataset(pl.LightningDataModule):
-    """Loads a dataset with masking for ROAR.
-
-    Attributes:
-        k (int): The number of tokens to mask per instance.
-
-    Notes:
-        * Assumes that `base_dataset` has already been loaded and setup.
-        * Assumes that `model` has already been loaded.
-    """
+    """Loads a dataset with masking for ROAR."""
 
     def __init__(
-        self, cachedir, model, base_dataset, k, batch_size=32, seed=0, num_workers=4
+        self,
+        model,
+        base_dataset,
+        k,
+        do_random_masking=False,
+        batch_size=32,
+        seed=0,
+        num_workers=4,
     ):
         super().__init__()
-        self._cachedir = cachedir
+        """
+        Args:
+            model: The model to use to determine which tokens to mask.
+            base_dataset: The dataset to apply masking to.
+            k (float): The proportion of tokens to mask for each instance in the
+                dataset.
+            do_random_masking (bool): Whether to mask tokens randomly or not.
+        """
+        if k < 0 or k > 1:
+            raise ValueError("Invalid value for k: %s." % k)
+
         self._model = model
         self._base_dataset = base_dataset
         self.k = k
+        self.do_random_masking = do_random_masking
         self._batch_size = batch_size
         self._seed = seed
         self._num_workers = num_workers
         self.tokenizer = base_dataset.tokenizer
 
-    def _get_masked_instances(self, batch, top_k_token_indices):
-        outputs = []
-        for idx, token_indices in enumerate(top_k_token_indices):
-            # Mask tokens for ROAR
-            batch["sentence"][idx][
-                token_indices
-            ] = self._base_dataset.tokenizer.mask_token_id
+    def _get_masked_instance(self, instance, token_indices):
+        # Mask tokens for ROAR
+        instance["sentence"][token_indices] = self._base_dataset.tokenizer.mask_token_id
+        for k in instance:
+            # Remove padding
+            if k in ["sentence", "mask"]:
+                instance[k] = instance[k][: instance["length"]]
+            elif k in ["hypothesis", "hypothesis_mask"]:
+                instance[k] = instance[k][: instance["hypothesis_length"]]
 
-            instance = {}
-            for k in batch:
-                if k in ["sentence", "mask"]:
-                    instance[k] = batch[k][idx, :batch["length"][idx]]
-                else:
-                    instance[k] = batch[k][idx]
+        return instance
+
+    def _mask_batch(self, batch):
+        outputs = []
+
+        h3, alpha = self._model(batch)
+
+        for idx, len_ in enumerate(batch["length"]):
+            n_tokens = math.ceil(self.k * len_)
+
+            if self.do_random_masking:
+                token_indices = torch.randperm(len(alpha[idx]))[:n_tokens]
+            else:
+                _, token_indices = alpha[idx].topk(k=n_tokens, dim=-1)
+
+            instance = self._get_masked_instance(
+                instance={k: v[idx] for k, v in batch.items()},
+                token_indices=token_indices,
+            )
             outputs.append(instance)
 
         return outputs
@@ -56,10 +83,7 @@ class ROARDataset(pl.LightningDataModule):
 
         outputs = []
         for batch in tqdm(dataloader):
-            h3, alpha = self._model(batch)
-            _, top_k_token_indices = alpha.topk(k=self.k, dim=-1)
-            outputs.extend(self._get_masked_instances(batch, top_k_token_indices))
-
+            outputs.extend(self._mask_batch(batch))
         return outputs
 
     def setup(self, stage):
