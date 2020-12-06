@@ -135,7 +135,7 @@ class BabiDataModule(pl.LightningDataModule):
         '''
         embeddings = []
         for _ in self.tokenizer.ids_to_token:
-            embeddings.append(np.random.randn(300))
+            embeddings.append(np.random.randn(50))
 
         return np.vstack(embeddings)
 
