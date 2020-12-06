@@ -40,7 +40,7 @@ class ROARDataset(pl.LightningDataModule):
         self._num_workers = num_workers
         self.tokenizer = base_dataset.tokenizer
 
-    def _get_masked_instance(self, instance, token_indices):
+    def _mask_instance(self, instance, token_indices):
         # Mask tokens for ROAR
         instance["sentence"][token_indices] = self._base_dataset.tokenizer.mask_token_id
         for k in instance:
@@ -65,7 +65,7 @@ class ROARDataset(pl.LightningDataModule):
             else:
                 _, token_indices = alpha[idx].topk(k=n_tokens, dim=-1)
 
-            instance = self._get_masked_instance(
+            instance = self._mask_instance(
                 instance={k: v[idx] for k, v in batch.items()},
                 token_indices=token_indices,
             )
