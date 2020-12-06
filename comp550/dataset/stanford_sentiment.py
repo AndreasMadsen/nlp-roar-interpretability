@@ -207,6 +207,18 @@ class StanfordSentimentDataset(pl.LightningDataModule):
             'index': torch.stack([observation['index'] for observation in observations])
         }
 
+    def uncollate(self, batch):
+        observations = []
+        for idx, len_ in enumerate(batch["length"]):
+            observation = {}
+            for k in batch:
+                if k in ["sentence", "mask"]:
+                    observation[k] = batch[k][idx, :len_]
+                else:
+                    observation[k] = batch[k][idx]
+            observations.append(observation)
+        return observations
+
     def train_dataloader(self):
         return DataLoader(self._train,
                           batch_size=self._batch_size, collate_fn=self._collate,

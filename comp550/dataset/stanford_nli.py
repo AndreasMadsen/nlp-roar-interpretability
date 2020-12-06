@@ -227,6 +227,20 @@ class SNLIDataModule(pl.LightningDataModule):
             'index': torch.stack([observation['index'] for observation in observations])
         }
 
+    def uncollate(self, batch):
+        observations = []
+        for idx in range(len(batch["length"])):
+            observation = {}
+            for k in batch:
+                if k in ["sentence", "mask"]:
+                    observation[k] = batch[k][idx, :batch["length"][idx]]
+                elif k in ["hypothesis", "hypothesis_mask"]:
+                    observation[k] = batch[k][idx, :batch["hypothesis_length"][idx]]
+                else:
+                    observation[k] = batch[k][idx]
+            observations.append(observation)
+        return observations
+
     def train_dataloader(self):
         return DataLoader(self._train,
                           batch_size=self._batch_size, collate_fn=self._collate,
