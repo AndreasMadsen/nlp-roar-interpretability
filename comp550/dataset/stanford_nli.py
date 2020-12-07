@@ -1,19 +1,21 @@
-import pytorch_lightning as pl
-from torch.utils.data import random_split, DataLoader
-import spacy
-import re
-import torchtext
+
+import pickle
 import os.path as path
 import os
-import torch
-import numpy as np
-import pickle
+import re
+import json
 from itertools import chain
 from collections import Counter
+import requests
+from io import BytesIO
+from zipfile import ZipFile
 
-from datasets import load_dataset
-from torch.utils.data import Dataset
-
+import numpy as np
+import spacy
+import torch
+import torchtext
+import pytorch_lightning as pl
+from torch.utils.data import DataLoader
 
 class _Tokenizer:
     def __init__(self):
@@ -53,12 +55,12 @@ class _Tokenizer:
         }
 
     def from_file(self, filepath):
-        with open(filepath, 'r') as fp:
+        with open(filepath, 'r', encoding='utf-8') as fp:
             self.ids_to_token = [line.strip() for line in fp]
         self._update_token_to_ids()
 
     def to_file(self, filepath):
-        with open(filepath, 'w') as fp:
+        with open(filepath, 'w', encoding='utf-8') as fp:
             for token in self.ids_to_token:
                 print(token, file=fp)
 
@@ -72,7 +74,6 @@ class _Tokenizer:
         self._update_token_to_ids()
 
     def tokenize(self, sentence):
-
         sentence = re.sub(r"\s+", " ", sentence.strip())
         sentence = [t.text.lower() for t in self._tokenizer(sentence)]
         sentence = [self.digits_token if any(char.isdigit()
@@ -129,6 +130,7 @@ class SNLIDataModule(pl.LightningDataModule):
         self._batch_size = batch_size
         self._num_workers = num_workers
         self.tokenizer = _Tokenizer()
+        self.label_names = ['entailment', 'contradiction', 'neutral']
 
     @property
     def vocabulary(self):
@@ -156,38 +158,58 @@ class SNLIDataModule(pl.LightningDataModule):
 
         https://github.com/huggingface/datasets/tree/master/datasets/snli
         '''
-        snli_dataset = load_dataset(
-            'snli', cache_dir=self._cachedir + '/huggingface-datasets')
+
         torchtext.vocab.pretrained_aliases['glove.840B.300d'](
             cache=self._cachedir + '/embeddings')
+
+        # Download and parse data
+        dataset = {}
+        if (not path.exists(self._cachedir + '/vocab/snli.vocab') or
+            not path.exists(self._cachedir + '/encoded/snli.pkl')):
+
+            # Download and open zipfile
+            data_url = 'https://nlp.stanford.edu/projects/snli/snli_1.0.zip'
+            zf = ZipFile(BytesIO(requests.get(data_url).content))
+
+            # Change in data statistics on removing "no label"
+            # Train - 550,152 -> 549367
+            # Valid - 10,000 -> 9842
+            # Test - 10,000 -> 9824
+            for zipfile_name in ['train', 'dev', 'test']:
+                dataset[zipfile_name] = []
+
+                for line in zf.open(f'snli_1.0/snli_1.0_{zipfile_name}.jsonl'):
+                    observation = json.loads(line)
+                    if observation['gold_label'] == '-':
+                        continue
+
+                    dataset[zipfile_name].append({
+                        'premise': observation['sentence1'],
+                        'hypothesis': observation['sentence2'],
+                        'label': observation['gold_label']
+                    })
 
         # Create vocabulary from training data, if it hasn't already been done
         if not path.exists(self._cachedir + '/vocab/snli.vocab'):
             os.makedirs(self._cachedir + '/vocab', exist_ok=True)
 
             self.tokenizer.from_iterable(chain.from_iterable(
-                (row['premise'], row["hypothesis"]) for row in snli_dataset['train']))
+                (row['premise'], row["hypothesis"]) for row in dataset['train']))
             self.tokenizer.to_file(self._cachedir + '/vocab/snli.vocab')
         else:
             self.tokenizer.from_file(self._cachedir + '/vocab/snli.vocab')
 
+        # Encode data
         if not path.exists(self._cachedir + '/encoded/snli.pkl'):
             os.makedirs(self._cachedir + '/encoded', exist_ok=True)
 
             data = {}
-            for name, dataset in [('train', snli_dataset['train']), ('val', snli_dataset['validation']), ('test', snli_dataset['test'])]:
-                '''
-                Change in data statistics on removing "no label"
-                Train - 550,152 -> 549367
-                Valid - 10,000 -> 9842
-                Test - 10,000 -> 9824
-                '''
-                dataset = dataset.filter(lambda x: x['label'] != -1)
-                data[name] = list(dataset.map(lambda x: {
+            for zipfile_name in ['train', 'dev', 'test']:
+                data[zipfile_name] = [{
                     'sentence': self.tokenizer.encode(x['premise']),
                     'hypothesis': self.tokenizer.encode(x['hypothesis']),
-                    'label': x['label'],
-                }))
+                    'label': self.label_names.index(x['label']),
+                } for x in dataset[zipfile_name]]
 
             with open(self._cachedir + '/encoded/snli.pkl', 'wb') as fp:
                 pickle.dump(data, fp)
@@ -197,7 +219,7 @@ class SNLIDataModule(pl.LightningDataModule):
             snli_dataset = pickle.load(fp)
         if stage == "fit":
             self._train = self._process_data(snli_dataset['train'])
-            self._val = self._process_data(snli_dataset['val'])
+            self._val = self._process_data(snli_dataset['dev'])
         elif stage == 'test':
             self._test = self._process_data(snli_dataset['test'])
         else:
