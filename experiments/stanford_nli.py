@@ -46,6 +46,11 @@ if __name__ == "__main__":
     seed_everything(args.seed)
     experiment_id = f"snli_s-{args.seed}"
 
+    print('Running SNLI experiment:')
+    print(f' - k: {args.k}')
+    print(f' - seed: {args.seed}')
+    print(f' - random-masking: {args.random_masking}')
+
     dataset = SNLIDataModule(
         cachedir=f'{args.persistent_dir}/cache', num_workers=args.num_workers)
     dataset.prepare_data()

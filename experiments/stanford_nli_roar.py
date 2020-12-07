@@ -25,9 +25,10 @@ parser.add_argument("--k",
                     type=int,
                     help="The proportion of tokens to mask.")
 parser.add_argument("--random-masking",
-                    action="store_true",
+                    action="store",
                     default=False,
-                    help="Whether to mask random tokens or not.",)
+                    type=bool,
+                    help="Whether to mask random tokens or not.")
 parser.add_argument("--seed", action="store", default=0, type=int, help="Random seed")
 parser.add_argument("--num-workers",
                     action="store",
@@ -50,6 +51,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     seed_everything(args.seed)
     experiment_id = f"snli_roar_s-{args.seed}_-k{args.k}_r-{int(args.random_masking)}"
+
+    print('Running SST-ROAR experiment:')
+    print(f' - k: {args.k}')
+    print(f' - seed: {args.seed}')
+    print(f' - random-masking: {args.random_masking}')
 
     # Create ROAR dataset
     base_dataset = SNLIDataModule(

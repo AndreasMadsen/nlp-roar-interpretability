@@ -46,6 +46,9 @@ if __name__ == '__main__':
     pl.seed_everything(args.seed)
     experiment_id = f"sst_s-{args.seed}"
 
+    print('Running SST experiment:')
+    print(f' - seed: {args.seed}')
+
     dataset = StanfordSentimentDataset(cachedir=f'{args.persistent_dir}/cache',
                                        seed=args.seed, num_workers=args.num_workers)
     dataset.prepare_data()

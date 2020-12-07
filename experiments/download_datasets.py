@@ -12,10 +12,15 @@ parser.add_argument('--persistent-dir',
                     help='Directory where all persistent data will be stored')
 
 if __name__ == "__main__":
+    print('Starting ...')
     args = parser.parse_args()
 
+    print('SST ...')
+    sst = StanfordSentimentDataset(cachedir=f'{args.persistent_dir}/cache')
+    sst.prepare_data()
+
+    print('SNLI ...')
     snli = SNLIDataModule(cachedir=f'{args.persistent_dir}/cache')
     snli.prepare_data()
 
-    sst = StanfordSentimentDataset(cachedir=f'{args.persistent_dir}/cache')
-    sst.prepare_data()
+    print("Download complete!")
