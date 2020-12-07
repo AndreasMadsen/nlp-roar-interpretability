@@ -12,7 +12,13 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from comp550.dataset import SNLIDataModule
 from comp550.model import MultipleSequenceToClass
 
+thisdir = path.dirname(path.realpath(__file__))
 parser = argparse.ArgumentParser()
+parser.add_argument('--persistent-dir',
+                    action='store',
+                    default=path.realpath(path.join(thisdir, '..')),
+                    type=str,
+                    help='Directory where all persistent data will be stored')
 parser.add_argument('--seed',
                     action='store',
                     default=0,
@@ -36,28 +42,23 @@ parser.add_argument('--use-gpu',
                     help=f'Should GPUs be used (detected automatically as {torch.cuda.is_available()})')
 
 if __name__ == "__main__":
-
     args = parser.parse_args()
     seed_everything(args.seed)
-
-    thisdir = path.dirname(path.realpath(__file__))
     experiment_id = f"snli_s-{args.seed}"
 
     dataset = SNLIDataModule(
-        cachedir=thisdir + '/../cache', num_workers=args.num_workers)
+        cachedir=f'{args.persistent_dir}/cache', num_workers=args.num_workers)
     dataset.prepare_data()
 
     logger = TensorBoardLogger(
-        thisdir + '/../tensorboard', name=experiment_id)
+        f'{args.persistent_dir}/tensorboard', name=experiment_id)
     model = MultipleSequenceToClass(dataset.embedding())
 
-    '''
-    Original implementation chooses the best checkpoint on the basis of accuracy
-    https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/Trainers/TrainerQA.py#L12
-    '''
+    # Original implementation chooses the best checkpoint on the basis of accuracy
+    # https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/Trainers/TrainerQA.py#L12
     checkpoint_callback = ModelCheckpoint(
         monitor='acc_val',
-        dirpath=thisdir + f'/../checkpoints/{experiment_id}',
+        dirpath=f'{args.persistent_dir}/checkpoints/{experiment_id}',
         filename='checkpoint-{epoch:02d}-{acc_val:.2f}',
         mode='max')
 
@@ -70,7 +71,7 @@ if __name__ == "__main__":
 
     shutil.copyfile(
         checkpoint_callback.best_model_path,
-        thisdir + f'/../checkpoints/{experiment_id}/checkpoint.ckpt')
+        f'{args.persistent_dir}/checkpoints/{experiment_id}/checkpoint.ckpt')
     print('best checkpoint:', checkpoint_callback.best_model_path)
 
     results = trainer.test(
@@ -80,7 +81,7 @@ if __name__ == "__main__":
     )[0]
     print(results)
 
-    os.makedirs(thisdir + '/../results', exist_ok=True)
-    with open(thisdir + f"/../results/{experiment_id}.json", "w") as f:
+    os.makedirs(f'{args.persistent_dir}/results', exist_ok=True)
+    with open(f'{args.persistent_dir}/results/{experiment_id}.json', "w") as f:
         json.dump({"seed": args.seed, "dataset": "snli", "roar": False,
                    **results}, f)

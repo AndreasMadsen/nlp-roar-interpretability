@@ -12,7 +12,13 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from comp550.dataset import StanfordSentimentDataset
 from comp550.model import SingleSequenceToClass
 
+thisdir = path.dirname(path.realpath(__file__))
 parser = argparse.ArgumentParser(description='Run example task')
+parser.add_argument('--persistent-dir',
+                    action='store',
+                    default=path.realpath(path.join(thisdir, '..')),
+                    type=str,
+                    help='Directory where all persistent data will be stored')
 parser.add_argument('--seed',
                     action='store',
                     default=0,
@@ -38,22 +44,20 @@ parser.add_argument('--use-gpu',
 if __name__ == '__main__':
     args = parser.parse_args()
     pl.seed_everything(args.seed)
-
-    thisdir = path.dirname(path.realpath(__file__))
     experiment_id = f"sst_s-{args.seed}"
 
-    dataset = StanfordSentimentDataset(cachedir=thisdir + '/../cache',
+    dataset = StanfordSentimentDataset(cachedir=f'{args.persistent_dir}/cache',
                                        seed=args.seed, num_workers=args.num_workers)
     dataset.prepare_data()
 
-    logger = TensorBoardLogger(thisdir + '/../tensorboard', name=experiment_id)
+    logger = TensorBoardLogger(f'{args.persistent_dir}/tensorboard', name=experiment_id)
     model = SingleSequenceToClass(dataset.embedding())
 
     # Source uses the best model, measured with AUC metric, and evaluates every epoch.
     #  https://github.com/successar/AttentionExplanation/blob/master/Trainers/TrainerBC.py#L28
     checkpoint_callback = ModelCheckpoint(
         monitor='auc_val',
-        dirpath=thisdir + f'/../checkpoints/{experiment_id}',
+        dirpath=f'{args.persistent_dir}/checkpoints/{experiment_id}',
         filename='checkpoint-{epoch:02d}-{auc_val:.2f}',
         mode='max')
     trainer = pl.Trainer(max_epochs=args.max_epochs, check_val_every_n_epoch=1,
@@ -63,7 +67,7 @@ if __name__ == '__main__':
 
     shutil.copyfile(
         checkpoint_callback.best_model_path,
-        thisdir + f'/../checkpoints/{experiment_id}/checkpoint.ckpt')
+        f'{args.persistent_dir}/checkpoints/{experiment_id}/checkpoint.ckpt')
     print('best checkpoint:', checkpoint_callback.best_model_path)
 
     results = trainer.test(
@@ -73,7 +77,7 @@ if __name__ == '__main__':
     )[0]
     print(results)
 
-    os.makedirs(thisdir + '/../results', exist_ok=True)
-    with open(thisdir + f"/../results/{experiment_id}.json", "w") as f:
+    os.makedirs(f'{args.persistent_dir}/results', exist_ok=True)
+    with open(f'{args.persistent_dir}/results/{experiment_id}.json', "w") as f:
         json.dump({"seed": args.seed, "dataset": "sst", "roar": False,
                    **results}, f)

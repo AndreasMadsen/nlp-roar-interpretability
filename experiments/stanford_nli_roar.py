@@ -13,6 +13,12 @@ from comp550.dataset import SNLIDataModule, ROARDataset
 from comp550.model import MultipleSequenceToClass
 
 parser = argparse.ArgumentParser(description="Run ROAR benchmark for SNLI.")
+thisdir = path.dirname(path.realpath(__file__))
+parser.add_argument('--persistent-dir',
+                    action='store',
+                    default=path.realpath(path.join(thisdir, '..')),
+                    type=str,
+                    help='Directory where all persistent data will be stored')
 parser.add_argument("--k",
                     action="store",
                     default=1,
@@ -43,17 +49,15 @@ parser.add_argument("--use-gpu",
 if __name__ == "__main__":
     args = parser.parse_args()
     seed_everything(args.seed)
-
-    thisdir = path.dirname(path.realpath(__file__))
     experiment_id = f"snli_roar_s-{args.seed}_-k{args.k}_r-{int(args.random_masking)}"
 
     # Create ROAR dataset
     base_dataset = SNLIDataModule(
-        cachedir=thisdir + "/../cache", num_workers=args.num_workers
+        cachedir=f'{args.persistent_dir}/cache', num_workers=args.num_workers
     )
     base_dataset.prepare_data()
     base_model = MultipleSequenceToClass.load_from_checkpoint(
-        checkpoint_path=thisdir + f"/../checkpoints/snli_s-{args.seed}/checkpoint.ckpt",
+        checkpoint_path=f'{args.persistent_dir}/checkpoints/snli_s-{args.seed}/checkpoint.ckpt',
         embedding=base_dataset.embedding()
     )
     roar_dataset = ROARDataset(
@@ -66,7 +70,7 @@ if __name__ == "__main__":
         batch_size=128,
     )
 
-    logger = TensorBoardLogger(thisdir + "/../tensorboard", name=experiment_id)
+    logger = TensorBoardLogger(f'{args.persistent_dir}/tensorboard', name=experiment_id)
     model = MultipleSequenceToClass(base_dataset.embedding())
 
     """
@@ -75,7 +79,7 @@ if __name__ == "__main__":
     """
     checkpoint_callback = ModelCheckpoint(
         monitor="acc_val",
-        dirpath=thisdir + f"/../checkpoints/{experiment_id}",
+        dirpath=f'{args.persistent_dir}/checkpoints/{experiment_id}',
         filename="checkpoint-{epoch:02d}-{acc_val:.2f}",
         mode="max",
     )
@@ -91,7 +95,7 @@ if __name__ == "__main__":
 
     shutil.copyfile(
         checkpoint_callback.best_model_path,
-        thisdir + f"/../checkpoints/{experiment_id}/checkpoint.ckpt",
+        f'{args.persistent_dir}/checkpoints/{experiment_id}/checkpoint.ckpt',
     )
 
     print("best checkpoint:", checkpoint_callback.best_model_path)
@@ -102,8 +106,8 @@ if __name__ == "__main__":
     )[0]
     print(results)
 
-    os.makedirs(thisdir + '/../results', exist_ok=True)
-    with open(thisdir + f"/../results/{experiment_id}.json", "w") as f:
+    os.makedirs(f'{args.persistent_dir}/results', exist_ok=True)
+    with open(f'{args.persistent_dir}/results/{experiment_id}.json', "w") as f:
         json.dump({"seed": args.seed, "dataset": "snli", "roar": True,
                    "k": args.k, "random_masking": args.random_masking,
                    **results}, f)
