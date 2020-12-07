@@ -215,7 +215,7 @@ class SNLIDataModule(pl.LightningDataModule):
             'index': torch.tensor(idx, dtype=torch.int64)
         } for idx, x in enumerate(data)]
 
-    def _collate(self, observations):
+    def collate(self, observations):
         return {
             'sentence': self.tokenizer.stack_pad([observation['sentence'] for observation in observations]),
             'length': [observation['length'] for observation in observations],
@@ -228,30 +228,33 @@ class SNLIDataModule(pl.LightningDataModule):
         }
 
     def uncollate(self, batch):
-        observations = []
-        for idx in range(len(batch["length"])):
-            observation = {}
-            for k in batch:
-                if k in ["sentence", "mask"]:
-                    observation[k] = batch[k][idx, :batch["length"][idx]]
-                elif k in ["hypothesis", "hypothesis_mask"]:
-                    observation[k] = batch[k][idx, :batch["hypothesis_length"][idx]]
-                else:
-                    observation[k] = batch[k][idx]
-            observations.append(observation)
-        return observations
+        return [{
+            'sentence': sentence[:length],
+            'mask': mask[:length],
+            'length': length,
+            'hypothesis': hypothesis[:hypothesis_length],
+            'hypothesis_mask': hypothesis_mask[:hypothesis_length],
+            'hypothesis_length': hypothesis_length,
+            'label': label,
+            'index': index
+        } for sentence, mask, length,
+              hypothesis, hypothesis_mask, hypothesis_length,
+              label, index
+          in zip(batch['sentence'], batch['mask'], batch['length'],
+                 batch['hypothesis'], batch['hypothesis_mask'], batch['hypothesis_length'],
+                 batch['label'], batch['index'])]
 
     def train_dataloader(self):
         return DataLoader(self._train,
-                          batch_size=self._batch_size, collate_fn=self._collate,
+                          batch_size=self._batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers, shuffle=True)
 
     def val_dataloader(self):
         return DataLoader(self._val,
-                          batch_size=self._batch_size, collate_fn=self._collate,
+                          batch_size=self._batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)
 
     def test_dataloader(self):
         return DataLoader(self._test,
-                          batch_size=self._batch_size, collate_fn=self._collate,
+                          batch_size=self._batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)
