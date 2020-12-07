@@ -42,12 +42,12 @@ class _Tokenizer:
         }
 
     def from_file(self, filepath):
-        with open(filepath, 'r') as fp:
+        with open(filepath, 'r', encoding='utf-8') as fp:
             self.ids_to_token = [line.strip() for line in fp]
         self._update_token_to_ids()
 
     def to_file(self, filepath):
-        with open(filepath, 'w') as fp:
+        with open(filepath, 'w', encoding='utf-8') as fp:
             for token in self.ids_to_token:
                 print(token, file=fp)
 
@@ -144,12 +144,14 @@ class StanfordSentimentDataset(pl.LightningDataModule):
         torchtext.vocab.pretrained_aliases['fasttext.simple.300d'](cache=self._cachedir + '/embeddings')
 
         # Load dataset
-        with warnings.catch_warnings():
-            warnings.filterwarnings('ignore', category=UserWarning)
-            train, val, test = torchtext.datasets.SST.splits(
-                torchtext.data.Field(), torchtext.data.Field(sequential=False),
-                filter_pred=lambda ex: len(ex.text) > 5 and ex.label != 'neutral',
-                root=self._cachedir + '/datasets')
+        if (not path.exists(self._cachedir + '/vocab/sst.vocab') or
+            not path.exists(self._cachedir + '/encoded/sst.pkl')):
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore', category=UserWarning)
+                train, val, test = torchtext.datasets.SST.splits(
+                    torchtext.data.Field(), torchtext.data.Field(sequential=False),
+                    filter_pred=lambda ex: len(ex.text) > 5 and ex.label != 'neutral',
+                    root=self._cachedir + '/datasets')
 
         # Create vocabulary from training data, if it hasn't already been done
         if not path.exists(self._cachedir + '/vocab/sst.vocab'):
