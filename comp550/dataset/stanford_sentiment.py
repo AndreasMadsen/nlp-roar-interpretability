@@ -198,7 +198,8 @@ class StanfordSentimentDataset(pl.LightningDataModule):
             self._test = self._process_data(data['test'])
         else:
             raise ValueError(f'unexpected setup stage: {stage}')
-    def _collate(self, observations):
+
+    def collate(self, observations):
         return {
             'sentence': self.tokenizer.stack_pad([observation['sentence'] for observation in observations]),
             'mask': self.tokenizer.stack_pad([observation['mask'] for observation in observations]),
@@ -207,17 +208,29 @@ class StanfordSentimentDataset(pl.LightningDataModule):
             'index': torch.stack([observation['index'] for observation in observations])
         }
 
+    def uncollate(self, batch):
+        return [{
+            'sentence': sentence[:length],
+            'mask': mask[:length],
+            'length': length,
+            'label': label,
+            'index': index
+        } for sentence, mask, length,
+              label, index
+          in zip(batch['sentence'], batch['mask'], batch['length'],
+                 batch['label'], batch['index'])]
+
     def train_dataloader(self):
         return DataLoader(self._train,
-                          batch_size=self._batch_size, collate_fn=self._collate,
+                          batch_size=self._batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers, shuffle=True)
 
     def val_dataloader(self):
         return DataLoader(self._val,
-                          batch_size=self._batch_size, collate_fn=self._collate,
+                          batch_size=self._batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)
 
     def test_dataloader(self):
         return DataLoader(self._test,
-                          batch_size=self._batch_size, collate_fn=self._collate,
+                          batch_size=self._batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)

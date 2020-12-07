@@ -184,7 +184,7 @@ class SNLIDataModule(pl.LightningDataModule):
                 '''
                 dataset = dataset.filter(lambda x: x['label'] != -1)
                 data[name] = list(dataset.map(lambda x: {
-                    'premise': self.tokenizer.encode(x['premise']),
+                    'sentence': self.tokenizer.encode(x['premise']),
                     'hypothesis': self.tokenizer.encode(x['hypothesis']),
                     'label': x['label'],
                 }))
@@ -205,9 +205,9 @@ class SNLIDataModule(pl.LightningDataModule):
 
     def _process_data(self, data):
         return [{
-            'premise': torch.tensor(x['premise'], dtype=torch.int64),
-            'premise_length': len(x['premise']),
-            'premise_mask': torch.tensor(self.tokenizer.mask(x['premise']), dtype=torch.bool),
+            'sentence': torch.tensor(x['sentence'], dtype=torch.int64),
+            'length': len(x['sentence']),
+            'mask': torch.tensor(self.tokenizer.mask(x['sentence']), dtype=torch.bool),
             'hypothesis': torch.tensor(x['hypothesis'], dtype=torch.int64),
             'hypothesis_length': len(x['hypothesis']),
             'hypothesis_mask': torch.tensor(self.tokenizer.mask(x['hypothesis']), dtype=torch.bool),
@@ -215,11 +215,11 @@ class SNLIDataModule(pl.LightningDataModule):
             'index': torch.tensor(idx, dtype=torch.int64)
         } for idx, x in enumerate(data)]
 
-    def _collate(self, observations):
+    def collate(self, observations):
         return {
-            'premise': self.tokenizer.stack_pad([observation['premise'] for observation in observations]),
-            'premise_length': [observation['premise_length'] for observation in observations],
-            'premise_mask': self.tokenizer.stack_pad([observation['premise_mask'] for observation in observations]),
+            'sentence': self.tokenizer.stack_pad([observation['sentence'] for observation in observations]),
+            'length': [observation['length'] for observation in observations],
+            'mask': self.tokenizer.stack_pad([observation['mask'] for observation in observations]),
             'hypothesis': self.tokenizer.stack_pad([observation['hypothesis'] for observation in observations]),
             'hypothesis_length': [observation['hypothesis_length'] for observation in observations],
             'hypothesis_mask': self.tokenizer.stack_pad([observation['hypothesis_mask'] for observation in observations]),
@@ -227,17 +227,34 @@ class SNLIDataModule(pl.LightningDataModule):
             'index': torch.stack([observation['index'] for observation in observations])
         }
 
+    def uncollate(self, batch):
+        return [{
+            'sentence': sentence[:length],
+            'mask': mask[:length],
+            'length': length,
+            'hypothesis': hypothesis[:hypothesis_length],
+            'hypothesis_mask': hypothesis_mask[:hypothesis_length],
+            'hypothesis_length': hypothesis_length,
+            'label': label,
+            'index': index
+        } for sentence, mask, length,
+              hypothesis, hypothesis_mask, hypothesis_length,
+              label, index
+          in zip(batch['sentence'], batch['mask'], batch['length'],
+                 batch['hypothesis'], batch['hypothesis_mask'], batch['hypothesis_length'],
+                 batch['label'], batch['index'])]
+
     def train_dataloader(self):
         return DataLoader(self._train,
-                          batch_size=self._batch_size, collate_fn=self._collate,
+                          batch_size=self._batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers, shuffle=True)
 
     def val_dataloader(self):
         return DataLoader(self._val,
-                          batch_size=self._batch_size, collate_fn=self._collate,
+                          batch_size=self._batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)
 
     def test_dataloader(self):
         return DataLoader(self._test,
-                          batch_size=self._batch_size, collate_fn=self._collate,
+                          batch_size=self._batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)

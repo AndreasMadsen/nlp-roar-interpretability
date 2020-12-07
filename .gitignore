@@ -1,5 +1,6 @@
 # project specific
 cache/
+results/
 checkpoints/
 tensorboard/
 

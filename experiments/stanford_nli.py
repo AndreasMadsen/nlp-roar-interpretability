@@ -1,16 +1,18 @@
 import argparse
 import os.path as path
 import shutil
-import torch
+import json
+import os
 
-from comp550.dataset import SNLIDataModule
-from comp550.model import MultipleSequenceToClass
+import torch
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
-parser = argparse.ArgumentParser()
+from comp550.dataset import SNLIDataModule
+from comp550.model import MultipleSequenceToClass
 
+parser = argparse.ArgumentParser()
 parser.add_argument('--seed',
                     action='store',
                     default=0,
@@ -39,13 +41,14 @@ if __name__ == "__main__":
     seed_everything(args.seed)
 
     thisdir = path.dirname(path.realpath(__file__))
+    experiment_id = f"snli_s-{args.seed}"
 
     dataset = SNLIDataModule(
         cachedir=thisdir + '/../cache', num_workers=args.num_workers)
     dataset.prepare_data()
 
     logger = TensorBoardLogger(
-        thisdir + '/../tensorboard', name='standford_snli')
+        thisdir + '/../tensorboard', name=experiment_id)
     model = MultipleSequenceToClass(dataset.embedding())
 
     '''
@@ -54,7 +57,7 @@ if __name__ == "__main__":
     '''
     checkpoint_callback = ModelCheckpoint(
         monitor='acc_val',
-        dirpath=thisdir + '/../checkpoints/standford_snli',
+        dirpath=thisdir + f'/../checkpoints/{experiment_id}',
         filename='checkpoint-{epoch:02d}-{acc_val:.2f}',
         mode='max')
 
@@ -67,7 +70,17 @@ if __name__ == "__main__":
 
     shutil.copyfile(
         checkpoint_callback.best_model_path,
-        thisdir + '/../checkpoints/standford_snli/checkpoint.ckpt')
+        thisdir + f'/../checkpoints/{experiment_id}/checkpoint.ckpt')
     print('best checkpoint:', checkpoint_callback.best_model_path)
-    print(trainer.test(datamodule=dataset, verbose=False,
-                       ckpt_path=checkpoint_callback.best_model_path)[0])
+
+    results = trainer.test(
+        datamodule=dataset,
+        verbose=False,
+        ckpt_path=checkpoint_callback.best_model_path,
+    )[0]
+    print(results)
+
+    os.makedirs(thisdir + '/../results', exist_ok=True)
+    with open(thisdir + f"/../results/{experiment_id}.json", "w") as f:
+        json.dump({"seed": args.seed, "dataset": "snli", "roar": False,
+                   **results}, f)
