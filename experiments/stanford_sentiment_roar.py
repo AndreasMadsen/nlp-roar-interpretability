@@ -24,11 +24,11 @@ parser.add_argument("--k",
                     default=1,
                     type=int,
                     help="The proportion of tokens to mask.")
-parser.add_argument("--random-masking",
+parser.add_argument("--masking",
                     action="store",
-                    default=False,
-                    type=bool,
-                    help="Whether to mask random tokens or not.")
+                    default='top-k',
+                    type=str,
+                    help="Use 'random' or 'top-k' masking.")
 parser.add_argument("--seed", action="store", default=0, type=int, help="Random seed")
 parser.add_argument("--num-workers",
                     action="store",
@@ -49,14 +49,14 @@ parser.add_argument("--use-gpu",
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    torch.set_num_threads(args.num_workers)
+    torch.set_num_threads(max(1, args.num_workers))
     pl.seed_everything(args.seed)
-    experiment_id = f"sst_roar_s-{args.seed}_k-{args.k}_r-{int(args.random_masking)}"
+    experiment_id = f"sst_roar_s-{args.seed}_k-{args.k}_m-{args.masking[0]}"
 
     print('Running SST-ROAR experiment:')
     print(f' - k: {args.k}')
     print(f' - seed: {args.seed}')
-    print(f' - random-masking: {args.random_masking}')
+    print(f' - masking: {args.masking}')
 
     # Create ROAR dataset
     base_dataset = StanfordSentimentDataset(
@@ -71,7 +71,7 @@ if __name__ == "__main__":
         model=base_model,
         base_dataset=base_dataset,
         k=args.k,
-        random_masking=args.random_masking,
+        masking=args.masking,
         seed=args.seed,
         num_workers=args.num_workers,
         batch_size=32,
@@ -114,5 +114,5 @@ if __name__ == "__main__":
     os.makedirs(f'{args.persistent_dir}/results', exist_ok=True)
     with open(f'{args.persistent_dir}/results/{experiment_id}.json', "w") as f:
         json.dump({"seed": args.seed, "dataset": "sst", "roar": True,
-                   "k": args.k, "random_masking": args.random_masking,
+                   "k": args.k, "masking": args.masking,
                    **results}, f)

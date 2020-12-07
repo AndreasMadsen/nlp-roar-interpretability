@@ -13,7 +13,7 @@ class ROARDataset(pl.LightningDataModule):
         model,
         base_dataset,
         k=1,
-        random_masking=False,
+        masking='top-k',
         batch_size=128,
         seed=0,
         num_workers=4,
@@ -33,7 +33,7 @@ class ROARDataset(pl.LightningDataModule):
         self._num_workers = num_workers
         self._batch_size = batch_size
         self._k = k
-        self._random_masking = random_masking
+        self._masking = masking
         self.tokenizer = base_dataset.tokenizer
 
     def _mask_batch(self, batch):
@@ -41,20 +41,22 @@ class ROARDataset(pl.LightningDataModule):
 
         for idx, (length, mask) in enumerate(zip(batch["length"], batch["mask"])):
             n_tokens = min(self._k, length - 2)
-            if self._random_masking:
+            if self._masking == 'random':
                 # Make sure only tokens that can be attended to are masked
                 attended_indices = torch.where(mask[:length])[0]
                 # Shuffle attended_indices
                 attended_indices = attended_indices[torch.randperm(len(attended_indices))]
                 # Select n_tokens
                 token_indices = attended_indices[:n_tokens]
-            else:
+            elif self._masking == 'top-k':
                 # Ensure that alpha is non-zero for attended tokens
                 #  and zero for non-attended tokens
                 alpha = torch.where(mask,
                                     alpha + torch.tensor(1e-6, dtype=alpha.dtype),
                                     torch.tensor(0, dtype=alpha.dtype))
                 _, token_indices = alpha[idx, :length].topk(k=n_tokens, dim=-1)
+            else:
+                raise ValueError(f'{self._masking} is not supported')
 
             # Mask tokens for ROAR
             batch["sentence"][idx, token_indices] = self.tokenizer.mask_token_id
