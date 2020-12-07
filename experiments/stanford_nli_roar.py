@@ -49,10 +49,11 @@ parser.add_argument("--use-gpu",
 
 if __name__ == "__main__":
     args = parser.parse_args()
+    torch.set_num_threads(args.num_workers)
     seed_everything(args.seed)
     experiment_id = f"snli_roar_s-{args.seed}_-k{args.k}_r-{int(args.random_masking)}"
 
-    print('Running SST-ROAR experiment:')
+    print('Running SNLI-ROAR experiment:')
     print(f' - k: {args.k}')
     print(f' - seed: {args.seed}')
     print(f' - random-masking: {args.random_masking}')

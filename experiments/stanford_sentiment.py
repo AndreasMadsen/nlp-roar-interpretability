@@ -43,6 +43,7 @@ parser.add_argument('--use-gpu',
 
 if __name__ == '__main__':
     args = parser.parse_args()
+    torch.set_num_threads(args.num_workers)
     pl.seed_everything(args.seed)
     experiment_id = f"sst_s-{args.seed}"
 
