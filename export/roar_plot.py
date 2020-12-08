@@ -28,7 +28,8 @@ def ratio_confint(partial_df, column_name='f1_test'):
     return pd.Series({
         'lower': scipy.special.expit(lower),
         'mean': scipy.special.expit(mean),
-        'upper': scipy.special.expit(upper)
+        'upper': scipy.special.expit(upper),
+        'n': len(x)
     })
 
 # Read JSON files into dataframe
