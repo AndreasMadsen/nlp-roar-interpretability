@@ -51,7 +51,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     torch.set_num_threads(max(1, args.num_workers))
     seed_everything(args.seed)
-    experiment_id = f"snli_roar_s-{args.seed}_-k{args.k}_m-{args.masking[0]}"
+    experiment_id = f"snli_roar_s-{args.seed}_k-{args.k}_m-{args.masking[0]}"
 
     print('Running SNLI-ROAR experiment:')
     print(f' - k: {args.k}')
