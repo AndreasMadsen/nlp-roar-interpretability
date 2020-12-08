@@ -13,6 +13,7 @@ from collections import Counter
 import json
 import subprocess
 from sklearn.model_selection import train_test_split
+import requests
 
 from torch.utils.data import Dataset
 
@@ -125,10 +126,15 @@ class IMDBDataModule(pl.LightningDataModule):
         imdb_data_s3_url = 'https://s3.amazonaws.com/text-datasets/imdb_full.pkl'
         imdb_vocab_s3_url = 'https://s3.amazonaws.com/text-datasets/imdb_word_index.json'
 
-        subprocess.run(["wget", "-nc", "-P",
-                        self._cachedir + '/text-datasets', imdb_data_s3_url])
-        subprocess.run(["wget", "-nc", "-P",
-                        self._cachedir + '/text-datasets', imdb_vocab_s3_url])
+        if not path.exists(self._cachedir + '/text-datasets/imdb_full.pkl'):
+            r = requests.get(imdb_data_s3_url)
+            with open(self._cachedir + '/text-datasets/imdb_full.pkl', 'wb') as f:
+                f.write(r.content)
+
+        if not path.exists(self._cachedir + '/text-datasets/imdb_word_index.json'):
+            r = requests.get(imdb_vocab_s3_url)
+            with open(self._cachedir + '/text-datasets/imdb_word_index.json', 'wb') as f:
+                f.write(r.content)
 
         torchtext.vocab.pretrained_aliases['fasttext.simple.300d'](
             cache=self._cachedir + '/embeddings')

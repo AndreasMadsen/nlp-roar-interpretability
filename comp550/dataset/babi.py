@@ -173,12 +173,17 @@ class BabiDataModule(pl.LightningDataModule):
         '''
         babi_url = 'http://www.thespermwhale.com/jaseweston/babi/tasks_1-20_v1-2.tar.gz'
 
-        subprocess.run(["wget", "-nc", "-P",
-                        self._cachedir + '/text-datasets', babi_url])
 
         if not path.exists(self._cachedir + '/text-datasets/tasks_1-20_v1-2'):
-            subprocess.run(
-                ["tar", "-xvzf", self._cachedir + "/text-datasets/tasks_1-20_v1-2.tar.gz", "-C", self._cachedir + '/text-datasets'])
+            r = requests.get(babi_url, stream=True)
+            with open(self._cachedir + '/text-datasets/tasks_1-20_v1-2.tar.gz', 'wb') as f:
+                f.write(r.raw.read())
+
+            with open(self._cachedir + '/text-datasets/tasks_1-20_v1-2.tar.gz', 'rb') as f:
+                thetarfile = tarfile.open(fileobj=f, mode="r|gz")
+                thetarfile.extractall(path=self._cachedir + '/text-datasets')
+                thetarfile.close()
+
 
         if not path.exists(self._cachedir + '/text-datasets/babi.pkl'):
             os.makedirs(self._cachedir + '/text-datasets', exist_ok=True)
