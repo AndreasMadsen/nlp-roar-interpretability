@@ -1,4 +1,5 @@
 
+from comp550.dataset.tokenizer import Tokenizer
 import os.path as path
 import re
 import os
@@ -13,53 +14,14 @@ import numpy as np
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 
-class _Tokenizer:
+from .tokenizer import Tokenizer
+
+class SSTTokenizer(Tokenizer):
     def __init__(self):
-        self.ids_to_token = []
-        self.token_to_ids = {}
+        super().__init__()
+        self.min_df = 1
 
-        self.pad_token = '[PAD]'
-        self.pad_token_id = 0
-        self.start_token = '[CLS]'
-        self.start_token_id = 1
-        self.end_token = '[EOS]'
-        self.end_token_id = 2
-        self.mask_token = '[MASK]'
-        self.mask_token_id = 3
-        self.unknown_token = '[UNK]'
-        self.unknown_token_id = 4
-        self.special_symbols = [
-            self.pad_token,
-            self.start_token, self.end_token,
-            self.mask_token, self.unknown_token
-        ]
-
-        self._tokenizer = spacy.load('en_core_web_sm', disable=['parser', 'tagger', 'ner'])
-
-    def _update_token_to_ids(self):
-        self.token_to_ids = {
-            token: ids for ids, token in enumerate(self.ids_to_token)
-        }
-
-    def from_file(self, filepath):
-        with open(filepath, 'r', encoding='utf-8') as fp:
-            self.ids_to_token = [line.strip() for line in fp]
-        self._update_token_to_ids()
-
-    def to_file(self, filepath):
-        with open(filepath, 'w', encoding='utf-8') as fp:
-            for token in self.ids_to_token:
-                print(token, file=fp)
-
-    def from_iterable(self, iterable):
-        tokens = set()
-        for sentence in iterable:
-            tokens |= set(self.tokenizer(sentence))
-
-        self.ids_to_token = self.special_symbols + list(tokens)
-        self._update_token_to_ids()
-
-    def tokenizer(self, sentence):
+    def tokenize(self, sentence):
         sentence = sentence.strip()
         sentence = sentence.replace("-LRB-", '')
         sentence = sentence.replace("-RRB-", '  ')
@@ -67,28 +29,6 @@ class _Tokenizer:
         sentence = re.sub(r'\s+', ' ', sentence)
         return [t.text.lower() for t in self._tokenizer(sentence)]
 
-    def encode(self, sentence):
-        return [self.start_token_id] + [
-            self.token_to_ids.get(word, 4)
-            for word in self.tokenizer(sentence)
-        ] + [self.end_token_id]
-
-    def mask(self, token_ids):
-        return [token_id >= self.mask_token_id for token_id in token_ids]
-
-    def decode(self, token_ids):
-        return ' '.join([
-            self.ids_to_token.get(token_id)
-            for token_id in token_ids
-        ])
-
-    def stack_pad(self, observations):
-        max_length = max(tokens.shape[0] for tokens in observations)
-        padded_observations = [
-            torch.cat([tokens, torch.zeros(max_length - tokens.shape[0], dtype=tokens.dtype)], dim=0)
-            for tokens in observations
-        ]
-        return torch.stack(padded_observations)
 
 class StanfordSentimentDataset(pl.LightningDataModule):
     """Loads the Stanford Sentiment Dataset
@@ -119,7 +59,7 @@ class StanfordSentimentDataset(pl.LightningDataModule):
         self._batch_size = batch_size
         self._seed = seed
         self._num_workers = num_workers
-        self.tokenizer = _Tokenizer()
+        self.tokenizer = SSTTokenizer()
         self.label_names = ['negative', 'positive']
 
     @property
