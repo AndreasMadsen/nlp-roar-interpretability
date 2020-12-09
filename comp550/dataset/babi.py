@@ -28,11 +28,7 @@ IDX_TO_TASK_MAP = {1: 'qa1_single-supporting-fact_',
 
 class BabiTokenizer(Tokenizer):
     def __init__(self):
-        '''
-        Original implementation has "en", we are using "en_core_web_sm"
-        https://github.com/successar/AttentionExplanation/blob/master/preprocess/vectorizer.py
-        https://github.com/successar/AttentionExplanation/blob/master/preprocess/SNLI/SNLI.ipynb
-        '''
+
         super().__init__()
         self.min_df = 1
 
@@ -101,7 +97,7 @@ class BabiDataModule(pl.LightningDataModule):
         '''
         babi_url = 'http://www.thespermwhale.com/jaseweston/babi/tasks_1-20_v1-2.tar.gz'
 
-
+        os.makedirs(self._cachedir + '/text-datasets', exist_ok=True)
         if not path.exists(self._cachedir + '/text-datasets/tasks_1-20_v1-2'):
             r = requests.get(babi_url, stream=True)
             with open(self._cachedir + '/text-datasets/tasks_1-20_v1-2.tar.gz', 'wb') as f:
@@ -114,7 +110,7 @@ class BabiDataModule(pl.LightningDataModule):
 
 
         if not path.exists(self._cachedir + '/text-datasets/babi.pkl'):
-            os.makedirs(self._cachedir + '/text-datasets', exist_ok=True)
+
             tasks = IDX_TO_TASK_MAP.keys()
             data = {}
             for t in tasks:
@@ -126,62 +122,82 @@ class BabiDataModule(pl.LightningDataModule):
             with open(self._cachedir + '/text-datasets/babi.pkl', 'wb') as fp:
                 pickle.dump(data, fp)
 
-            output_labels = self._get_output_labels(data)
+        else:
+            with open(self._cachedir + '/text-datasets/babi.pkl', 'rb') as fp:
+                data = pickle.load(fp)
 
+        if not path.exists(self._cachedir + '/output-labels/babi.label'):
             os.makedirs(self._cachedir + '/output-labels', exist_ok=True)
-            with open(self._cachedir + '/output-labels/babi.label', 'w') as fp:
+
+            output_labels = self._get_output_labels(data)
+            with open(self._cachedir + '/output-labels/babi.label', 'w', encoding='utf-8') as fp:
                 for token in output_labels:
                     print(token, file=fp)
 
         else:
-            with open(self._cachedir + '/text-datasets/babi.pkl', 'rb') as fp:
-                data = pickle.load(fp)
-            with open(self._cachedir + '/output-labels/babi.label', 'r') as fp:
+            with open(self._cachedir + '/output-labels/babi.label', 'r', encoding='utf-8') as fp:
                 output_labels = [line.strip() for line in fp]
 
-        output_labels = {token: id for id, token in enumerate(output_labels)}
-        self.num_classes = len(output_labels.keys())
+        self.label_names = output_labels
 
-        if not path.exists(self._cachedir + f'/vocab/babi{self.task_idx}.vocab'):
-            os.makedirs(self._cachedir + '/vocab', exist_ok=True)
-
+        if not path.exists(self._cachedir + f'/text-datasets/babi_{self.task_idx}.pkl'):
             trainidx, devidx = train_test_split(
                 range(0, len(data[self.task_idx]['train'])), train_size=0.85)
-
-            self.tokenizer.from_iterable(
-                [instance["paragraph"] for idx, instance in enumerate(data[self.task_idx]['train']) if idx in trainidx] +
-                [instance["question"] for idx, instance in enumerate(data[self.task_idx]['train']) if idx in trainidx])
-            self.tokenizer.to_file(
-                self._cachedir + f'/vocab/babi{self.task_idx}.vocab')
-        else:
-            self.tokenizer.from_file(
-                self._cachedir + f'/vocab/babi{self.task_idx}.vocab')
-
-        if not path.exists(self._cachedir + f'/encoded/babi{self.task_idx}.pkl'):
-            os.makedirs(self._cachedir + '/encoded', exist_ok=True)
-
             testidx = range(0, len(data[self.task_idx]['test']))
 
             babi_data = {}
             for name, idxs, dataset in [('train', trainidx, data[self.task_idx]['train']), ('val', devidx, data[self.task_idx]['train']), ('test', testidx, data[self.task_idx]['test'])]:
 
                 babi_data[name] = [{
-                    'paragraph': self.tokenizer.encode(dataset[idx]["paragraph"]),
-                    'question': self.tokenizer.encode(dataset[idx]["question"]),
-                    'label': output_labels[dataset[idx]["answer"]]
+                    'paragraph': dataset[idx]["paragraph"],
+                    'question': dataset[idx]["question"],
+                    'label': self.label_names.index(dataset[idx]["answer"])
                 } for idx in idxs]
 
-            with open(self._cachedir + f'/encoded/babi{self.task_idx}.pkl', 'wb') as fp:
+            with open(self._cachedir + f'/text-datasets/babi_{self.task_idx}.pkl', 'wb') as fp:
                 pickle.dump(babi_data, fp)
+        
+        else:
+            with open(self._cachedir + f'/text-datasets/babi_{self.task_idx}.pkl', 'rb') as fp:
+                babi_data = pickle.load(fp)
+
+
+        if not path.exists(self._cachedir + f'/vocab/babi_{self.task_idx}.vocab'):
+            os.makedirs(self._cachedir + '/vocab', exist_ok=True)
+
+            self.tokenizer.from_iterable(
+                [instance["paragraph"] for instance in babi_data['train']] +
+                [instance["question"] for instance in babi_data['train']])
+            self.tokenizer.to_file(
+                self._cachedir + f'/vocab/babi_{self.task_idx}.vocab')
+        else:
+            self.tokenizer.from_file(
+                self._cachedir + f'/vocab/babi_{self.task_idx}.vocab')
+
+        if not path.exists(self._cachedir + f'/encoded/babi_{self.task_idx}.pkl'):
+            os.makedirs(self._cachedir + '/encoded', exist_ok=True)
+
+            data = {}
+            for name in ['train', 'val', 'test']:
+                
+                dataset = babi_data[name]
+                data[name] = [{
+                    'paragraph': self.tokenizer.encode(instance["paragraph"]),
+                    'question': self.tokenizer.encode(instance["question"]),
+                    'label': instance['label']
+                } for instance in dataset]
+
+            with open(self._cachedir + f'/encoded/babi_{self.task_idx}.pkl', 'wb') as fp:
+                pickle.dump(data, fp)
 
     def setup(self, stage=None):
-        with open(self._cachedir + f'/encoded/babi{self.task_idx}.pkl', 'rb') as fp:
-            snli_dataset = pickle.load(fp)
+        with open(self._cachedir + f'/encoded/babi_{self.task_idx}.pkl', 'rb') as fp:
+            dataset = pickle.load(fp)
         if stage == "fit":
-            self._train = self._process_data(snli_dataset['train'])
-            self._val = self._process_data(snli_dataset['val'])
+            self._train = self._process_data(dataset['train'])
+            self._val = self._process_data(dataset['val'])
         elif stage == 'test':
-            self._test = self._process_data(snli_dataset['test'])
+            self._test = self._process_data(dataset['test'])
         else:
             raise ValueError(f'unexpected setup stage: {stage}')
 

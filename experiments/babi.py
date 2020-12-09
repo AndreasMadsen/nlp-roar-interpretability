@@ -52,7 +52,7 @@ if __name__ == "__main__":
     logger = TensorBoardLogger(
         thisdir + '/../tensorboard', name=f'babi{args.task}')
     model = MultipleSequenceToClass(
-        dataset.embedding(), hidden_size=32, num_of_classes=dataset.num_classes)
+        dataset.embedding(), hidden_size=32, num_of_classes=len(dataset.label_names))
 
     # '''
     # Original implementation chooses the best checkpoint on the basis of accuracy
