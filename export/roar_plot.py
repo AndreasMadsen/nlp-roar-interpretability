@@ -2,6 +2,7 @@
 import glob
 import json
 import argparse
+import os
 import os.path as path
 
 import pandas as pd
@@ -77,5 +78,6 @@ if __name__ == "__main__":
                 legend_box = "vertical", legend_position="bottom",
                 text=p9.element_text(size=12)))
     # Save plot, the width is the \linewidth of a collumn in the LaTeX document
-    p.save(f'{thisdir}/../plots/roar.pdf', width=3.03209, height=4, units='in')
-    p.save(f'{thisdir}/../plots/roar.png', width=3.03209, height=4, units='in')
+    os.makedirs(f'{args.persistent_dir}/plots', exist_ok=True)
+    p.save(f'{args.persistent_dir}/plots/roar.pdf', width=3.03209, height=4, units='in')
+    p.save(f'{args.persistent_dir}/plots/roar.png', width=3.03209, height=4, units='in')
