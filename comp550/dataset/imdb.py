@@ -64,8 +64,9 @@ class IMDBDataModule(pl.LightningDataModule):
         imdb_data_s3_url = 'https://s3.amazonaws.com/text-datasets/imdb_full.pkl'
         imdb_vocab_s3_url = 'https://s3.amazonaws.com/text-datasets/imdb_word_index.json'
 
+        os.makedirs(self._cachedir + '/text-datasets', exist_ok=True)
+
         if not path.exists(self._cachedir + '/text-datasets/imdb_full.pkl'):
-            os.makedirs(self._cachedir + '/text-datasets', exist_ok=True)
             r = requests.get(imdb_data_s3_url)
             with open(self._cachedir + '/text-datasets/imdb_full.pkl', 'wb') as f:
                 f.write(r.content)
@@ -77,8 +78,11 @@ class IMDBDataModule(pl.LightningDataModule):
 
         if not path.exists(self._cachedir + '/text-datasets/imdb_full_text.pkl'):
             
-            imdb_data = pickle.load(open(self._cachedir + '/text-datasets/imdb_full.pkl', 'rb'))
-            word_index = json.load(open(self._cachedir + '/text-datasets/imdb_word_index.json'))
+            with open(self._cachedir + '/text-datasets/imdb_full.pkl', 'rb') as fp:
+                imdb_data = pickle.load(fp)
+
+            with open(self._cachedir + '/text-datasets/imdb_word_index.json', 'rb') as fp:
+                word_index = json.load(fp)
 
             train_set, test_set = imdb_data
 
@@ -109,23 +113,23 @@ class IMDBDataModule(pl.LightningDataModule):
             with open(self._cachedir + '/text-datasets/imdb_full_text.pkl', 'wb') as fp:
                 pickle.dump(imdb_data, fp)
 
+        else:
+            with open(self._cachedir + '/text-datasets/imdb_full_text.pkl', 'rb') as fp:
+                imdb_data = pickle.load(fp)
+
         torchtext.vocab.pretrained_aliases['fasttext.simple.300d'](
             cache=self._cachedir + '/embeddings')
 
         if not path.exists(self._cachedir + '/vocab/imdb.vocab'):
             os.makedirs(self._cachedir + '/vocab', exist_ok=True)
 
-            imdb_data = pickle.load(open(self._cachedir + '/text-datasets/imdb_full_text.pkl', 'rb'))
             self.tokenizer.from_iterable(x['sentence'] for x in imdb_data['train'])
-
             self.tokenizer.to_file(self._cachedir + '/vocab/imdb.vocab')
         else:
             self.tokenizer.from_file(self._cachedir + '/vocab/imdb.vocab')
 
         if not path.exists(self._cachedir + '/encoded/imdb.pkl'):
             os.makedirs(self._cachedir + '/encoded', exist_ok=True)
-            
-            imdb_data = pickle.load(open(self._cachedir + '/text-datasets/imdb_full_text.pkl', 'rb'))
 
             data = {}
             for name in ['train', 'val', 'test']:
