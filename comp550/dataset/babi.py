@@ -77,19 +77,20 @@ class BabiDataModule(pl.LightningDataModule):
 
     def _parse(self, file):
         data, story = [], []
-        for line in open(file).readlines():
-            tid, text = line.rstrip('\n').split(' ', 1)
-            if tid == '1':
-                story = []
-            # sentence
-            if text.endswith('.'):
-                story.append(text[:-1])
-            # question
-            else:
-                query, answer, _ = (x.strip() for x in text.split('\t'))
-                substory = " . ".join([x for x in story if x])
-                data.append(
-                    {"paragraph": substory, "question": query[:-1], "answer": answer})
+        with open(file, 'r', encoding='utf-8') as fp:
+            for line in fp:
+                tid, text = line.rstrip('\n').split(' ', 1)
+                if tid == '1':
+                    story = []
+                # sentence
+                if text.endswith('.'):
+                    story.append(text[:-1])
+                # question
+                else:
+                    query, answer, _ = (x.strip() for x in text.split('\t'))
+                    substory = " . ".join([x for x in story if x])
+                    data.append(
+                        {"paragraph": substory, "question": query[:-1], "answer": answer})
         return data
 
     def prepare_data(self):
