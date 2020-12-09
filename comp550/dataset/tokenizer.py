@@ -35,12 +35,12 @@ class Tokenizer:
         }
 
     def from_file(self, filepath):
-        with open(filepath, 'r') as fp:
+        with open(filepath, 'r', encoding='utf-8') as fp:
             self.ids_to_token = [line.strip() for line in fp]
         self._update_token_to_ids()
 
     def to_file(self, filepath):
-        with open(filepath, 'w') as fp:
+        with open(filepath, 'w', encoding='utf-8') as fp:
             for token in self.ids_to_token:
                 print(token, file=fp)
 
