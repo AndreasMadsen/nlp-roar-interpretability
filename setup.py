@@ -15,7 +15,10 @@ setup(name='comp550',
           'en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/el_core_news_sm-2.2.0/el_core_news_sm-2.2.0.tar.gz',
           'torchtext>=0.6.0',
           'scikit-learn>=0.23.0',
-          'nltk>=3.5'
+          'nltk>=3.5',
+          'plotnine>=0.7.0',
+          'pandas>=1.1.0',
+          'scipy>=1.5.0'
       ],
       include_package_data=True,
       zip_safe=False)
