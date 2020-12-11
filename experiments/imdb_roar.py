@@ -65,7 +65,9 @@ if __name__ == '__main__':
     print(f' - masking: {args.masking}')
 
     base_dataset = IMDBDataModule(
-        cachedir=thisdir + '/../cache', num_workers=args.num_workers)
+        cachedir=f'{args.persistent_dir}/cache',
+        num_workers=args.num_workers
+    )
     base_dataset.prepare_data()
     base_model = SingleSequenceToClass.load_from_checkpoint(
         checkpoint_path=f'{args.persistent_dir}/checkpoints/imdb_s-{args.seed}/checkpoint.ckpt',
