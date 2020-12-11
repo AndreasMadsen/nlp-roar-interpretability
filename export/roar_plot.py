@@ -64,16 +64,18 @@ if __name__ == "__main__":
     df = df.groupby(['dataset', 'masking', 'k']).apply(ratio_confint)
 
     # Generate result table
+    pd.set_option('display.max_rows', None)
     print(df)
 
     # Generate plot
-    p = (p9.ggplot(df.reset_index(), p9.aes(x='k', color='masking'))
-        + p9.geom_line(p9.aes(y='mean'))
-        + p9.geom_point(p9.aes(y='mean'))
-        + p9.geom_errorbar(p9.aes(ymin='lower', ymax='upper'), width=0.4)
+    p = (p9.ggplot(df.reset_index(), p9.aes(x='k'))
+        + p9.geom_ribbon(p9.aes(ymin='lower', ymax='upper', fill='masking'), alpha=0.35)
+        + p9.geom_line(p9.aes(y='mean', color='masking'))
+        + p9.geom_point(p9.aes(y='mean', color='masking'))
         + p9.facet_grid('dataset ~ .')
         + p9.labs(x='tokens removed', y='F1-Score', colour='')
-        + p9.ylim(0.5, 0.90)
+        + p9.ylim(0.4, 0.90)
+        + p9.guides(fill=False)
         + p9.theme(plot_margin=0,
                 legend_box = "vertical", legend_position="bottom",
                 text=p9.element_text(size=12)))
