@@ -18,7 +18,8 @@ setup(name='comp550',
           'nltk>=3.5',
           'plotnine>=0.7.0',
           'pandas>=1.1.0',
-          'scipy>=1.5.0'
+          'scipy>=1.5.0',
+          'gensim>=3.8.0'
       ],
       include_package_data=True,
       zip_safe=False)

@@ -4,6 +4,7 @@ results/
 checkpoints/
 tensorboard/
 plots/
+mimic/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
