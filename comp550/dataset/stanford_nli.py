@@ -16,7 +16,6 @@ import torch
 import torchtext
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
-from datasets import load_dataset
 from torch.utils.data import Dataset
 
 from .tokenizer import Tokenizer

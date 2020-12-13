@@ -1,7 +1,7 @@
 import argparse
 import os.path as path
 
-from comp550.dataset import SNLIDataModule, StanfordSentimentDataset
+from comp550.dataset import SNLIDataModule, StanfordSentimentDataset, IMDBDataModule, BabiDataModule
 
 thisdir = path.dirname(path.realpath(__file__))
 parser = argparse.ArgumentParser()
@@ -22,5 +22,14 @@ if __name__ == "__main__":
     print('SNLI ...')
     snli = SNLIDataModule(cachedir=f'{args.persistent_dir}/cache')
     snli.prepare_data()
+
+    print('IMDB ...')
+    imdb = IMDBDataModule(cachedir=f'{args.persistent_dir}/cache')
+    imdb.prepare_data()
+
+    print('Babi ...')
+    for i in range(1, 4):
+        babi = BabiDataModule(cachedir=f'{args.persistent_dir}/cache', task_idx=i)
+        babi.prepare_data()
 
     print("Download complete!")
