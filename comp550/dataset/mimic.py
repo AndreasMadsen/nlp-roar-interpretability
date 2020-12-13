@@ -87,10 +87,11 @@ class MimicDataset(pl.LightningDataModule):
     def prepare_data(self):
         # Short-circuit the build logic if the minimum-required files exists
         if (path.exists(f'{self._cachedir}/embeddings/mimic.wv') and
-            path.exists(self._cachedir + '/vocab/mimic.vocab') and
+            path.exists(self._cachedir + '/vocab/mimic_anemia.vocab') and
+            path.exists(self._cachedir + '/vocab/mimic_diabetes.vocab') and
             path.exists(f'{self._cachedir}/encoded/mimic_anemia.pkl') and
             path.exists(f'{self._cachedir}/encoded/mimic_diabetes.pkl')):
-            self.tokenizer.from_file(self._cachedir + '/vocab/mimic.vocab')
+            self.tokenizer.from_file(self._cachedir + f'/vocab/mimic_{self._subset}.vocab')
             return
 
         # Ensure that confidential files exists
@@ -153,18 +154,6 @@ class MimicDataset(pl.LightningDataModule):
                             workers=self._num_workers)
             embedding.wv.save(f'{self._cachedir}/embeddings/mimic.wv')
 
-        # Build vocabulary
-        os.makedirs(self._cachedir + '/vocab', exist_ok=True)
-        if not path.exists(self._cachedir + '/vocab/mimic.vocab'):
-            print('building vocabulary')
-            if df_merged is None:
-                df_merged = pd.read_csv(f'{self._cachedir}/mimic-dataset/merged.csv.gz', compression='gzip')
-
-            self.tokenizer.from_iterable(df_merged['TEXT'])
-            self.tokenizer.to_file(self._cachedir + '/vocab/mimic.vocab')
-        else:
-            self.tokenizer.from_file(self._cachedir + '/vocab/mimic.vocab')
-
         # Build anemia dataset
         os.makedirs(f'{self._cachedir}/encoded', exist_ok=True)
         if not path.exists(f'{self._cachedir}/encoded/mimic_anemia.pkl'):
@@ -174,10 +163,12 @@ class MimicDataset(pl.LightningDataModule):
 
             # Filter data and assign target
             codes = df_merged['ICD9_CODE'].str.split(';')
-            has_c1 = codes.apply(lambda x: '285.1' in x)
-            has_c2 = codes.apply(lambda x: '285.2' in x)
+            has_c1 = codes.apply(lambda x: any(code.startswith('285.1') for code in x))
+            has_c2 = codes.apply(lambda x: any(code.startswith('285.2') for code in x))
             df_anemia = df_merged.loc[has_c1 ^ has_c2, :]
-            df_anemia = df_anemia.assign(target = has_c1[has_c1 ^ has_c2].astype('int64'))
+            df_anemia = df_anemia.assign(
+                target = has_c1[has_c1 ^ has_c2].astype('int64')
+            )
 
             # Split data
             all_idx = list(range(len(df_anemia)))
@@ -186,12 +177,18 @@ class MimicDataset(pl.LightningDataModule):
             train_idx, val_idx = train_test_split(train_idx, stratify=df_anemia.loc[:, 'target'].iloc[train_idx],
                                                   test_size=0.15, random_state=13448)
 
+            # Build vocabulary
+            os.makedirs(self._cachedir + '/vocab', exist_ok=True)
+            tokenizer_anemia = MimicTokenizer()
+            tokenizer_anemia.from_iterable(df_anemia.iloc[train_idx, :].loc[:, 'TEXT'])
+            tokenizer_anemia.to_file(self._cachedir + '/vocab/mimic_anemia.vocab')
+
             # Encode dataset
             data_anemia = {}
             for name, split in [('train', train_idx), ('val', val_idx), ('test', test_idx)]:
                 observations = []
                 for idx in split:
-                    token_idx = self.tokenizer.encode(df_anemia.loc[:, 'TEXT'].iat[idx])
+                    token_idx = tokenizer_anemia.encode(df_anemia.loc[:, 'TEXT'].iat[idx])
                     if len(token_idx) - 2 > 4000:
                         continue
                     observations.append({
@@ -228,13 +225,19 @@ class MimicDataset(pl.LightningDataModule):
                 index = np.arange(len(df_diabetes))
             )
 
+            # Build vocabulary
+            os.makedirs(self._cachedir + '/vocab', exist_ok=True)
+            tokenizer_diabetes = MimicTokenizer()
+            tokenizer_diabetes.from_iterable(df_diabetes.loc[df_diabetes['HADM_ID'].isin(hadm_ids['train']), 'TEXT'])
+            tokenizer_diabetes.to_file(self._cachedir + '/vocab/mimic_diabetes.vocab')
+
             # Encode dataset
             data_diabetes = {}
             for name, split in [('train', hadm_ids['train']), ('val', hadm_ids['dev']), ('test', hadm_ids['test'])]:
                 df_split = df_diabetes.loc[df_diabetes['HADM_ID'].isin(split), :]
                 observations = []
                 for idx in range(len(df_split)):
-                    token_idx = self.tokenizer.encode(df_split.loc[:, 'TEXT'].iat[idx])
+                    token_idx = tokenizer_diabetes.encode(df_split.loc[:, 'TEXT'].iat[idx])
                     if 6 > len(token_idx) - 2 > 4000:
                         continue
                     observations.append({
@@ -247,6 +250,9 @@ class MimicDataset(pl.LightningDataModule):
             # Save dataset
             with open(self._cachedir + '/encoded/mimic_diabetes.pkl', 'wb') as fp:
                 pickle.dump(data_diabetes, fp)
+
+        # Load relevant vocabulary
+        self.tokenizer.from_file(self._cachedir + f'/vocab/mimic_{self._subset}.vocab')
 
     def _process_data(self, data):
         return [{
