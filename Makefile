@@ -10,6 +10,10 @@ sync-cache:
 	rsync --info=progress2 -urltv \
 		-e ssh ./cache/ cc-beluga:~/scratch/comp550/cache
 
+sync-mimic:
+	rsync --info=progress2 -urltv \
+		-e ssh ./mimic/ cc-beluga:~/scratch/comp550/mimic
+
 download-results:
 	rsync --info=progress2 -urltv --delete \
 		-e ssh cc-beluga:~/scratch/comp550/results/ ./results
