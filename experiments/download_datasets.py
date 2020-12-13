@@ -1,7 +1,7 @@
 import argparse
 import os.path as path
 
-from comp550.dataset import SNLIDataModule, StanfordSentimentDataset, IMDBDataModule, BabiDataModule
+from comp550.dataset import MimicDataset, SNLIDataModule, StanfordSentimentDataset, IMDBDataModule, BabiDataModule
 
 thisdir = path.dirname(path.realpath(__file__))
 parser = argparse.ArgumentParser()
@@ -14,6 +14,10 @@ parser.add_argument('--persistent-dir',
 if __name__ == "__main__":
     print('Starting ...')
     args = parser.parse_args()
+
+    print('Mimic ...')
+    mimic = MimicDataset(cachedir=f'{args.persistent_dir}/cache', mimicdir=f'{args.persistent_dir}/mimic')
+    mimic.prepare_data()
 
     print('SST ...')
     sst = StanfordSentimentDataset(cachedir=f'{args.persistent_dir}/cache')
