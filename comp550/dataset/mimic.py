@@ -91,6 +91,7 @@ class MimicDataset(pl.LightningDataModule):
             path.exists(f'{self._cachedir}/encoded/mimic_anemia.pkl') and
             path.exists(f'{self._cachedir}/encoded/mimic_diabetes.pkl')):
             self.tokenizer.from_file(self._cachedir + '/vocab/mimic.vocab')
+            return
 
         # Ensure that confidential files exists
         if not path.exists(f'{self._mimicdir}/DIAGNOSES_ICD.csv.gz'):
@@ -176,7 +177,7 @@ class MimicDataset(pl.LightningDataModule):
             has_c1 = codes.apply(lambda x: '285.1' in x)
             has_c2 = codes.apply(lambda x: '285.2' in x)
             df_anemia = df_merged.loc[has_c1 ^ has_c2, :]
-            df_anemia = df_anemia.assign(target = has_c1[has_c1 ^ has_c2])
+            df_anemia = df_anemia.assign(target = has_c1[has_c1 ^ has_c2].astype('int64'))
 
             # Split data
             all_idx = list(range(len(df_anemia)))

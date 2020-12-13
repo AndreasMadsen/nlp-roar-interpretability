@@ -91,5 +91,5 @@ if __name__ == '__main__':
 
     os.makedirs(f'{args.persistent_dir}/results', exist_ok=True)
     with open(f'{args.persistent_dir}/results/{experiment_id}.json', "w") as f:
-        json.dump({"seed": args.seed, "dataset": f"mimic-{subset}", "roar": False,
+        json.dump({"seed": args.seed, "dataset": f"mimic-{args.subset}", "roar": False,
                    **results}, f)
