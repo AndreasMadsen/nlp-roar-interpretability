@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 
-
 class _Decoder(nn.Module):
     def __init__(self, hidden_size=128, num_of_classes=3):
         super().__init__()
@@ -71,7 +70,7 @@ class _Attention(nn.Module):
 
         # Compute masked attention weights, given the score values.
         # alpha_t.shape = (batch_size, max_length)
-        score_t.masked_fill_(premise_mask, -np.inf)
+        score_t.masked_fill_(torch.logical_not(premise_mask), -np.inf)
         alpha_t = self.softmax(score_t)
 
         # Compute context vector
@@ -91,6 +90,7 @@ class MultipleSequenceToClass(pl.LightningModule):
             2 * hidden_size, hidden_size)
         self.decoder = _Decoder(hidden_size, num_of_classes)
         self.ce_loss = nn.CrossEntropyLoss()
+
 
     def forward(self, batch):
         h1_premise, _ = self.encoder_premise(
@@ -153,7 +153,7 @@ class MultipleSequenceToClass(pl.LightningModule):
 
     def configure_optimizers(self):
         '''
-        Weight decay is applied on all parameters for SNLI
+        Weight decay is applied on all parameters for SNLI and bAbI
         https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/model/Question_Answering.py#L98
         '''
         return torch.optim.Adam(self.parameters(), weight_decay=1e-5, amsgrad=True)

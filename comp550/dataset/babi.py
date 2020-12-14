@@ -36,7 +36,6 @@ class BabiTokenizer(Tokenizer):
         return sentence.split()
 
 
-
 class BabiDataModule(pl.LightningDataModule):
 
     def __init__(self, cachedir, batch_size=50, num_workers=4, task_idx=1):
@@ -58,8 +57,11 @@ class BabiDataModule(pl.LightningDataModule):
         https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/Trainers/DatasetQA.py#L112
         '''
         embeddings = []
-        for _ in self.tokenizer.ids_to_token:
-            embeddings.append(np.random.randn(50))
+        for word in self.tokenizer.ids_to_token:
+            if word == self.tokenizer.pad_token:
+                embeddings.append(np.zeros(50))
+            else:
+                embeddings.append(np.random.randn(50))
 
         return np.vstack(embeddings)
 
@@ -148,7 +150,6 @@ class BabiDataModule(pl.LightningDataModule):
 
             babi_data = {}
             for name, idxs, dataset in [('train', trainidx, data[self.task_idx]['train']), ('val', devidx, data[self.task_idx]['train']), ('test', testidx, data[self.task_idx]['test'])]:
-
                 babi_data[name] = [{
                     'paragraph': dataset[idx]["paragraph"],
                     'question': dataset[idx]["question"],
@@ -157,7 +158,7 @@ class BabiDataModule(pl.LightningDataModule):
 
             with open(self._cachedir + f'/text-datasets/babi_{self.task_idx}.pkl', 'wb') as fp:
                 pickle.dump(babi_data, fp)
-        
+
         else:
             with open(self._cachedir + f'/text-datasets/babi_{self.task_idx}.pkl', 'rb') as fp:
                 babi_data = pickle.load(fp)
@@ -175,12 +176,13 @@ class BabiDataModule(pl.LightningDataModule):
             self.tokenizer.from_file(
                 self._cachedir + f'/vocab/babi_{self.task_idx}.vocab')
 
+
         if not path.exists(self._cachedir + f'/encoded/babi_{self.task_idx}.pkl'):
             os.makedirs(self._cachedir + '/encoded', exist_ok=True)
 
             data = {}
             for name in ['train', 'val', 'test']:
-                
+
                 dataset = babi_data[name]
                 data[name] = [{
                     'paragraph': self.tokenizer.encode(instance["paragraph"]),
@@ -257,3 +259,4 @@ class BabiDataModule(pl.LightningDataModule):
         return DataLoader(self._test,
                           batch_size=self._batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)
+
