@@ -63,7 +63,10 @@ if __name__ == "__main__":
         'sst': 'SST',
         'snli': 'SNLI',
         'mimic-anemia': 'Anemia',
-        'mimic-diabetes': 'Diabetes'
+        'mimic-diabetes': 'Diabetes',
+        'babi_t-1': 'bAbI-1',
+        'babi_t-2': 'bAbI-2',
+        'babi_t-3': 'bAbI-3'
     }}, inplace=True)
     # Compute confint and mean for each group
     df = df.groupby(['dataset', 'masking', 'k']).apply(ratio_confint)
