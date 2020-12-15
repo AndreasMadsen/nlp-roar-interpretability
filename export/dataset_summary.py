@@ -26,13 +26,16 @@ def ratio_confint(partial_df):
     x = partial_df[column_name]
     logits = scipy.special.logit(x)
     mean = np.mean(logits)
+    sem = scipy.stats.sem(logits)
     lower, upper = scipy.stats.t.interval(0.95, len(x) - 1,
                                           loc=mean,
-                                          scale=scipy.stats.sem(logits))
+                                          scale=sem)
 
     lower = scipy.special.expit(lower)
     mean = scipy.special.expit(mean)
     upper = scipy.special.expit(upper)
+    if np.isnan(sem):
+        lower, upper = mean, mean
 
     return pd.Series({
         'lower': lower,
@@ -118,7 +121,10 @@ if __name__ == "__main__":
     results = []
     for file in glob.glob(f'{args.persistent_dir}/results/*.json'):
         with open(file, 'r') as fp:
-            results.append(json.load(fp))
+            try:
+                results.append(json.load(fp))
+            except json.decoder.JSONDecodeError:
+                print(f'{file} has a format error')
     df = pd.DataFrame(results)
     df = df.loc[df['roar'] == False]
     df = df.merge(dataset_mapping, on='dataset')
@@ -127,4 +133,10 @@ if __name__ == "__main__":
     dataset_df = df.groupby(['print_name'], sort=False).apply(
         partial(dataset_stats, cachedir=args.persistent_dir + '/cache')
     )
-    print(performance_df.merge(dataset_df, on='print_name'))
+
+
+    summary_df = performance_df.merge(dataset_df, on='print_name')
+    pd.set_option('display.max_rows', 500)
+    pd.set_option('display.max_columns', 500)
+    pd.set_option('display.width', 1000)
+    print(summary_df)
