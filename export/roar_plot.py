@@ -12,7 +12,7 @@ import plotnine as p9
 
 import os.path as path
 
-def ratio_confint(partial_df, column_name='f1_test'):
+def ratio_confint(partial_df):
     """Implementes a ratio-confidence interval
 
     The idea is to project to logits space, then assume a normal distribution,
@@ -20,6 +20,7 @@ def ratio_confint(partial_df, column_name='f1_test'):
 
     Method proposed here: https://stats.stackexchange.com/questions/263516
     """
+    column_name = partial_df.loc[:, 'test_metric'].iat[0]
     x = partial_df[column_name]
     logits = scipy.special.logit(x)
     mean = np.mean(logits)
@@ -53,6 +54,17 @@ if __name__ == "__main__":
     print('Starting ...')
     args = parser.parse_args()
 
+    dataset_mapping = pd.DataFrame([
+        {'dataset': 'sst', 'print_name': 'SST', 'test_metric': 'f1_test'},
+        {'dataset': 'snli', 'print_name': 'SNLI', 'test_metric': 'f1_test'},
+        {'dataset': 'imdb', 'print_name': 'IMDB', 'test_metric': 'f1_test'},
+        {'dataset': 'mimic-anemia', 'print_name': 'Anemia', 'test_metric': 'f1_test'},
+        {'dataset': 'mimic-diabetes', 'print_name': 'Diabetes', 'test_metric': 'f1_test'},
+        {'dataset': 'babi_t-1', 'print_name': 'bAbI-1', 'test_metric': 'acc_test'},
+        {'dataset': 'babi_t-2', 'print_name': 'bAbI-2', 'test_metric': 'acc_test'},
+        {'dataset': 'babi_t-3', 'print_name': 'bAbI-3', 'test_metric': 'acc_test'},
+    ])
+
     # Read JSON files into dataframe
     results = []
     for file in glob.glob(f'{args.persistent_dir}/results/*.json'):
@@ -68,20 +80,9 @@ if __name__ == "__main__":
         df.fillna(value={'k': 0, 'masking': 'random'}),
         df[df['masking'].isna()].fillna(value={'k': 0, 'masking': 'top-k'})])
     df = df.loc[df['k'] <= 10, :]
-
-    # Make the facet pretty
-    df.replace({'dataset': {
-        'sst': 'SST',
-        'snli': 'SNLI',
-        'imdb': 'IMDB',
-        'mimic-anemia': 'Anemia',
-        'mimic-diabetes': 'Diabetes',
-        'babi_t-1': 'bAbI-1',
-        'babi_t-2': 'bAbI-2',
-        'babi_t-3': 'bAbI-3'
-    }}, inplace=True)
+    df = df.merge(dataset_mapping, on='dataset').drop(['dataset'], axis=1)
     # Compute confint and mean for each group
-    df = df.groupby(['dataset', 'masking', 'k']).apply(ratio_confint)
+    df = df.groupby(['print_name', 'masking', 'k']).apply(ratio_confint)
 
     # Generate result table
     pd.set_option('display.max_rows', None)
@@ -92,7 +93,7 @@ if __name__ == "__main__":
         + p9.geom_ribbon(p9.aes(ymin='lower', ymax='upper', fill='masking'), alpha=0.35)
         + p9.geom_line(p9.aes(y='mean', color='masking'))
         + p9.geom_point(p9.aes(y='mean', color='masking'))
-        + p9.facet_grid('dataset ~ .', scales='free_y')
+        + p9.facet_grid('print_name ~ .', scales='free_y')
         + p9.labs(x='tokens removed', y='', colour='')
         + p9.scale_y_continuous(labels = lambda ticks: [f'{tick:.0%}' for tick in ticks])
         + p9.scale_x_continuous(breaks=range(0, 11, 2))
