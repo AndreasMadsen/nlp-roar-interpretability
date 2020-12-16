@@ -1,7 +1,7 @@
 #!/bin/bash
 for seed in {0..4}
 do
-    for k in {1..14}
+    for k in {1..10}
     do
         for masking in 'random' 'top-k'
         do
