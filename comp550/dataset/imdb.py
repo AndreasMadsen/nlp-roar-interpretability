@@ -40,6 +40,7 @@ class IMDBDataModule(pl.LightningDataModule):
         self._batch_size = batch_size
         self._num_workers = num_workers
         self.tokenizer = IMDBTokenizer()
+        self.label_names = ['negative', 'positive']
 
     @property
     def vocabulary(self):
@@ -77,7 +78,7 @@ class IMDBDataModule(pl.LightningDataModule):
                 f.write(r.content)
 
         if not path.exists(self._cachedir + '/text-datasets/imdb_full_text.pkl'):
-            
+
             with open(self._cachedir + '/text-datasets/imdb_full.pkl', 'rb') as fp:
                 imdb_data = pickle.load(fp)
 
@@ -92,7 +93,7 @@ class IMDBDataModule(pl.LightningDataModule):
             In the original implementation:
              * Sentences with length greater than or equal to 400 are removed
              * Only 20% of test set is used
-            https://github.com/successar/AttentionExplanation/blob/master/preprocess/IMDB/IMDB.ipynb 
+            https://github.com/successar/AttentionExplanation/blob/master/preprocess/IMDB/IMDB.ipynb
             '''
             trainidx = [i for i, x in enumerate(train_set[0]) if len(x) < 400]
             trainidx, devidx = train_test_split(trainidx, train_size=0.8)
@@ -102,7 +103,7 @@ class IMDBDataModule(pl.LightningDataModule):
             imdb_data = {}
             for name, idxs, dataset in [('train', trainidx, train_set), ('val', devidx, train_set), ('test', testidx, test_set)]:
                 '''
-                Min length is 6 
+                Min length is 6
                 https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/Trainers/DatasetBC.py#L108
                 '''
                 imdb_data[name] = [{
