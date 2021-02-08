@@ -86,7 +86,7 @@ if __name__ == "__main__":
     if args.k == 0:
         main_dataset = base_dataset
     else:
-        base_experiment_id = generate_experiment_id(f'babi-{args.task}', args.seed, args.k - 1, args.importance_measure, args.recursive)
+        base_experiment_id = generate_experiment_id(f'babi-{args.task}', args.seed, args.k-1 if args.recursive else 0, args.importance_measure, args.recursive)
         base_model = MultipleSequenceToClass.load_from_checkpoint(
             checkpoint_path=f'{args.persistent_dir}/checkpoints/{base_experiment_id}/checkpoint.ckpt',
             embedding=base_dataset.embedding(),
@@ -139,6 +139,6 @@ if __name__ == "__main__":
 
     os.makedirs(f'{args.persistent_dir}/results', exist_ok=True)
     with open(f'{args.persistent_dir}/results/{experiment_id}.json', "w") as f:
-        json.dump({"seed": args.seed, "dataset": f"babi_t-{args.task}",
+        json.dump({"seed": args.seed, "dataset": f"babi-{args.task}",
                    "k": args.k, "recursive": args.recursive, "importance_measure": args.importance_measure,
                    **results}, f)

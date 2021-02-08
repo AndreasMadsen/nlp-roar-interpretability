@@ -81,7 +81,7 @@ if __name__ == "__main__":
     if args.k == 0:
         main_dataset = base_dataset
     else:
-        base_experiment_id = generate_experiment_id(f'sst', args.seed, args.k - 1, args.importance_measure, args.recursive)
+        base_experiment_id = generate_experiment_id(f'sst', args.seed, args.k-1 if args.recursive else 0, args.importance_measure, args.recursive)
         base_model = SingleSequenceToClass.load_from_checkpoint(
             checkpoint_path=f'{args.persistent_dir}/checkpoints/{base_experiment_id}/checkpoint.ckpt',
             embedding=base_dataset.embedding()

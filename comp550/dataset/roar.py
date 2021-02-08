@@ -68,7 +68,7 @@ class ROARDataset(pl.LightningDataModule):
             raise ValueError(f'{importance_measure} is not supported')
 
         if _ensure_exists:
-            if not path.exists(f'{self._cachedir}/encoded/{self._basename}.pkl'):
+            if not path.exists(f'{self._cachedir}/encoded-roar/{self._basename}.pkl'):
                 raise IOError((f'The ROAR dataset "{self._basename}", does not exists.'
                                f' For optimization reasons it has been decided that the k-1 ROAR dataset must exist'))
 
@@ -136,8 +136,8 @@ class ROARDataset(pl.LightningDataModule):
 
     def prepare_data(self):
         # Encode data
-        if not path.exists(f'{self._cachedir}/encoded/{self._basename}.pkl'):
-            os.makedirs(self._cachedir + '/encoded', exist_ok=True)
+        if not path.exists(f'{self._cachedir}/encoded-roar/{self._basename}.pkl'):
+            os.makedirs(self._cachedir + '/encoded-roar', exist_ok=True)
 
             self._base_dataset.setup('fit')
             self._base_dataset.setup('test')
@@ -148,11 +148,11 @@ class ROARDataset(pl.LightningDataModule):
                 'test': self._mask_data(self._base_dataset.val_dataloader(), 'test')
             }
 
-            with open(f'{self._cachedir}/encoded/{self._basename}.pkl', 'wb') as fp:
+            with open(f'{self._cachedir}/encoded-roar/{self._basename}.pkl', 'wb') as fp:
                 pickle.dump(data, fp)
 
     def setup(self, stage=None):
-        with open(f'{self._cachedir}/encoded/{self._basename}.pkl', 'rb') as fp:
+        with open(f'{self._cachedir}/encoded-roar/{self._basename}.pkl', 'rb') as fp:
             data = pickle.load(fp)
         if stage == 'fit':
             self._train = data['train']
