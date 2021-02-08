@@ -53,7 +53,7 @@ class StanfordSentimentDataset(pl.LightningDataModule):
     * use 'fasttext.simple.300d'
     * set [PAD] embedding to zero
     """
-    def __init__(self, cachedir, batch_size=32, seed=0, num_workers=4):
+    def __init__(self, cachedir, batch_size=32, seed=0, num_workers=4, name='sst'):
         super().__init__()
         self._cachedir = path.realpath(cachedir)
         self._batch_size = batch_size
@@ -61,6 +61,7 @@ class StanfordSentimentDataset(pl.LightningDataModule):
         self._num_workers = num_workers
         self.tokenizer = SSTTokenizer()
         self.label_names = ['negative', 'positive']
+        self.name = name
 
     @property
     def vocabulary(self):
