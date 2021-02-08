@@ -38,13 +38,15 @@ class BabiTokenizer(Tokenizer):
 
 class BabiDataModule(pl.LightningDataModule):
 
-    def __init__(self, cachedir, batch_size=50, num_workers=4, task_idx=1):
+    def __init__(self, cachedir, batch_size=50, num_workers=4, task=1):
         super().__init__()
         self._cachedir = cachedir
-        self._batch_size = batch_size
+        self.batch_size = batch_size
         self._num_workers = num_workers
+        self._task = task
+
         self.tokenizer = BabiTokenizer()
-        self.task_idx = task_idx
+        self.name = f'babi_t-{task}'
 
     @property
     def vocabulary(self):
@@ -143,41 +145,41 @@ class BabiDataModule(pl.LightningDataModule):
 
         self.label_names = output_labels
 
-        if not path.exists(self._cachedir + f'/text-datasets/babi_{self.task_idx}.pkl'):
+        if not path.exists(self._cachedir + f'/text-datasets/babi_{self._task}.pkl'):
             trainidx, devidx = train_test_split(
-                range(0, len(data[self.task_idx]['train'])), train_size=0.85)
-            testidx = range(0, len(data[self.task_idx]['test']))
+                range(0, len(data[self._task]['train'])), train_size=0.85)
+            testidx = range(0, len(data[self._task]['test']))
 
             babi_data = {}
-            for name, idxs, dataset in [('train', trainidx, data[self.task_idx]['train']), ('val', devidx, data[self.task_idx]['train']), ('test', testidx, data[self.task_idx]['test'])]:
+            for name, idxs, dataset in [('train', trainidx, data[self._task]['train']), ('val', devidx, data[self._task]['train']), ('test', testidx, data[self._task]['test'])]:
                 babi_data[name] = [{
                     'paragraph': dataset[idx]["paragraph"],
                     'question': dataset[idx]["question"],
                     'label': self.label_names.index(dataset[idx]["answer"])
                 } for idx in idxs]
 
-            with open(self._cachedir + f'/text-datasets/babi_{self.task_idx}.pkl', 'wb') as fp:
+            with open(self._cachedir + f'/text-datasets/babi_{self._task}.pkl', 'wb') as fp:
                 pickle.dump(babi_data, fp)
 
         else:
-            with open(self._cachedir + f'/text-datasets/babi_{self.task_idx}.pkl', 'rb') as fp:
+            with open(self._cachedir + f'/text-datasets/babi_{self._task}.pkl', 'rb') as fp:
                 babi_data = pickle.load(fp)
 
 
-        if not path.exists(self._cachedir + f'/vocab/babi_{self.task_idx}.vocab'):
+        if not path.exists(self._cachedir + f'/vocab/babi_{self._task}.vocab'):
             os.makedirs(self._cachedir + '/vocab', exist_ok=True)
 
             self.tokenizer.from_iterable(
                 [instance["paragraph"] for instance in babi_data['train']] +
                 [instance["question"] for instance in babi_data['train']])
             self.tokenizer.to_file(
-                self._cachedir + f'/vocab/babi_{self.task_idx}.vocab')
+                self._cachedir + f'/vocab/babi_{self._task}.vocab')
         else:
             self.tokenizer.from_file(
-                self._cachedir + f'/vocab/babi_{self.task_idx}.vocab')
+                self._cachedir + f'/vocab/babi_{self._task}.vocab')
 
 
-        if not path.exists(self._cachedir + f'/encoded/babi_{self.task_idx}.pkl'):
+        if not path.exists(self._cachedir + f'/encoded/babi_{self._task}.pkl'):
             os.makedirs(self._cachedir + '/encoded', exist_ok=True)
 
             data = {}
@@ -190,11 +192,11 @@ class BabiDataModule(pl.LightningDataModule):
                     'label': instance['label']
                 } for instance in dataset]
 
-            with open(self._cachedir + f'/encoded/babi_{self.task_idx}.pkl', 'wb') as fp:
+            with open(self._cachedir + f'/encoded/babi_{self._task}.pkl', 'wb') as fp:
                 pickle.dump(data, fp)
 
     def setup(self, stage=None):
-        with open(self._cachedir + f'/encoded/babi_{self.task_idx}.pkl', 'rb') as fp:
+        with open(self._cachedir + f'/encoded/babi_{self._task}.pkl', 'rb') as fp:
             dataset = pickle.load(fp)
         if stage == "fit":
             self._train = self._process_data(dataset['train'])
@@ -247,16 +249,16 @@ class BabiDataModule(pl.LightningDataModule):
 
     def train_dataloader(self):
         return DataLoader(self._train,
-                          batch_size=self._batch_size, collate_fn=self.collate,
+                          batch_size=self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers, shuffle=True)
 
     def val_dataloader(self):
         return DataLoader(self._val,
-                          batch_size=self._batch_size, collate_fn=self.collate,
+                          batch_size=self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)
 
     def test_dataloader(self):
         return DataLoader(self._test,
-                          batch_size=self._batch_size, collate_fn=self.collate,
+                          batch_size=self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)
 

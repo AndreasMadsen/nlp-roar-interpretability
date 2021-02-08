@@ -55,7 +55,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     torch.set_num_threads(max(1, args.num_workers))
     pl.seed_everything(args.seed)
-    experiment_id = f"sst_roar_s-{args.seed}_k-{args.k}_m-{args.importance_measure[0]}"
+    experiment_id = f"sst_roar_s-{args.seed}_k-{args.k}_m-{args.importance_measure[0]}_r-{int(args.recursive)}"
 
     print('Running SST-ROAR experiment:')
     print(f' - k: {args.k}')
@@ -68,21 +68,6 @@ if __name__ == "__main__":
         cachedir=f'{args.persistent_dir}/cache', seed=args.seed, num_workers=args.num_workers
     )
     base_dataset.prepare_data()
-
-    # If recursive is used, update the base_dataset to load the ROAR dataset for k-1
-    if args.k > 1 and args.recursive:
-        base_dataset = ROARDataset(
-            cachedir=f'{args.persistent_dir}/cache',
-            model=DummyModel(),
-            base_dataset=base_dataset,
-            k=args.k - 1,
-            recursive=args.recursive,
-            importance_measure=args.importance_measure,
-            seed=args.seed,
-            num_workers=args.num_workers,
-            batch_size=32
-        )
-        base_dataset.prepare_data()
 
     # Create main dataset
     if args.k == 0:
@@ -101,7 +86,6 @@ if __name__ == "__main__":
             importance_measure=args.importance_measure,
             seed=args.seed,
             num_workers=args.num_workers,
-            batch_size=32,
         )
         main_dataset.prepare_data()
 

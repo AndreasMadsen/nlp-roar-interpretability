@@ -37,10 +37,12 @@ class IMDBDataModule(pl.LightningDataModule):
     def __init__(self, cachedir, batch_size=32, num_workers=4):
         super().__init__()
         self._cachedir = cachedir
-        self._batch_size = batch_size
+        self.batch_size = batch_size
         self._num_workers = num_workers
+
         self.tokenizer = IMDBTokenizer()
         self.label_names = ['negative', 'positive']
+        self.name = 'imdb'
 
     @property
     def vocabulary(self):
@@ -187,15 +189,15 @@ class IMDBDataModule(pl.LightningDataModule):
 
     def train_dataloader(self):
         return DataLoader(self._train,
-                          batch_size=self._batch_size, collate_fn=self.collate,
+                          batch_size=self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers, shuffle=True)
 
     def val_dataloader(self):
         return DataLoader(self._val,
-                          batch_size=self._batch_size, collate_fn=self.collate,
+                          batch_size=self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)
 
     def test_dataloader(self):
         return DataLoader(self._test,
-                          batch_size=self._batch_size, collate_fn=self.collate,
+                          batch_size=self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)

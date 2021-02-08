@@ -56,12 +56,14 @@ class MimicDataset(pl.LightningDataModule):
 
         self._cachedir = path.realpath(cachedir)
         self._mimicdir = path.realpath(mimicdir)
-        self._batch_size = batch_size
+        self.batch_size = batch_size
         self._seed = seed
         self._num_workers = num_workers
+        self._subset = subset
+
         self.tokenizer = MimicTokenizer()
         self.label_names = ['negative', 'positive']
-        self._subset = subset
+        self.name = f'mimic-{subset[0]}'
 
     @property
     def vocabulary(self):
@@ -297,15 +299,15 @@ class MimicDataset(pl.LightningDataModule):
 
     def train_dataloader(self):
         return DataLoader(self._train,
-                          batch_size=self._batch_size, collate_fn=self.collate,
+                          batch_size=self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers, shuffle=True)
 
     def val_dataloader(self):
         return DataLoader(self._val,
-                          batch_size=self._batch_size, collate_fn=self.collate,
+                          batch_size=self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)
 
     def test_dataloader(self):
         return DataLoader(self._test,
-                          batch_size=self._batch_size, collate_fn=self.collate,
+                          batch_size=self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)
