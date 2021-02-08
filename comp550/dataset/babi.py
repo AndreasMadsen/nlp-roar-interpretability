@@ -46,7 +46,7 @@ class BabiDataModule(pl.LightningDataModule):
         self._task = task
 
         self.tokenizer = BabiTokenizer()
-        self.name = f'babi_t-{task}'
+        self.name = f'babi-{task}'
 
     @property
     def vocabulary(self):
@@ -145,7 +145,7 @@ class BabiDataModule(pl.LightningDataModule):
 
         self.label_names = output_labels
 
-        if not path.exists(self._cachedir + f'/text-datasets/babi_{self._task}.pkl'):
+        if not path.exists(self._cachedir + f'/text-datasets/{self.name}.pkl'):
             trainidx, devidx = train_test_split(
                 range(0, len(data[self._task]['train'])), train_size=0.85)
             testidx = range(0, len(data[self._task]['test']))
@@ -158,11 +158,11 @@ class BabiDataModule(pl.LightningDataModule):
                     'label': self.label_names.index(dataset[idx]["answer"])
                 } for idx in idxs]
 
-            with open(self._cachedir + f'/text-datasets/babi_{self._task}.pkl', 'wb') as fp:
+            with open(self._cachedir + f'/text-datasets/{self.name}.pkl', 'wb') as fp:
                 pickle.dump(babi_data, fp)
 
         else:
-            with open(self._cachedir + f'/text-datasets/babi_{self._task}.pkl', 'rb') as fp:
+            with open(self._cachedir + f'/text-datasets/{self.name}.pkl', 'rb') as fp:
                 babi_data = pickle.load(fp)
 
 
@@ -179,7 +179,7 @@ class BabiDataModule(pl.LightningDataModule):
                 self._cachedir + f'/vocab/babi_{self._task}.vocab')
 
 
-        if not path.exists(self._cachedir + f'/encoded/babi_{self._task}.pkl'):
+        if not path.exists(self._cachedir + f'/encoded/{self.name}.pkl'):
             os.makedirs(self._cachedir + '/encoded', exist_ok=True)
 
             data = {}
@@ -192,11 +192,11 @@ class BabiDataModule(pl.LightningDataModule):
                     'label': instance['label']
                 } for instance in dataset]
 
-            with open(self._cachedir + f'/encoded/babi_{self._task}.pkl', 'wb') as fp:
+            with open(self._cachedir + f'/encoded/{self.name}.pkl', 'wb') as fp:
                 pickle.dump(data, fp)
 
     def setup(self, stage=None):
-        with open(self._cachedir + f'/encoded/babi_{self._task}.pkl', 'rb') as fp:
+        with open(self._cachedir + f'/encoded/{self.name}.pkl', 'rb') as fp:
             dataset = pickle.load(fp)
         if stage == "fit":
             self._train = self._process_data(dataset['train'])

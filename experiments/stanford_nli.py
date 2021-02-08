@@ -11,6 +11,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 
 from comp550.dataset import SNLIDataModule, ROARDataset
 from comp550.model import MultipleSequenceToClass
+from comp550.util import generate_experiment_id
 
 parser = argparse.ArgumentParser(description="Run ROAR benchmark for SNLI.")
 thisdir = path.dirname(path.realpath(__file__))
@@ -55,7 +56,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     torch.set_num_threads(max(1, args.num_workers))
     seed_everything(args.seed)
-    experiment_id = f"snli_roar_s-{args.seed}_k-{args.k}_m-{args.importance_measure[0]}_r-{int(args.recursive)}"
+    experiment_id = generate_experiment_id('snli', args.seed, args.k, args.importance_measure, args.recursive)
 
     print('Running SNLI-ROAR experiment:')
     print(f' - k: {args.k}')
@@ -73,10 +74,12 @@ if __name__ == "__main__":
     if args.k == 0:
         main_dataset = base_dataset
     else:
-        base_model = SingleSequenceToClass.load_from_checkpoint(
-            checkpoint_path=f'{args.persistent_dir}/checkpoints/sst_s-{args.seed}/checkpoint.ckpt',
+        base_experiment_id = generate_experiment_id('snli', args.seed, args.k - 1, args.importance_measure, args.recursive)
+        base_model = MultipleSequenceToClass.load_from_checkpoint(
+            checkpoint_path=f'{args.persistent_dir}/checkpoints/{base_experiment_id}/checkpoint.ckpt',
             embedding=base_dataset.embedding()
         )
+
         main_dataset = ROARDataset(
             cachedir=f'{args.persistent_dir}/cache',
             model=base_model,

@@ -10,7 +10,8 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from comp550.dataset import StanfordSentimentDataset, ROARDataset
-from comp550.model import SingleSequenceToClass, DummyModel
+from comp550.model import SingleSequenceToClass
+from comp550.util import generate_experiment_id
 
 thisdir = path.dirname(path.realpath(__file__))
 parser = argparse.ArgumentParser(description="Run ROAR benchmark for SST")
@@ -42,7 +43,7 @@ parser.add_argument("--num-workers",
 # epochs = 8 (https://github.com/successar/AttentionExplanation/blob/master/ExperimentsBC.py#L11)
 parser.add_argument("--max-epochs",
                     action="store",
-                    default=3,
+                    default=8,
                     type=int,
                     help="The max number of epochs to use")
 parser.add_argument("--use-gpu",
@@ -55,7 +56,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     torch.set_num_threads(max(1, args.num_workers))
     pl.seed_everything(args.seed)
-    experiment_id = f"sst_roar_s-{args.seed}_k-{args.k}_m-{args.importance_measure[0]}_r-{int(args.recursive)}"
+    experiment_id = generate_experiment_id('sst', args.seed, args.k, args.importance_measure, args.recursive)
 
     print('Running SST-ROAR experiment:')
     print(f' - k: {args.k}')
@@ -73,10 +74,12 @@ if __name__ == "__main__":
     if args.k == 0:
         main_dataset = base_dataset
     else:
+        base_experiment_id = generate_experiment_id('sst', args.seed, args.k-1, args.importance_measure, args.recursive)
         base_model = SingleSequenceToClass.load_from_checkpoint(
-            checkpoint_path=f'{args.persistent_dir}/checkpoints/sst_s-{args.seed}/checkpoint.ckpt',
+            checkpoint_path=f'{args.persistent_dir}/checkpoints/{base_experiment_id}/checkpoint.ckpt',
             embedding=base_dataset.embedding()
         )
+
         main_dataset = ROARDataset(
             cachedir=f'{args.persistent_dir}/cache',
             model=base_model,

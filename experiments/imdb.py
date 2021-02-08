@@ -11,8 +11,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from comp550.dataset import IMDBDataModule, ROARDataset
 from comp550.model import SingleSequenceToClass
-
-torch.multiprocessing.set_sharing_strategy('file_system')
+from comp550.util import generate_experiment_id
 
 thisdir = path.dirname(path.realpath(__file__))
 parser = argparse.ArgumentParser(description='Run IMDB experiment')
@@ -35,7 +34,7 @@ parser.add_argument("--importance-measure",
                     default='attention',
                     type=str,
                     help="Use 'random' or 'attention' as the importance measure.")
-arser.add_argument('--seed',
+parser.add_argument('--seed',
                     action='store',
                     default=0,
                     type=int,
@@ -61,7 +60,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     torch.set_num_threads(max(1, args.num_workers))
     pl.seed_everything(args.seed)
-    experiment_id = f"imdb_roar_s-{args.seed}_k-{args.k}_m-{args.importance_measure[0]}_r-{int(args.recursive)}"
+    experiment_id = generate_experiment_id('imdb', args.seed, args.k, args.importance_measure, args.recursive)
 
     print('Running IMDB-ROAR experiment:')
     print(f' - k: {args.k}')
@@ -79,10 +78,12 @@ if __name__ == '__main__':
     if args.k == 0:
         main_dataset = base_dataset
     else:
+        base_experiment_id = generate_experiment_id('imdb', args.seed, args.k - 1, args.importance_measure, args.recursive)
         base_model = SingleSequenceToClass.load_from_checkpoint(
-            checkpoint_path=f'{args.persistent_dir}/checkpoints/sst_s-{args.seed}/checkpoint.ckpt',
+            checkpoint_path=f'{args.persistent_dir}/checkpoints/{base_experiment_id}/checkpoint.ckpt',
             embedding=base_dataset.embedding()
         )
+
         main_dataset = ROARDataset(
             cachedir=f'{args.persistent_dir}/cache',
             model=base_model,

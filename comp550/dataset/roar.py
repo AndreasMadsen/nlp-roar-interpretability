@@ -9,13 +9,14 @@ import torch
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 
+from comp550.util import generate_experiment_id
 
 class ROARDataset(pl.LightningDataModule):
     """Loads a dataset with masking for ROAR."""
 
     def __init__(self, cachedir, model, base_dataset,
                  k=1, recursive=False, importance_measure='attention',
-                 batch_size=128, seed=0, num_workers=4,
+                 seed=0, num_workers=4,
                  prevent_recusive_dataset_building=True, _ensure_exists=False):
         """
         Args:
@@ -53,11 +54,10 @@ class ROARDataset(pl.LightningDataModule):
         self._base_dataset = base_dataset
         self._k = k
         self._recursive = recursive
-        self.batch_size = batch_size
         self._seed = seed
         self._num_workers = num_workers
 
-        self._basename = f'{self.name}_roar_s-{seed}_k-{k}_m-{importance_measure[0]}_r-{int(recursive)}'
+        self._basename = generate_experiment_id(self.name, seed, k, importance_measure, recursive)
         self._rng = np.random.RandomState(self._seed)
 
         if importance_measure == 'random':
