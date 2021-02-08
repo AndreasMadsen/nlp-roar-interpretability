@@ -27,11 +27,11 @@ parser.add_argument("--k",
                     default=1,
                     type=int,
                     help="The proportion of tokens to mask.")
-parser.add_argument("--masking",
+parser.add_argument("--importance-measure",
                     action="store",
-                    default='top-k',
+                    default='attention',
                     type=str,
-                    help="Use 'random' or 'top-k' masking.")
+                    help="Use 'random' or 'attention' as the importance measure.")
 parser.add_argument('--seed',
                     action='store',
                     default=0,
@@ -63,12 +63,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     torch.set_num_threads(max(1, args.num_workers))
     pl.seed_everything(args.seed)
-    experiment_id = f"babi_t-{args.task}_roar_s-{args.seed}_k-{args.k}_m-{args.masking[0]}"
+    experiment_id = f"babi_t-{args.task}_roar_s-{args.seed}_k-{args.k}_m-{args.importance_measure[0]}"
 
     print(f'Running babi-{args.task}-ROAR experiment:')
     print(f' - k: {args.k}')
     print(f' - seed: {args.seed}')
-    print(f' - masking: {args.masking}')
+    print(f' - importance_measure: {args.importance_measure}')
 
     base_dataset = BabiDataModule(
         cachedir=f'{args.persistent_dir}/cache',
@@ -86,7 +86,7 @@ if __name__ == "__main__":
         model=base_model,
         base_dataset=base_dataset,
         k=args.k,
-        masking=args.masking,
+        importance_measure=args.importance_measure,
         seed=args.seed,
         num_workers=args.num_workers,
         batch_size=32,
@@ -126,5 +126,5 @@ if __name__ == "__main__":
     os.makedirs(f'{args.persistent_dir}/results', exist_ok=True)
     with open(f'{args.persistent_dir}/results/{experiment_id}.json', "w") as f:
         json.dump({"seed": args.seed, "dataset": f"babi_t-{args.task}", "roar": True,
-                   "k": args.k, "masking": args.masking,
+                   "k": args.k, "importance_measure": args.importance_measure,
                    **results}, f)

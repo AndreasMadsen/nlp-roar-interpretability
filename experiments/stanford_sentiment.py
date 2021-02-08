@@ -32,7 +32,7 @@ parser.add_argument('--num-workers',
 # epochs = 8 (https://github.com/successar/AttentionExplanation/blob/master/ExperimentsBC.py#L11)
 parser.add_argument('--max-epochs',
                     action='store',
-                    default=8,
+                    default=3,
                     type=int,
                     help='The max number of epochs to use')
 parser.add_argument('--use-gpu',
