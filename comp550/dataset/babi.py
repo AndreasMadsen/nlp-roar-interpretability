@@ -247,18 +247,18 @@ class BabiDataModule(pl.LightningDataModule):
                  batch['hypothesis'], batch['hypothesis_mask'], batch['hypothesis_length'],
                  batch['label'], batch['index'])]
 
-    def train_dataloader(self):
+    def train_dataloader(self, batch_size=None):
         return DataLoader(self._train,
-                          batch_size=self.batch_size, collate_fn=self.collate,
+                          batch_size=batch_size or self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers, shuffle=True)
 
-    def val_dataloader(self):
+    def val_dataloader(self, batch_size=None):
         return DataLoader(self._val,
-                          batch_size=self.batch_size, collate_fn=self.collate,
+                          batch_size=batch_size or self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)
 
-    def test_dataloader(self):
+    def test_dataloader(self, batch_size=None):
         return DataLoader(self._test,
-                          batch_size=self.batch_size, collate_fn=self.collate,
+                          batch_size=batch_size or self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers)
 

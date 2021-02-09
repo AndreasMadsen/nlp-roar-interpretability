@@ -33,21 +33,6 @@ class ROARDataset(pl.LightningDataModule):
         """
         super().__init__()
 
-        # If we are in a recursive situation, apply the ROAR dataset recursively
-        if k > 1 and recursive and not _ensure_exists:
-            base_dataset = ROARDataset(
-                cachedir=cachedir,
-                model=model,
-                base_dataset=base_dataset,
-                k=k - 1,
-                recursive=recursive,
-                importance_measure=importance_measure,
-                seed=seed,
-                num_workers=num_workers,
-                _ensure_exists=True
-            )
-            base_dataset.prepare_data()
-
         self._cachedir = cachedir
         self._model = model
         self._base_dataset = base_dataset
@@ -55,16 +40,17 @@ class ROARDataset(pl.LightningDataModule):
         self._recursive = recursive
         self._seed = seed
         self._num_workers = num_workers
+        self._importance_measure = importance_measure
 
         self._basename = generate_experiment_id(self.name, seed, k, importance_measure, recursive)
         self._rng = np.random.RandomState(self._seed)
 
         if importance_measure == 'random':
-            self._importance_measure = self._importance_measure_random
+            self._importance_measure_fn = self._importance_measure_random
         elif importance_measure == 'attention':
-            self._importance_measure = self._importance_measure_attention
+            self._importance_measure_fn = self._importance_measure_attention
         elif importance_measure == 'gradient':
-            self._importance_measure = self._importance_measure_gradient
+            self._importance_measure_fn = self._importance_measure_gradient
         else:
             raise ValueError(f'{importance_measure} is not supported')
 
@@ -131,7 +117,7 @@ class ROARDataset(pl.LightningDataModule):
         return torch.norm(torch.squeeze(yc_wrt_x, 0), 2, dim=1)
 
     def _mask_observation(self, observation):
-        importance = self._importance_measure(observation)
+        importance = self._importance_measure_fn(observation)
 
         with torch.no_grad():
             # Prevent masked tokens from being "removed"
@@ -151,7 +137,7 @@ class ROARDataset(pl.LightningDataModule):
 
         return observation
 
-    def _mask_data(self, dataloader, name):
+    def _mask_dataset(self, dataloader, name):
         outputs = []
         for batched_observation in tqdm(dataloader(batch_size=1), desc=f'Building {name} dataset', leave=False):
             outputs.append(self._mask_observation(self.uncollate(batched_observation)[0]))
@@ -163,13 +149,29 @@ class ROARDataset(pl.LightningDataModule):
         if not path.exists(f'{self._cachedir}/encoded-roar/{self._basename}.pkl'):
             os.makedirs(self._cachedir + '/encoded-roar', exist_ok=True)
 
-            self._base_dataset.setup('fit')
-            self._base_dataset.setup('test')
+            # If we are in a recursive situation, load the k-1 ROAR dataset
+            if self._k > 1 and self._recursive:
+                base_dataset = ROARDataset(
+                    cachedir=self._cachedir,
+                    model=self._model,
+                    base_dataset=self._base_dataset,
+                    k=self._k - 1,
+                    recursive=self._recursive,
+                    importance_measure=self._importance_measure,
+                    seed=self._seed,
+                    num_workers=self._num_workers,
+                    _ensure_exists=True
+                )
+            else:
+                base_dataset = self._base_dataset
+
+            base_dataset.setup('fit')
+            base_dataset.setup('test')
 
             data = {
-                'train': self._mask_data(self._base_dataset.train_dataloader, 'train'),
-                'val': self._mask_data(self._base_dataset.val_dataloader, 'val'),
-                'test': self._mask_data(self._base_dataset.val_dataloader, 'test')
+                'train': self._mask_dataset(base_dataset.train_dataloader, 'train'),
+                'val': self._mask_dataset(base_dataset.val_dataloader, 'val'),
+                'test': self._mask_dataset(base_dataset.val_dataloader, 'test')
             }
 
             with open(f'{self._cachedir}/encoded-roar/{self._basename}.pkl', 'wb') as fp:
@@ -188,20 +190,20 @@ class ROARDataset(pl.LightningDataModule):
         else:
             raise ValueError(f'unexpected setup stage: {stage}')
 
-    def train_dataloader(self):
+    def train_dataloader(self, batch_size=None):
         return DataLoader(
             self._train,
-            batch_size=self.batch_size, collate_fn=self.collate,
+            batch_size=batch_size or self.batch_size, collate_fn=self.collate,
             num_workers=self._num_workers, shuffle=True)
 
-    def val_dataloader(self):
+    def val_dataloader(self, batch_size=None):
         return DataLoader(
             self._val,
-            batch_size=self.batch_size, collate_fn=self.collate,
+            batch_size=batch_size or self.batch_size, collate_fn=self.collate,
             num_workers=self._num_workers)
 
-    def test_dataloader(self):
+    def test_dataloader(self, batch_size=None):
         return DataLoader(
             self._test,
-            batch_size=self.batch_size, collate_fn=self.collate,
+            batch_size=batch_size or self.batch_size, collate_fn=self.collate,
             num_workers=self._num_workers)
