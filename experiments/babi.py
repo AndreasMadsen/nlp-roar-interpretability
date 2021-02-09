@@ -14,6 +14,9 @@ from comp550.dataset import BabiDataModule, ROARDataset
 from comp550.model import MultipleSequenceToClass
 from comp550.util import generate_experiment_id
 
+# On compute canada the ulimit -n is reached, unless this strategy is used.
+torch.multiprocessing.set_sharing_strategy('file_system')
+
 thisdir = path.dirname(path.realpath(__file__))
 parser = argparse.ArgumentParser(description='Run babi task')
 parser.add_argument('--persistent-dir',

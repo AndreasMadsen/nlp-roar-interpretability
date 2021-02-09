@@ -13,6 +13,9 @@ from comp550.dataset import SNLIDataModule, ROARDataset
 from comp550.model import MultipleSequenceToClass
 from comp550.util import generate_experiment_id
 
+# On compute canada the ulimit -n is reached, unless this strategy is used.
+torch.multiprocessing.set_sharing_strategy('file_system')
+
 parser = argparse.ArgumentParser(description="Run ROAR benchmark for SNLI.")
 thisdir = path.dirname(path.realpath(__file__))
 parser.add_argument('--persistent-dir',

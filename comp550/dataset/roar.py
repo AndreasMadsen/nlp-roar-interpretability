@@ -2,7 +2,6 @@
 import pickle
 import os
 import os.path as path
-import gc
 
 from tqdm import tqdm
 import numpy as np
@@ -116,6 +115,10 @@ class ROARDataset(pl.LightningDataModule):
         # Normalize the vector-gradient per token into one scalar
         return torch.norm(torch.squeeze(yc_wrt_x, 0), 2, dim=1)
 
+    def _importance_measure_integrated_gradient(self, observation):
+        # Implement as x .* (1/k) .* sum([f'((i/k) .* x) for i in range(1, k+1))
+        pass
+
     def _mask_observation(self, observation):
         importance = self._importance_measure_fn(observation)
 
@@ -139,9 +142,8 @@ class ROARDataset(pl.LightningDataModule):
 
     def _mask_dataset(self, dataloader, name):
         outputs = []
-        for batched_observation in tqdm(dataloader(batch_size=1), desc=f'Building {name} dataset', leave=False):
+        for batched_observation in tqdm(dataloader(batch_size=1, num_workers=0), desc=f'Building {name} dataset', leave=False):
             outputs.append(self._mask_observation(self.uncollate(batched_observation)[0]))
-        gc.collect()
         return outputs
 
     def prepare_data(self):
@@ -178,8 +180,6 @@ class ROARDataset(pl.LightningDataModule):
                 pickle.dump(data, fp)
 
     def setup(self, stage=None):
-        gc.collect()
-
         with open(f'{self._cachedir}/encoded-roar/{self._basename}.pkl', 'rb') as fp:
             data = pickle.load(fp)
         if stage == 'fit':
@@ -190,20 +190,21 @@ class ROARDataset(pl.LightningDataModule):
         else:
             raise ValueError(f'unexpected setup stage: {stage}')
 
-    def train_dataloader(self, batch_size=None):
+    def train_dataloader(self, batch_size=None, num_workers=None):
         return DataLoader(
             self._train,
             batch_size=batch_size or self.batch_size, collate_fn=self.collate,
-            num_workers=self._num_workers, shuffle=True)
+            num_workers=self._num_workers if num_workers is None else num_workers,
+            shuffle=True)
 
-    def val_dataloader(self, batch_size=None):
+    def val_dataloader(self, batch_size=None, num_workers=None):
         return DataLoader(
             self._val,
             batch_size=batch_size or self.batch_size, collate_fn=self.collate,
-            num_workers=self._num_workers)
+            num_workers=self._num_workers if num_workers is None else num_workers)
 
-    def test_dataloader(self, batch_size=None):
+    def test_dataloader(self, batch_size=None, num_workers=None):
         return DataLoader(
             self._test,
             batch_size=batch_size or self.batch_size, collate_fn=self.collate,
-            num_workers=self._num_workers)
+            num_workers=self._num_workers if num_workers is None else num_workers)

@@ -13,6 +13,9 @@ from comp550.dataset import MimicDataset, ROARDataset
 from comp550.model import SingleSequenceToClass
 from comp550.util import generate_experiment_id
 
+# On compute canada the ulimit -n is reached, unless this strategy is used.
+torch.multiprocessing.set_sharing_strategy('file_system')
+
 thisdir = path.dirname(path.realpath(__file__))
 parser = argparse.ArgumentParser(description="Run ROAR benchmark for SST")
 parser.add_argument('--persistent-dir',
@@ -81,7 +84,7 @@ if __name__ == "__main__":
     if args.k == 0:
         main_dataset = base_dataset
     else:
-        base_experiment_id = generate_experiment_id(f'sst', args.seed, args.k-1 if args.recursive else 0, args.importance_measure, args.recursive)
+        base_experiment_id = generate_experiment_id(f'mimic-{args.subset[0]}', args.seed, args.k-1 if args.recursive else 0, args.importance_measure, args.recursive)
         base_model = SingleSequenceToClass.load_from_checkpoint(
             checkpoint_path=f'{args.persistent_dir}/checkpoints/{base_experiment_id}/checkpoint.ckpt',
             embedding=base_dataset.embedding()
