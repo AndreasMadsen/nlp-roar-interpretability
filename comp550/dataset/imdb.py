@@ -115,7 +115,6 @@ class IMDBDataModule(pl.LightningDataModule):
 
             with open(self._cachedir + '/text-datasets/imdb_full_text.pkl', 'wb') as fp:
                 pickle.dump(imdb_data, fp)
-
         else:
             with open(self._cachedir + '/text-datasets/imdb_full_text.pkl', 'rb') as fp:
                 imdb_data = pickle.load(fp)

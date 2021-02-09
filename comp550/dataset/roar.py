@@ -2,6 +2,7 @@
 import pickle
 import os
 import os.path as path
+import gc
 
 from tqdm import tqdm
 import numpy as np
@@ -17,20 +18,18 @@ class ROARDataset(pl.LightningDataModule):
     def __init__(self, cachedir, model, base_dataset,
                  k=1, recursive=False, importance_measure='attention',
                  seed=0, num_workers=4,
-                 prevent_recusive_dataset_building=True, _ensure_exists=False):
+                 _ensure_exists=False):
         """
         Args:
             model: The model to use to determine which tokens to mask.
-            recursive: Should roar masking be applied recursively.
             base_dataset: The dataset to apply masking to.
             k (int): The number of tokens to mask for each instance in the
                 dataset.
+            recursive: Should roar masking be applied recursively.
+                If recursive is used, the model should be trained for k-1
+                and the base_dataset should be for k=0.
             importance_measure (str): Which importance measure to use. Supported values
                 are: "random" and "attention".
-            prevent_recusive_dataset_building (bool): For optimization reasons this
-                prevents the ROARDataset to be recursively build. Instead it will be
-                assumed that the ROARDataset for k-1 exists. To prevent this behavior
-                set this parameter to False.
         """
         super().__init__()
 
@@ -45,7 +44,7 @@ class ROARDataset(pl.LightningDataModule):
                 importance_measure=importance_measure,
                 seed=seed,
                 num_workers=num_workers,
-                _ensure_exists=prevent_recusive_dataset_building
+                _ensure_exists=True
             )
             base_dataset.prepare_data()
 
@@ -64,6 +63,8 @@ class ROARDataset(pl.LightningDataModule):
             self._importance_measure = self._importance_measure_random
         elif importance_measure == 'attention':
             self._importance_measure = self._importance_measure_attention
+        elif importance_measure == 'gradient':
+            self._importance_measure = self._importance_measure_gradient
         else:
             raise ValueError(f'{importance_measure} is not supported')
 
@@ -75,6 +76,10 @@ class ROARDataset(pl.LightningDataModule):
     @property
     def tokenizer(self):
         return self._base_dataset.tokenizer
+
+    @property
+    def vocabulary(self):
+        return self._base_dataset.vocabulary
 
     @property
     def label_names(self):
@@ -97,41 +102,60 @@ class ROARDataset(pl.LightningDataModule):
     def uncollate(self, observations):
         return self._base_dataset.uncollate(observations)
 
-    def _importance_measure_random(self, batch):
-        return torch.tensor(self._rng.rand(*batch['sentence'].shape))
+    def _importance_measure_random(self, observation):
+        return torch.tensor(self._rng.rand(*observation['sentence'].shape))
 
-    def _importance_measure_attention(self, batch):
+    def _importance_measure_attention(self, observation):
         with torch.no_grad():
-            _, alpha = self._model(batch)
-        return alpha
+            _, alpha = self._model(self.collate([observation]))
+        return torch.squeeze(alpha, dim=0)
 
-    def _mask_batch(self, batch):
-        batch_importance = self._importance_measure(batch)
+    def _importance_measure_gradient(self, observation):
+
+        # TODO: Ensure that the padding is zero. In theory we don't need padding.
+        # Setup batch to be a one-hot encoded float32 with require_grad. This is neccesary
+        # as torch does not allow computing grad w.r.t. to an int-tensor.
+        batch = self.collate([observation])
+        batch['sentence'] = torch.nn.functional.one_hot(batch['sentence'], len(self.vocabulary))
+        batch['sentence'] = batch['sentence'].type(torch.float32)
+        batch['sentence'].requires_grad = True
+
+        # Compute model
+        y, _ = self._model(batch)
+
+        # Compute gradient
+        yc = y[0, observation['label']]
+        yc_wrt_x, = torch.autograd.grad(yc, (batch['sentence'], ))
+
+        # Normalize the vector-gradient per token into one scalar
+        return torch.norm(torch.squeeze(yc_wrt_x, 0), 2, dim=1)
+
+    def _mask_observation(self, observation):
+        importance = self._importance_measure(observation)
 
         with torch.no_grad():
-            for observation, importance in zip(self._base_dataset.uncollate(batch), batch_importance):
-                importance = importance[:observation['length']]
+            # Prevent masked tokens from being "removed"
+            importance[torch.logical_not(observation['mask'])] = -np.inf
 
-                # Prevent masked tokens from being "removed"
-                importance[torch.logical_not(observation['mask'])] = -np.inf
+            # Ensure that already "removed" tokens continues to be "removed"
+            importance[observation['sentence'] == self.tokenizer.mask_token_id] = np.inf
 
-                # Ensure that already "removed" tokens continues to be "removed"
-                importance[observation['sentence'] == self.tokenizer.mask_token_id] = np.inf
+            # Tokens to remove.
+            # Ensure that k does not exceed the number of un-masked tokens, if it does
+            # masked tokens will be "removed" too.
+            k = torch.minimum(torch.tensor(self._k), torch.sum(observation['mask']))
+            _, remove_indices = torch.topk(importance, k=k, sorted=False)
 
-                # Tokens to remove.
-                # Ensure that k does not exceed the number of un-masked tokens, if it does
-                # masked tokens will be "removed" too.
-                k = torch.maximum(torch.tensor(self._k), torch.sum(observation['mask']))
-                _, remove_indices = torch.topk(importance, k=k, sorted=False)
+            # "Remove" top-k important tokens
+            observation['sentence'][remove_indices] = self.tokenizer.mask_token_id
 
-                # "Remove" top-k important tokens
-                observation['sentence'][remove_indices] = self.tokenizer.mask_token_id
-                yield observation
+        return observation
 
     def _mask_data(self, dataloader, name):
         outputs = []
-        for batch in tqdm(dataloader, desc=f'Building {name} dataset', leave=False):
-            outputs.extend(self._mask_batch(batch))
+        for batched_observation in tqdm(dataloader(batch_size=1), desc=f'Building {name} dataset', leave=False):
+            outputs.append(self._mask_observation(self.uncollate(batched_observation)[0]))
+        gc.collect()
         return outputs
 
     def prepare_data(self):
@@ -143,15 +167,17 @@ class ROARDataset(pl.LightningDataModule):
             self._base_dataset.setup('test')
 
             data = {
-                'train': self._mask_data(self._base_dataset.train_dataloader(), 'train'),
-                'val': self._mask_data(self._base_dataset.val_dataloader(), 'val'),
-                'test': self._mask_data(self._base_dataset.val_dataloader(), 'test')
+                'train': self._mask_data(self._base_dataset.train_dataloader, 'train'),
+                'val': self._mask_data(self._base_dataset.val_dataloader, 'val'),
+                'test': self._mask_data(self._base_dataset.val_dataloader, 'test')
             }
 
             with open(f'{self._cachedir}/encoded-roar/{self._basename}.pkl', 'wb') as fp:
                 pickle.dump(data, fp)
 
     def setup(self, stage=None):
+        gc.collect()
+
         with open(f'{self._cachedir}/encoded-roar/{self._basename}.pkl', 'rb') as fp:
             data = pickle.load(fp)
         if stage == 'fit':

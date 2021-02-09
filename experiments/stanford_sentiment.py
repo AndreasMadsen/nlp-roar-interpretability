@@ -33,6 +33,7 @@ parser.add_argument("--importance-measure",
                     action="store",
                     default='attention',
                     type=str,
+                    choices=['random', 'attention', 'gradient'],
                     help="Use 'random' or 'attention' as the importance measure.")
 parser.add_argument("--seed", action="store", default=0, type=int, help="Random seed")
 parser.add_argument("--num-workers",

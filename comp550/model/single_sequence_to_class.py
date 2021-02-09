@@ -6,13 +6,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 
+from ._differentiable_embedding import DifferentiableEmbedding
+
 class _Encoder(nn.Module):
     def __init__(self, embedding, output_size):
         super().__init__()
         vocab_size, embedding_size = embedding.shape[0], embedding.shape[1]
 
-        self.embedding = nn.Embedding(vocab_size, embedding_size,
-                                      padding_idx=0, _weight=torch.Tensor(embedding))
+        self.vocab_size = vocab_size
+        self.embedding = DifferentiableEmbedding(vocab_size, embedding_size,
+                                                 padding_idx=0, _weight=torch.Tensor(embedding))
         self.rnn = nn.LSTM(embedding_size, output_size // 2, batch_first=True, bidirectional=True)
 
     def forward(self, x, length):
