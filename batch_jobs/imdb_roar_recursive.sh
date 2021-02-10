@@ -1,7 +1,7 @@
 #!/bin/bash
 for seed in {0..4}
 do
-    for importance_measure in 'attention'
+    for importance_measure in 'attention' 'gradient'
     do
         dependency=''
 

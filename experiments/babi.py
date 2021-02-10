@@ -37,7 +37,8 @@ parser.add_argument("--importance-measure",
                     action="store",
                     default='attention',
                     type=str,
-                    help="Use 'random' or 'attention' as the importance measure.")
+                    choices=['random', 'attention', 'gradient', 'integrated-gradient'],
+                    help="Use 'random', 'attention', 'gradient', or 'integrated-gradient' as the importance measure.")
 parser.add_argument('--seed',
                     action='store',
                     default=0,

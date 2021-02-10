@@ -1,7 +1,7 @@
 #!/bin/bash
 for seed in {0..4}
 do
-    for importance_measure in 'random' 'attention'
+    for importance_measure in 'random' 'attention' 'gradient'
     do
         for k in {1..10}
         do

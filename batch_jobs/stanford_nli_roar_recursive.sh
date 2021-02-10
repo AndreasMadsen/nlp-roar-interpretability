@@ -1,7 +1,7 @@
 #!/bin/bash
 for seed in {0..4}
 do
-    for importance_measure in 'attention'
+    for importance_measure in 'attention' 'gradient'
     do
         dependency=''
 
@@ -10,7 +10,7 @@ do
             if [ ! -f $SCRATCH"/comp550/results/snli_s-${seed}_k-${k}_m-${importance_measure::1}_r-1.json" ]; then
                 echo snli_s-${seed}_k-${k}_m-${importance_measure::1}_r-1
                 if last_jobid=$(
-                    sbatch --time=1:30:0 --mem=32G --parsable ${dependency} \
+                    sbatch --time=2:30:0 --mem=32G --parsable ${dependency} \
                     -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                     -J snli_s-${seed}_k-${k}_m-${importance_measure::1}_r-1 ./python_job.sh \
                     experiments/stanford_nli.py --recursive \
