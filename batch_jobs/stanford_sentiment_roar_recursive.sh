@@ -1,4 +1,6 @@
 #!/bin/bash
+declare -A time=( ["random"]="0:15:0" ["attention"]="0:15:0" ["gradient"]="0:15:0")
+
 for seed in {0..4}
 do
     for importance_measure in 'attention' 'gradient'
@@ -10,7 +12,7 @@ do
             if [ ! -f $SCRATCH"/comp550/results/sst_s-${seed}_k-${k}_m-${importance_measure::1}_r-1.json" ]; then
                 echo sst_s-${seed}_k-${k}_m-${importance_measure::1}_r-1
                 if last_jobid=$(
-                    sbatch --time=0:15:0 --mem=12G --parsable ${dependency} \
+                    sbatch --time=${time[$importance_measure]} --mem=12G --parsable ${dependency} \
                     -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                     -J sst_s-${seed}_k-${k}_m-${importance_measure::1}_r-1 ./python_job.sh \
                     experiments/stanford_sentiment.py --recursive \
