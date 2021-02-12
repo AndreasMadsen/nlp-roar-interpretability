@@ -37,10 +37,12 @@ class IMDBDataModule(pl.LightningDataModule):
     def __init__(self, cachedir, batch_size=32, num_workers=4):
         super().__init__()
         self._cachedir = cachedir
-        self._batch_size = batch_size
+        self.batch_size = batch_size
         self._num_workers = num_workers
+
         self.tokenizer = IMDBTokenizer()
         self.label_names = ['negative', 'positive']
+        self.name = 'imdb'
 
     @property
     def vocabulary(self):
@@ -113,7 +115,6 @@ class IMDBDataModule(pl.LightningDataModule):
 
             with open(self._cachedir + '/text-datasets/imdb_full_text.pkl', 'wb') as fp:
                 pickle.dump(imdb_data, fp)
-
         else:
             with open(self._cachedir + '/text-datasets/imdb_full_text.pkl', 'rb') as fp:
                 imdb_data = pickle.load(fp)
@@ -185,17 +186,18 @@ class IMDBDataModule(pl.LightningDataModule):
           in zip(batch['sentence'], batch['mask'], batch['length'],
                  batch['label'], batch['index'])]
 
-    def train_dataloader(self):
+    def train_dataloader(self, batch_size=None, num_workers=None):
         return DataLoader(self._train,
-                          batch_size=self._batch_size, collate_fn=self.collate,
-                          num_workers=self._num_workers, shuffle=True)
+                          batch_size=batch_size or self.batch_size, collate_fn=self.collate,
+                          num_workers=self._num_workers if num_workers is None else num_workers,
+                          shuffle=True)
 
-    def val_dataloader(self):
+    def val_dataloader(self, batch_size=None, num_workers=None):
         return DataLoader(self._val,
-                          batch_size=self._batch_size, collate_fn=self.collate,
-                          num_workers=self._num_workers)
+                          batch_size=batch_size or self.batch_size, collate_fn=self.collate,
+                          num_workers=self._num_workers if num_workers is None else num_workers)
 
-    def test_dataloader(self):
+    def test_dataloader(self, batch_size=None, num_workers=None):
         return DataLoader(self._test,
-                          batch_size=self._batch_size, collate_fn=self.collate,
-                          num_workers=self._num_workers)
+                          batch_size=batch_size or self.batch_size, collate_fn=self.collate,
+                          num_workers=self._num_workers if num_workers is None else num_workers)

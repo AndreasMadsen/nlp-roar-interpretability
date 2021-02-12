@@ -5,6 +5,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 
+from ._differentiable_embedding import DifferentiableEmbedding
+
 class _Decoder(nn.Module):
     def __init__(self, hidden_size=128, num_of_classes=3):
         super().__init__()
@@ -24,20 +26,21 @@ class _Encoder(nn.Module):
         super().__init__()
         vocab_size, embedding_size = embedding.shape[0], embedding.shape[1]
 
-        self.embedding = nn.Embedding(vocab_size, embedding_size,
-                                      padding_idx=0, _weight=torch.Tensor(embedding))
+        self.embedding = DifferentiableEmbedding(vocab_size, embedding_size,
+                                                 padding_idx=0, _weight=torch.Tensor(embedding))
         self.rnn = nn.LSTM(embedding_size, hidden_size,
                            batch_first=True, bidirectional=True)
 
     def forward(self, x, length):
-
         h1 = self.embedding(x)
         h1_packed = nn.utils.rnn.pack_padded_sequence(
             h1, length, batch_first=True, enforce_sorted=False)
+
         h2_packed, (h, c) = self.rnn(h1_packed)
         last_hidden = torch.cat([h[0], h[1]], dim=-1)
         h2_unpacked, _ = nn.utils.rnn.pad_packed_sequence(
             h2_packed, batch_first=True, padding_value=0)
+
         return h2_unpacked, last_hidden
 
 
