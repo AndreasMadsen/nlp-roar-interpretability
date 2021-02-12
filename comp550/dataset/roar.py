@@ -24,11 +24,11 @@ class ROARDataset(pl.LightningDataModule):
             base_dataset: The dataset to apply masking to.
             k (int): The number of tokens to mask for each instance in the
                 dataset.
-            recursive: Should roar masking be applied recursively.
+            recursive (bool): Should roar masking be applied recursively.
                 If recursive is used, the model should be trained for k-1
                 and the base_dataset should be for k=0.
             importance_measure (str): Which importance measure to use. Supported values
-                are: "random" and "attention".
+                are: "random", "attention", and "gradient2.
         """
         super().__init__()
 
