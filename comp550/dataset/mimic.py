@@ -77,9 +77,9 @@ class MimicDataset(pl.LightningDataModule):
         for word in self.tokenizer.ids_to_token:
             if word == self.tokenizer.pad_token:
                 embeddings.append(np.zeros(300))
-            if word == self.tokenizer.digits_token:
+            elif word == self.tokenizer.digits_token:
                 embeddings.append(lookup[word])
-            if word in set(self.tokenizer.special_symbols) or word not in lookup:
+            elif word in set(self.tokenizer.special_symbols) or word not in lookup:
                 embeddings.append(rng.randn(300))
             else:
                 embeddings.append(lookup[word])
