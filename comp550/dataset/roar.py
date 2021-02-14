@@ -117,6 +117,8 @@ class ROARDataset(Dataset):
         elif importance_measure == 'gradient':
             self._importance_measure_calc = torch.jit.script(GradientImportanceMeasureModule(self._model))
             self._importance_measure_fn = self._importance_measure_gradient
+        elif importance_measure == 'integrated-gradient':
+            self._importance_measure_fn = self._importance_measure_integrated_gradient
         else:
             raise ValueError(f'{importance_measure} is not supported')
 
@@ -146,6 +148,28 @@ class ROARDataset(Dataset):
 
     def _importance_measure_gradient(self, batch):
         return self._importance_measure_calc(batch.cuda() if self._use_gpu else batch)
+
+    def _importance_measure_integrated_gradient(self, observation):
+
+        num_intervals = 20
+        observation_ig = torch.zeros_like(observation['sentence']).type(torch.float32).unsqueeze(0).unsqueeze(2)
+
+        for i in range(1, num_intervals+1):
+            batch = self.collate([observation])
+            batch['sentence'] = torch.nn.functional.one_hot(batch['sentence'], len(self.vocabulary))
+            batch['sentence'] = batch['sentence'].type(torch.float32)
+            batch['sentence'].requires_grad = True
+            batch['sentence'] = batch['sentence']*(i/num_intervals)
+
+            y, _ = self._model(batch)
+            yc = y[0, observation['label']]
+            yc_wrt_x, = torch.autograd.grad(yc, (batch['sentence'], ))
+
+            observation_ig = observation_ig + yc_wrt_x
+
+        observation_ig = (1/num_intervals)*batch['sentence']*observation_ig
+
+        return torch.norm(observation_ig.squeeze(0), 2, dim=1)
 
     def _mask_batch(self, batch):
         batch_importance = self._importance_measure_fn(batch)
