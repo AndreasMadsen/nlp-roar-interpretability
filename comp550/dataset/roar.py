@@ -152,7 +152,6 @@ class ROARDataset(Dataset):
     def _importance_measure_integrated_gradient(self, observation):
 
         num_intervals = 20
-
         observations = [observation]*num_intervals
         batch = self.collate(observations)
         batch['sentence'] = torch.nn.functional.one_hot(batch['sentence'], len(self.vocabulary))
