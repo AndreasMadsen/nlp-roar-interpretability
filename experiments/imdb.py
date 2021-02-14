@@ -101,7 +101,7 @@ if __name__ == '__main__':
         main_dataset.prepare_data()
 
     logger = TensorBoardLogger(f'{args.persistent_dir}/tensorboard', name=experiment_id)
-    model = SingleSequenceToClass(base_dataset.embedding())
+    model = SingleSequenceToClass(main_dataset.embedding())
 
     # Source uses the best model, measured with AUC metric, and evaluates every epoch.
     #  https://github.com/successar/AttentionExplanation/blob/master/Trainers/TrainerBC.py#L28

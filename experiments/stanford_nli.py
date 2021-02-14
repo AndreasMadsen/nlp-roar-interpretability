@@ -97,7 +97,7 @@ if __name__ == "__main__":
         main_dataset.prepare_data()
 
     logger = TensorBoardLogger(f'{args.persistent_dir}/tensorboard', name=experiment_id)
-    model = MultipleSequenceToClass(base_dataset.embedding())
+    model = MultipleSequenceToClass(main_dataset.embedding())
 
     """
     Original implementation chooses the best checkpoint on the basis of accuracy
