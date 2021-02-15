@@ -6,10 +6,25 @@ import os.path as path
 from tqdm import tqdm
 import numpy as np
 import torch
+import torch.nn as nn
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 
 from comp550.util import generate_experiment_id
+
+class GradientModule(nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self._model = model
+
+    def forward(self, batch, output_idx, wrt):
+        # Compute model
+        y, _ = self._model(batch)
+
+        # Compute gradient
+        yc = y[0, output_idx]
+        yc_wrt_x, = torch.autograd.grad(yc, (wrt, ))
+        return yc_wrt_x
 
 class ROARDataset(pl.LightningDataModule):
     """Loads a dataset with masking for ROAR."""
@@ -34,6 +49,7 @@ class ROARDataset(pl.LightningDataModule):
 
         self._cachedir = cachedir
         self._model = model
+        self._grad_model = torch.jit.script(GradientModule(model))
         self._base_dataset = base_dataset
         self._k = k
         self._recursive = recursive
@@ -105,12 +121,7 @@ class ROARDataset(pl.LightningDataModule):
         batch['sentence'] = batch['sentence'].type(torch.float32)
         batch['sentence'].requires_grad = True
 
-        # Compute model
-        y, _ = self._model(batch)
-
-        # Compute gradient
-        yc = y[0, observation['label']]
-        yc_wrt_x, = torch.autograd.grad(yc, (batch['sentence'], ))
+        yc_wrt_x = self._grad_model(batch, observation['label'], batch['sentence'])
 
         # Normalize the vector-gradient per token into one scalar
         return torch.norm(torch.squeeze(yc_wrt_x, 0), 2, dim=1)

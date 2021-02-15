@@ -22,7 +22,7 @@ class _Encoder(nn.Module):
         h1 = self.embedding(x)
         h1_packed = nn.utils.rnn.pack_padded_sequence(h1, length, batch_first=True, enforce_sorted=False)
         h2_packed, _ = self.rnn(h1_packed)
-        h2_unpacked, _ = nn.utils.rnn.pad_packed_sequence(h2_packed, batch_first=True, padding_value=0)
+        h2_unpacked, _ = nn.utils.rnn.pad_packed_sequence(h2_packed, batch_first=True, padding_value=0.0)
         return h2_unpacked
 
 class _Attention(nn.Module):
