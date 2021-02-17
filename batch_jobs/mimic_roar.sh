@@ -1,5 +1,5 @@
 #!/bin/bash
-declare -A time=( ["random"]="1:20:0" ["attention"]="1:20:0" ["gradient"]="2:20:0")
+declare -A time=( ["random"]="1:20:0" ["attention"]="1:20:0" ["gradient"]="9:00:0")
 
 for seed in {0..4}
 do
