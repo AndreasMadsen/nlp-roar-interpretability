@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     print('Babi ...')
     for i in range(1, 4):
-        babi = BabiDataModule(cachedir=f'{args.persistent_dir}/cache', task_idx=i)
+        babi = BabiDataModule(cachedir=f'{args.persistent_dir}/cache', task=i)
         babi.prepare_data()
 
     print("Download complete!")
