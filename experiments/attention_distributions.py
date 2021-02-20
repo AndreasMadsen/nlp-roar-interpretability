@@ -9,7 +9,6 @@ from tqdm import tqdm
 from comp550.dataset import (
     SNLIDataModule,
     StanfordSentimentDataset,
-    ROARDataset,
     IMDBDataModule,
     BabiDataModule,
     MimicDataset,
@@ -104,6 +103,7 @@ if __name__ == "__main__":
 
     datasets = [
         StanfordSentimentDataset,
+        SNLIDataModule,
         IMDBDataModule,
         partial(BabiDataModule, task=1),
         partial(BabiDataModule, task=2),
