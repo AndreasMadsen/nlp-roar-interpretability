@@ -142,7 +142,8 @@ class ROARDataset(pl.LightningDataModule):
 
     def _mask_dataset(self, dataloader, name):
         outputs = []
-        for batched_observation in tqdm(dataloader(batch_size=1, num_workers=0), desc=f'Building {name} dataset', leave=False):
+        for batched_observation in tqdm(dataloader(batch_size=1, num_workers=0, shuffle=False),
+                                        desc=f'Building {name} dataset', leave=False):
             outputs.append(self._mask_observation(self.uncollate(batched_observation)[0]))
         return outputs
 
@@ -190,21 +191,23 @@ class ROARDataset(pl.LightningDataModule):
         else:
             raise ValueError(f'unexpected setup stage: {stage}')
 
-    def train_dataloader(self, batch_size=None, num_workers=None):
+    def train_dataloader(self, batch_size=None, num_workers=None, shuffle=True):
         return DataLoader(
             self._train,
             batch_size=batch_size or self.batch_size, collate_fn=self.collate,
             num_workers=self._num_workers if num_workers is None else num_workers,
-            shuffle=True)
+            shuffle=shuffle)
 
-    def val_dataloader(self, batch_size=None, num_workers=None):
+    def val_dataloader(self, batch_size=None, num_workers=None, shuffle=False):
         return DataLoader(
             self._val,
             batch_size=batch_size or self.batch_size, collate_fn=self.collate,
-            num_workers=self._num_workers if num_workers is None else num_workers)
+            num_workers=self._num_workers if num_workers is None else num_workers,
+            shuffle=shuffle)
 
-    def test_dataloader(self, batch_size=None, num_workers=None):
+    def test_dataloader(self, batch_size=None, num_workers=None, shuffle=False):
         return DataLoader(
             self._test,
             batch_size=batch_size or self.batch_size, collate_fn=self.collate,
-            num_workers=self._num_workers if num_workers is None else num_workers)
+            num_workers=self._num_workers if num_workers is None else num_workers,
+            shuffle=shuffle)

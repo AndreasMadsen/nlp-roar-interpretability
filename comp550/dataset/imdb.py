@@ -186,18 +186,20 @@ class IMDBDataModule(pl.LightningDataModule):
           in zip(batch['sentence'], batch['mask'], batch['length'],
                  batch['label'], batch['index'])]
 
-    def train_dataloader(self, batch_size=None, num_workers=None):
+    def train_dataloader(self, batch_size=None, num_workers=None, shuffle=True):
         return DataLoader(self._train,
                           batch_size=batch_size or self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers if num_workers is None else num_workers,
-                          shuffle=True)
+                          shuffle=shuffle)
 
-    def val_dataloader(self, batch_size=None, num_workers=None):
+    def val_dataloader(self, batch_size=None, num_workers=None, shuffle=False):
         return DataLoader(self._val,
                           batch_size=batch_size or self.batch_size, collate_fn=self.collate,
-                          num_workers=self._num_workers if num_workers is None else num_workers)
+                          num_workers=self._num_workers if num_workers is None else num_workers,
+                          shuffle=shuffle)
 
-    def test_dataloader(self, batch_size=None, num_workers=None):
+    def test_dataloader(self, batch_size=None, num_workers=None, shuffle=False):
         return DataLoader(self._test,
                           batch_size=batch_size or self.batch_size, collate_fn=self.collate,
-                          num_workers=self._num_workers if num_workers is None else num_workers)
+                          num_workers=self._num_workers if num_workers is None else num_workers,
+                          shuffle=shuffle)
