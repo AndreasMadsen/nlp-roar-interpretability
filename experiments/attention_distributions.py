@@ -14,7 +14,6 @@ from comp550.dataset import (
     MimicDataset,
 )
 from comp550.model import SingleSequenceToClass, MultipleSequenceToClass
-from comp550 import util
 
 thisdir = os.path.dirname(os.path.realpath(__file__))
 parser = argparse.ArgumentParser(description="Quantify attention sparsity")
@@ -63,15 +62,6 @@ def _get_alphas(dataset, model, device):
     return alphas
 
 
-def _get_experiment_ids(dataset_name, num_seeds=5):
-    return [
-        util.generate_experiment_id(
-            dataset_name, seed, k=0, importance_measure=None, recursive=False
-        )
-        for seed in range(num_seeds)
-    ]
-
-
 def _load_model(dataset, checkpoint_path):
     # Load either a SingleSequenceToClass or MultipleSequenceToClass model
     # depending on the dataset with the correct parameters.
@@ -118,9 +108,10 @@ if __name__ == "__main__":
         dataset.prepare_data()
         dataset.setup("fit")
 
-        experiment_ids = _get_experiment_ids(dataset.name, num_seeds=args.num_seeds)
+        for seed in range(args.num_seeds):
+            # Assumes experiment IDs are of the form "{dataset.name}_s-{seed}"
+            experiment_id = f"{dataset.name}_s-{seed}"
 
-        for experiment_id in experiment_ids:
             checkpoint_path = (
                 f"{args.persistent_dir}/checkpoints/{experiment_id}/checkpoint.ckpt"
             )
@@ -128,7 +119,11 @@ if __name__ == "__main__":
 
             # Compute attention distributions
             alphas = _get_alphas(dataset, model, device)
-            results[experiment_id] = alphas
+            results[experiment_id] = {
+                "dataset_name": dataset.name,
+                "seed": seed,
+                "alphas": alphas,
+            }
 
     os.makedirs(f"{args.persistent_dir}/cache/encoded", exist_ok=True)
     with open(f"{args.persistent_dir}/cache/encoded/alphas.pkl", "wb") as f:
