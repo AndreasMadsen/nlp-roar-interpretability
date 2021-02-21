@@ -9,7 +9,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from comp550.dataset import IMDBDataModule, ROARDataset
+from comp550.dataset import IMDBDataset, ROARDataset
 from comp550.model import SingleSequenceToClass
 from comp550.util import generate_experiment_id
 
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     print(f' - recursive: {args.recursive}')
     print(f' - importance_measure: {args.importance_measure}')
 
-    base_dataset = IMDBDataModule(
+    base_dataset = IMDBDataset(
         cachedir=f'{args.persistent_dir}/cache',
         num_workers=args.num_workers
     )

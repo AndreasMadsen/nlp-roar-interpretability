@@ -1,29 +1,26 @@
 
-from comp550.dataset.tokenizer import Tokenizer
 import os.path as path
 import re
 import os
-import random
 import pickle
-import warnings
 import requests
 from multiprocessing import Pool
-from functools import partial
 
-import torchtext
-import torch
 import spacy
 import numpy as np
 import pandas as pd
-import pytorch_lightning as pl
 from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader
 from gensim.models import Word2Vec, KeyedVectors
-from tqdm import tqdm
 
-from .tokenizer import Tokenizer
+from ._tokenizer import Tokenizer
+from ._single_sequence_dataset import SingleSequenceDataset
 
 class _Normalizer(Tokenizer):
+    def __init__(self):
+        super().__init__()
+        self._tokenizer = spacy.load('en_core_web_sm',
+                                     disable=['parser', 'tagger', 'ner'])
+
     def normalize(self, sentence):
         sentence = re.sub(r'\[\s*\*\s*\*(.*?)\*\s*\*\s*\]', ' <DE> ', sentence)
         sentence = re.sub(r'([^a-zA-Z0-9])(\s*\1\s*)+', r'\1 ', sentence)
@@ -37,41 +34,28 @@ class _Normalizer(Tokenizer):
 
 class MimicTokenizer(Tokenizer):
     def __init__(self):
-        super().__init__()
-        self.min_df = 5
+        super().__init__(min_df=5)
 
     def tokenize(self, sentence):
         return sentence.split(' ')
 
-class MimicDataset(pl.LightningDataModule):
+class MimicDataset(SingleSequenceDataset):
     """Loads the Diabetes or Anemia dataset from MIMIC (III)
 
     Note that there are special min-max lengths, see:
         https://github.com/successar/AttentionExplanation/blob/master/Trainers/DatasetBC.py#L113
     """
-    def __init__(self, cachedir, mimicdir, batch_size=32, seed=0, num_workers=4, subset='diabetes'):
-        super().__init__()
+    def __init__(self, cachedir, mimicdir, subset='diabetes', batch_size=32, **kwargs):
         if subset not in ['diabetes', 'anemia']:
             raise ValueError('subset must be either "diabetes" or "anemia"')
 
-        self._cachedir = path.realpath(cachedir)
+        super().__init__(cachedir, f'mimic-{subset[0]}', MimicTokenizer(), batch_size=batch_size, **kwargs)
         self._mimicdir = path.realpath(mimicdir)
-        self.batch_size = batch_size
-        self._seed = seed
-        self._num_workers = num_workers
         self._subset = subset
-
-        self.tokenizer = MimicTokenizer()
         self.label_names = ['negative', 'positive']
-        self.name = f'mimic-{subset[0]}'
-
-    @property
-    def vocabulary(self):
-        return self.tokenizer.ids_to_token
 
     def embedding(self):
         lookup = KeyedVectors.load(f'{self._cachedir}/embeddings/mimic.wv')
-        rng = np.random.RandomState(self._seed)
 
         embeddings = []
         for word in self.tokenizer.ids_to_token:
@@ -80,7 +64,7 @@ class MimicDataset(pl.LightningDataModule):
             elif word == self.tokenizer.digits_token:
                 embeddings.append(lookup[word])
             elif word in set(self.tokenizer.special_symbols) or word not in lookup:
-                embeddings.append(rng.randn(300))
+                embeddings.append(self._np_rng.randn(300))
             else:
                 embeddings.append(lookup[word])
 
@@ -89,11 +73,11 @@ class MimicDataset(pl.LightningDataModule):
     def prepare_data(self):
         # Short-circuit the build logic if the minimum-required files exists
         if (path.exists(f'{self._cachedir}/embeddings/mimic.wv') and
-            path.exists(self._cachedir + '/vocab/mimic_anemia.vocab') and
-            path.exists(self._cachedir + '/vocab/mimic_diabetes.vocab') and
-            path.exists(f'{self._cachedir}/encoded/mimic_anemia.pkl') and
-            path.exists(f'{self._cachedir}/encoded/mimic_diabetes.pkl')):
-            self.tokenizer.from_file(self._cachedir + f'/vocab/mimic_{self._subset}.vocab')
+            path.exists(f'{self._cachedir}/vocab/mimic-a.vocab') and
+            path.exists(f'{self._cachedir}/vocab/mimic-d.vocab') and
+            path.exists(f'{self._cachedir}/encoded/mimic-a.pkl') and
+            path.exists(f'{self._cachedir}/encoded/mimic-d.pkl')):
+            self.tokenizer.from_file(f'{self._cachedir}/vocab/{self.name}.vocab')
             return
 
         # Ensure that confidential files exists
@@ -140,7 +124,7 @@ class MimicDataset(pl.LightningDataModule):
 
             # Clean data
             print('Cleaning MIMIC')
-            with Pool(processes=self._num_workers) as p:
+            with Pool(processes=max(1, self._num_workers)) as p:
                 df_merged['TEXT'] = p.map(_Normalizer().normalize, df_merged['TEXT'])
             df_merged.to_csv(f'{self._cachedir}/mimic-dataset/merged.csv.gz', compression='gzip', index=False)
 
@@ -153,12 +137,12 @@ class MimicDataset(pl.LightningDataModule):
 
             embedding = Word2Vec(map(lambda x: x.split(' '), df_merged['TEXT']),
                             size=300, window=10, min_count=2,
-                            workers=self._num_workers)
+                            workers=max(1, self._num_workers))
             embedding.wv.save(f'{self._cachedir}/embeddings/mimic.wv')
 
         # Build anemia dataset
         os.makedirs(f'{self._cachedir}/encoded', exist_ok=True)
-        if not path.exists(f'{self._cachedir}/encoded/mimic_anemia.pkl'):
+        if not path.exists(f'{self._cachedir}/encoded/mimic-a.pkl'):
             print('building anemia dataset')
             if df_merged is None:
                 df_merged = pd.read_csv(f'{self._cachedir}/mimic-dataset/merged.csv.gz', compression='gzip')
@@ -180,10 +164,10 @@ class MimicDataset(pl.LightningDataModule):
                                                   test_size=0.15, random_state=13448)
 
             # Build vocabulary
-            os.makedirs(self._cachedir + '/vocab', exist_ok=True)
+            os.makedirs(f'{self._cachedir}/vocab', exist_ok=True)
             tokenizer_anemia = MimicTokenizer()
             tokenizer_anemia.from_iterable(df_anemia.iloc[train_idx, :].loc[:, 'TEXT'])
-            tokenizer_anemia.to_file(self._cachedir + '/vocab/mimic_anemia.vocab')
+            tokenizer_anemia.to_file(f'{self._cachedir}/vocab/mimic-a.vocab')
 
             # Encode dataset
             data_anemia = {}
@@ -201,12 +185,12 @@ class MimicDataset(pl.LightningDataModule):
                 data_anemia[name] = observations
 
             # Save dataset
-            with open(self._cachedir + '/encoded/mimic_anemia.pkl', 'wb') as fp:
+            with open(f'{self._cachedir}/encoded/mimic-a.pkl', 'wb') as fp:
                 pickle.dump(data_anemia, fp)
 
         # Build diabetes dataset
         os.makedirs(f'{self._cachedir}/encoded', exist_ok=True)
-        if not path.exists(f'{self._cachedir}/encoded/mimic_diabetes.pkl'):
+        if not path.exists(f'{self._cachedir}/encoded/mimic-d.pkl'):
             print('building diabetes dataset')
             if df_merged is None:
                 df_merged = pd.read_csv(f'{self._cachedir}/mimic-dataset/merged.csv.gz', compression='gzip')
@@ -228,10 +212,10 @@ class MimicDataset(pl.LightningDataModule):
             )
 
             # Build vocabulary
-            os.makedirs(self._cachedir + '/vocab', exist_ok=True)
+            os.makedirs(f'{self._cachedir}/vocab', exist_ok=True)
             tokenizer_diabetes = MimicTokenizer()
             tokenizer_diabetes.from_iterable(df_diabetes.loc[df_diabetes['HADM_ID'].isin(hadm_ids['train']), 'TEXT'])
-            tokenizer_diabetes.to_file(self._cachedir + '/vocab/mimic_diabetes.vocab')
+            tokenizer_diabetes.to_file(f'{self._cachedir}/vocab/mimic-d.vocab')
 
             # Encode dataset
             data_diabetes = {}
@@ -250,67 +234,8 @@ class MimicDataset(pl.LightningDataModule):
                 data_diabetes[name] = observations
 
             # Save dataset
-            with open(self._cachedir + '/encoded/mimic_diabetes.pkl', 'wb') as fp:
+            with open(f'{self._cachedir}/encoded/mimic-d.pkl', 'wb') as fp:
                 pickle.dump(data_diabetes, fp)
 
         # Load relevant vocabulary
-        self.tokenizer.from_file(self._cachedir + f'/vocab/mimic_{self._subset}.vocab')
-
-    def _process_data(self, data):
-        return [{
-            'sentence': torch.tensor(x['sentence'], dtype=torch.int64),
-            'mask': torch.tensor(self.tokenizer.mask(x['sentence']), dtype=torch.bool),
-            'length': len(x['sentence']),
-            'label': torch.tensor(x['label'], dtype=torch.int64),
-            'index': torch.tensor(x['index'], dtype=torch.int64)
-        } for x in data]
-
-    def setup(self, stage=None):
-        with open(self._cachedir + f'/encoded/mimic_{self._subset}.pkl', 'rb') as fp:
-            data = pickle.load(fp)
-        if stage == 'fit':
-            self._train = self._process_data(data['train'])
-            self._val = self._process_data(data['val'])
-        elif stage == 'test':
-            self._test = self._process_data(data['test'])
-        else:
-            raise ValueError(f'unexpected setup stage: {stage}')
-
-    def collate(self, observations):
-        return {
-            'sentence': self.tokenizer.stack_pad([observation['sentence'] for observation in observations]),
-            'mask': self.tokenizer.stack_pad([observation['mask'] for observation in observations]),
-            'length': [observation['length'] for observation in observations],
-            'label': torch.stack([observation['label'] for observation in observations]),
-            'index': torch.stack([observation['index'] for observation in observations])
-        }
-
-    def uncollate(self, batch):
-        return [{
-            'sentence': sentence[:length],
-            'mask': mask[:length],
-            'length': length,
-            'label': label,
-            'index': index
-        } for sentence, mask, length,
-              label, index
-          in zip(batch['sentence'], batch['mask'], batch['length'],
-                 batch['label'], batch['index'])]
-
-    def train_dataloader(self, batch_size=None, num_workers=None, shuffle=True):
-        return DataLoader(self._train,
-                          batch_size=batch_size or self.batch_size, collate_fn=self.collate,
-                          num_workers=self._num_workers if num_workers is None else num_workers,
-                          shuffle=shuffle)
-
-    def val_dataloader(self, batch_size=None, num_workers=None, shuffle=False):
-        return DataLoader(self._val,
-                          batch_size=batch_size or self.batch_size, collate_fn=self.collate,
-                          num_workers=self._num_workers if num_workers is None else num_workers,
-                          shuffle=shuffle)
-
-    def test_dataloader(self, batch_size=None, num_workers=None, shuffle=False):
-        return DataLoader(self._test,
-                          batch_size=batch_size or self.batch_size, collate_fn=self.collate,
-                          num_workers=self._num_workers if num_workers is None else num_workers,
-                          shuffle=shuffle)
+        self.tokenizer.from_file(f'{self._cachedir}/vocab/{self.name}.vocab')

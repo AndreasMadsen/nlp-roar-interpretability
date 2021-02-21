@@ -3,8 +3,8 @@ import torch
 from collections import Counter
 
 class Tokenizer:
-    def __init__(self):
-
+    def __init__(self, min_df=1):
+        self.min_df = min_df
         self.ids_to_token = []
         self.token_to_ids = {}
 
@@ -25,9 +25,6 @@ class Tokenizer:
             self.start_token, self.end_token,
             self.mask_token, self.unknown_token
         ]
-
-        self._tokenizer = spacy.load('en_core_web_sm', disable=[
-                                     'parser', 'tagger', 'ner'])
 
     def _update_token_to_ids(self):
         self.token_to_ids = {

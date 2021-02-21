@@ -10,7 +10,7 @@ from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from comp550.dataset import BabiDataModule, ROARDataset
+from comp550.dataset import BabiDataset, ROARDataset
 from comp550.model import MultipleSequenceToClass
 from comp550.util import generate_experiment_id
 
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     print(f' - recursive: {args.recursive}')
     print(f' - importance_measure: {args.importance_measure}')
 
-    base_dataset = BabiDataModule(
+    base_dataset = BabiDataset(
         cachedir=f'{args.persistent_dir}/cache',
         num_workers=args.num_workers,
         task=args.task
