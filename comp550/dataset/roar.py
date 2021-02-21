@@ -162,10 +162,6 @@ class ROARDataset(Dataset):
         interval = torch.arange(1, num_intervals + 1)/num_intervals
         batch['sentence'] = batch['sentence'] * interval.unsqueeze(1).unsqueeze(2)
 
-        for k in batch.keys():
-            if k is not 'length':
-                batch[k] = batch[k].cuda()
-        
         y, _ = self._model(batch)
         yc = y[:, observation['label']]
 
