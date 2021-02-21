@@ -82,7 +82,7 @@ class ROARDataset(Dataset):
                 If recursive is used, the model should be trained for k-1
                 and the base_dataset should be for k=0.
             importance_measure (str): Which importance measure to use. Supported values
-                are: "random", "attention", and "gradient2.
+                are: "random", "attention", "gradient" and "integrated-gradient".
         """
         super().__init__(cachedir, base_dataset.name,
                          base_dataset.tokenizer, batch_size=base_dataset.batch_size,
@@ -152,24 +152,28 @@ class ROARDataset(Dataset):
     def _importance_measure_integrated_gradient(self, observation):
 
         num_intervals = 20
-        observation_ig = torch.zeros_like(observation['sentence']).type(torch.float32).unsqueeze(0).unsqueeze(2)
 
-        for i in range(1, num_intervals+1):
-            batch = self.collate([observation])
-            batch['sentence'] = torch.nn.functional.one_hot(batch['sentence'], len(self.vocabulary))
-            batch['sentence'] = batch['sentence'].type(torch.float32)
-            batch['sentence'].requires_grad = True
-            batch['sentence'] = batch['sentence']*(i/num_intervals)
+        observations = [observation]*num_intervals
+        batch = self.collate(observations)
+        batch['sentence'] = torch.nn.functional.one_hot(batch['sentence'], len(self.vocabulary))
+        batch['sentence'] = batch['sentence'].type(torch.float32)
+        batch['sentence'].requires_grad = True
 
-            y, _ = self._model(batch)
-            yc = y[0, observation['label']]
-            yc_wrt_x, = torch.autograd.grad(yc, (batch['sentence'], ))
+        interval = torch.arange(1, num_intervals + 1)/num_intervals
+        batch['sentence'] = batch['sentence'] * interval.unsqueeze(1).unsqueeze(2)
 
-            observation_ig = observation_ig + yc_wrt_x
+        for k in batch.keys():
+            if k is not 'length':
+                batch[k] = batch[k].cuda()
+        
+        y, _ = self._model(batch)
+        yc = y[:, observation['label']]
 
-        observation_ig = (1/num_intervals)*batch['sentence']*observation_ig
+        yc_wrt_x = torch.autograd.grad(yc.sum(), (batch['sentence']))[0]
+        yc_wrt_x = yc_wrt_x.sum(dim=0)
+        yc_wrt_x = (1/num_intervals)*batch['sentence'][-1]*yc_wrt_x
 
-        return torch.norm(observation_ig.squeeze(0), 2, dim=1)
+        return torch.norm(yc_wrt_x, 2, dim=1)
 
     def _mask_batch(self, batch):
         batch_importance = self._importance_measure_fn(batch)
