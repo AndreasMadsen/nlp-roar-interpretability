@@ -79,6 +79,7 @@ class SNLIDataset(PairedSequenceDataset):
         if (path.exists(f'{self._cachedir}/vocab/snli.vocab') and
             path.exists(f'{self._cachedir}/encoded/snli.pkl')):
             self.tokenizer.from_file(f'{self._cachedir}/vocab/snli.vocab')
+            return
 
         # Download and parse data
         dataset = {}
