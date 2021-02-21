@@ -93,7 +93,7 @@ class ROARDataset(pl.LightningDataModule):
     def _importance_measure_attention(self, batch):
         with torch.no_grad():
             _, alpha = self._model(batch)
-        return torch.squeeze(alpha)
+        return alpha
 
     def _importance_measure_gradient(self, batch):
         # Make a shallow copy, because batch['sentence'] will be overwritten
