@@ -15,7 +15,7 @@ class ROARDataset(Dataset):
 
     def __init__(self, cachedir, model, base_dataset,
                  k=1, recursive=False, importance_measure='attention',
-                 seed=0, _ensure_exists=False, **kwargs):
+                 seed=0, _read_from_cache=False, **kwargs):
         """
         Args:
             model: The model to use to determine which tokens to mask.
@@ -37,6 +37,7 @@ class ROARDataset(Dataset):
         self._k = k
         self._recursive = recursive
         self._importance_measure = importance_measure
+        self._read_from_cache = _read_from_cache
 
         self._basename = generate_experiment_id(base_dataset.name, seed, k, importance_measure, recursive)
 
@@ -49,7 +50,7 @@ class ROARDataset(Dataset):
         else:
             raise ValueError(f'{importance_measure} is not supported')
 
-        if _ensure_exists:
+        if _read_from_cache:
             if not path.exists(f'{self._cachedir}/encoded-roar/{self._basename}.pkl'):
                 raise IOError((f'The ROAR dataset "{self._basename}", does not exists.'
                                f' For optimization reasons it has been decided that the k-1 ROAR dataset must exist'))
@@ -139,7 +140,7 @@ class ROARDataset(Dataset):
 
     def prepare_data(self):
         # Encode data
-        if not path.exists(f'{self._cachedir}/encoded-roar/{self._basename}.pkl'):
+        if not self._read_from_cache:
             os.makedirs(self._cachedir + '/encoded-roar', exist_ok=True)
 
             # If we are in a recursive situation, load the k-1 ROAR dataset
@@ -153,7 +154,7 @@ class ROARDataset(Dataset):
                     importance_measure=self._importance_measure,
                     seed=self._seed,
                     num_workers=self._num_workers,
-                    _ensure_exists=True
+                    _read_from_cache=True
                 )
             else:
                 base_dataset = self._base_dataset
