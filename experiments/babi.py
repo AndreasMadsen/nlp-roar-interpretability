@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
     logger = TensorBoardLogger(f'{args.persistent_dir}/tensorboard', name=experiment_id)
     model = MultipleSequenceToClass(
-        base_dataset.embedding(), hidden_size=32, num_of_classes=len(base_dataset.label_names))
+        main_dataset.embedding(), hidden_size=32, num_of_classes=len(main_dataset.label_names))
 
     checkpoint_callback = ModelCheckpoint(
         monitor="acc_val",
