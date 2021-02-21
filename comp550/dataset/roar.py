@@ -166,12 +166,15 @@ class ROARDataset(Dataset):
         batch['sentence'] = batch['sentence'] * interval.unsqueeze(1).unsqueeze(2)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
         for k in batch.keys():
             if k is not 'length':
                 batch[k] = batch[k].cuda()
         
 >>>>>>> IG computation batched for each example
+=======
+>>>>>>> minor correction
         y, _ = self._model(batch)
         yc = y[:, observation['label']]
 
