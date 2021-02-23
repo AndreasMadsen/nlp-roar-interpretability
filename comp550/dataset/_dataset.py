@@ -44,6 +44,15 @@ class Dataset(pl.LightningDataModule):
         else:
             raise ValueError(f'unexpected setup stage: {stage}')
 
+    def clean(self, stage=None):
+        if stage == 'fit':
+            del self._train
+            del self._val
+        elif stage == 'test':
+            del self._test
+        else:
+            raise ValueError(f'unexpected setup stage: {stage}')
+
     def train_dataloader(self, batch_size=None, num_workers=None, shuffle=True):
         return DataLoader(self._train,
                           batch_size=batch_size or self.batch_size, collate_fn=self.collate,

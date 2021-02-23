@@ -15,7 +15,7 @@ class ROARDataset(Dataset):
 
     def __init__(self, cachedir, model, base_dataset,
                  k=1, recursive=False, importance_measure='attention',
-                 seed=0, _read_from_cache=False, **kwargs):
+                 use_gpu=False, seed=0, _read_from_cache=False, **kwargs):
         """
         Args:
             model: The model to use to determine which tokens to mask.
@@ -37,6 +37,7 @@ class ROARDataset(Dataset):
         self._k = k
         self._recursive = recursive
         self._importance_measure = importance_measure
+        self._use_gpu = use_gpu
         self._read_from_cache = _read_from_cache
 
         self._basename = generate_experiment_id(base_dataset.name, seed, k, importance_measure, recursive)
@@ -54,6 +55,16 @@ class ROARDataset(Dataset):
             if not path.exists(f'{self._cachedir}/encoded-roar/{self._basename}.pkl'):
                 raise IOError((f'The ROAR dataset "{self._basename}", does not exists.'
                                f' For optimization reasons it has been decided that the k-1 ROAR dataset must exist'))
+
+    def _move_to_cuda(self, batch):
+        if self._use_gpu:
+            return {
+                key:val.cuda() if isinstance(val, torch.Tensor) else val
+                for key, val
+                in batch.items()
+            }
+        else:
+            return batch
 
     @property
     def label_names(self):
@@ -73,7 +84,7 @@ class ROARDataset(Dataset):
 
     def _importance_measure_attention(self, batch):
         with torch.no_grad():
-            _, alpha = self._model(batch)
+            _, alpha = self._model(self._move_to_cuda(batch))
         return alpha
 
     def _importance_measure_gradient(self, batch):
@@ -87,7 +98,7 @@ class ROARDataset(Dataset):
         batch['sentence'].requires_grad = True
 
         # Compute model
-        y, _ = self._model(batch)
+        y, _ = self._model(self._move_to_cuda(batch))
 
         # Select correct label, as we would like gradient of y[correct_label] w.r.t. x
         yc = y[torch.arange(len(batch['label'])), batch['label']]
@@ -106,6 +117,8 @@ class ROARDataset(Dataset):
 
     def _mask_batch(self, batch):
         batch_importance = self._importance_measure_fn(batch)
+        if self._use_gpu:
+            batch_importance = batch_importance.cpu()
 
         masked_batch = []
         with torch.no_grad():
@@ -133,7 +146,7 @@ class ROARDataset(Dataset):
 
     def _mask_dataset(self, dataloader, name):
         outputs = []
-        for batch in tqdm(dataloader(batch_size=self.batch_size, num_workers=0, shuffle=False),
+        for batch in tqdm(dataloader(batch_size=8, num_workers=0, shuffle=False),
                           desc=f'Building {name} dataset', leave=False):
             outputs += self._mask_batch(batch)
         return outputs
@@ -159,17 +172,27 @@ class ROARDataset(Dataset):
             else:
                 base_dataset = self._base_dataset
 
+            # Mask each dataset split according to the importance measure
+            if self._use_gpu:
+                self._model.cuda()
+
             base_dataset.setup('fit')
+            train = self._mask_dataset(base_dataset.train_dataloader, 'train')
+            val = self._mask_dataset(base_dataset.val_dataloader, 'val')
+            base_dataset.clean('fit')
+
             base_dataset.setup('test')
+            test = self._mask_dataset(base_dataset.test_dataloader, 'test')
+            base_dataset.clean('test')
 
-            data = {
-                'train': self._mask_dataset(base_dataset.train_dataloader, 'train'),
-                'val': self._mask_dataset(base_dataset.val_dataloader, 'val'),
-                'test': self._mask_dataset(base_dataset.test_dataloader, 'test')
-            }
-
+            # save data
             with open(f'{self._cachedir}/encoded-roar/{self._basename}.pkl', 'wb') as fp:
-                pickle.dump(data, fp)
+                pickle.dump({'train': train, 'val': val, 'test': test}, fp)
+
+            # Free the refcount to the model, as it is not required anymore
+            del self._model
+            # Because the self._model ref no longer exists, the dataset can't be rebuild
+            self._read_from_cache = True
 
     def setup(self, stage=None):
         with open(f'{self._cachedir}/encoded-roar/{self._basename}.pkl', 'rb') as fp:
