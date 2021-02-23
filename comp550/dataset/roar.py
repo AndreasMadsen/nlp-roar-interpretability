@@ -165,7 +165,7 @@ class ROARDataset(Dataset):
             data = {
                 'train': self._mask_dataset(base_dataset.train_dataloader, 'train'),
                 'val': self._mask_dataset(base_dataset.val_dataloader, 'val'),
-                'test': self._mask_dataset(base_dataset.val_dataloader, 'test')
+                'test': self._mask_dataset(base_dataset.test_dataloader, 'test')
             }
 
             with open(f'{self._cachedir}/encoded-roar/{self._basename}.pkl', 'wb') as fp:
