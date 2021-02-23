@@ -79,18 +79,17 @@ if __name__ == "__main__":
         main_dataset = base_dataset
     else:
         base_experiment_id = generate_experiment_id('snli', args.seed, args.k-1 if args.recursive else 0, args.importance_measure, args.recursive)
-        base_model = MultipleSequenceToClass.load_from_checkpoint(
-            checkpoint_path=f'{args.persistent_dir}/checkpoints/{base_experiment_id}/checkpoint.ckpt',
-            embedding=base_dataset.embedding()
-        )
-
         main_dataset = ROARDataset(
             cachedir=f'{args.persistent_dir}/cache',
-            model=base_model,
+            model=MultipleSequenceToClass.load_from_checkpoint(
+                checkpoint_path=f'{args.persistent_dir}/checkpoints/{base_experiment_id}/checkpoint.ckpt',
+                embedding=base_dataset.embedding()
+            ),
             base_dataset=base_dataset,
             k=args.k,
             recursive=args.recursive,
             importance_measure=args.importance_measure,
+            use_gpu=args.use_gpu,
             seed=args.seed,
             num_workers=args.num_workers,
         )
@@ -118,6 +117,7 @@ if __name__ == "__main__":
         gpus=int(args.use_gpu),
     )
     trainer.fit(model, main_dataset)
+    main_dataset.clean('fit')
 
     shutil.copyfile(
         checkpoint_callback.best_model_path,
