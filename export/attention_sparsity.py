@@ -1,9 +1,16 @@
 import argparse
 import os
-import pickle
+import os.path as path
+import json
+import glob
+import re
+from functools import partial
 
+import scipy.stats
 import numpy as np
 import pandas as pd
+import plotnine as p9
+from tqdm import tqdm
 
 thisdir = os.path.dirname(os.path.realpath(__file__))
 parser = argparse.ArgumentParser(description="Quantify attention sparsity")
@@ -18,90 +25,123 @@ parser.add_argument(
     "--mass", action="store", default=0.95, type=float, help="The percentage of mass"
 )
 
+def _aggregate_alpha(df):
+    sorted_cumsum = np.cumsum(np.sort(df['alpha']))
+    return pd.Series([
+        sorted_cumsum.size,
+        sorted_cumsum.size - np.sum(sorted_cumsum <= 0.20),
+        sorted_cumsum.size - np.sum(sorted_cumsum <= 0.10),
+        sorted_cumsum.size - np.sum(sorted_cumsum <= 0.05),
+        sorted_cumsum.size - np.sum(sorted_cumsum <= 0.01)
+    ], index=["length", "p80", "p90", "p95", "p99"])
 
-def _get_n_tokens_in_top_mass(alpha, mass=0.95):
-    # Compute the number of tokens that make up the largest `mass`% of the attention
-    # mass for each example (i.e. the smallest number of tokens that have a cumulative
-    # mass of atleast `mass`.
-    alpha = sorted(alpha, reverse=True)
+def _compute_stats_and_format(col, percentage=False):
+    mean = np.mean(col)
+    ci = np.abs(scipy.stats.t.ppf(0.025, df=col.size, scale=scipy.stats.sem(col)))
 
-    running_cum_mass = 0.0
-    n_tokens = 0
-    for value in alpha:
-        running_cum_mass += value
-        n_tokens += 1
-        if running_cum_mass > mass:
-            break
+    if percentage:
+        return f"${mean:.2%} \\pm {ci:.2%}$"
+    else:
+        return f"${mean:.2f} \\pm {ci:.2f}$"
 
-    return n_tokens
-
-
-def _get_pretty_mean_and_std(row):
-    print(row)
-    mean = row["mean"]
-    std = row["std"]
-    pretty_str = f"${mean:.2f} \\pm {std:.2f}$"
-    return pretty_str
-
+def _read_csv_tqdm(file, dtype=None, desc=None, leave=True):
+    return pd.concat(tqdm(pd.read_csv(file, dtype=dtype, chunksize=1_000_000, usecols=list(dtype.keys())),
+                     desc=desc, leave=leave))
 
 if __name__ == "__main__":
     args = parser.parse_args()
 
-    dataset_mapping = pd.DataFrame(
-        [
-            {"dataset_name": "sst", "dataset_pretty_name": "SST"},
-            {"dataset_name": "snli", "dataset_pretty_name": "SNLI"},
-            {"dataset_name": "imdb", "dataset_pretty_name": "IMDB"},
-            {"dataset_name": "babi-1", "dataset_pretty_name": "bAbI-1"},
-            {"dataset_name": "babi-2", "dataset_pretty_name": "bAbI-2"},
-            {"dataset_name": "babi-3", "dataset_pretty_name": "bAbI-3"},
-        ]
-    )
+    dataset_mapping = pd.DataFrame([
+        {"dataset": "sst", "print_name": "SST"},
+        {"dataset": "snli", "print_name": "SNLI"},
+        {"dataset": "imdb", "print_name": "IMDB"},
+        {"dataset": "babi-2", "print_name": "bAbI-2"},
+        {"dataset": "babi-1", "print_name": "bAbI-1"},
+        {"dataset": "babi-3", "print_name": "bAbI-3"},
+        {"dataset": "mimic-a", "print_name": "Diabetes"},
+        {"dataset": "mimic-d", "print_name": "Anemia"},
+    ])
 
-    with open(f"{args.persistent_dir}/cache/encoded/alphas.pkl", "rb") as f:
-        attention_distributions = pickle.load(f)
+    # Read CSV files into a dataframe and progressively aggregate the data
+    df_partials = []
+    df_partials_keys = []
+    for file in tqdm(glob.glob(f'{args.persistent_dir}/results/attention/*.csv.gz'), desc='Parsing and summarzing CSVs'):
+        dataset, seed = re.match(r'([0-9A-Za-z-]+)_s-(\d+)', path.basename(file)).groups()
 
-    results = []
-    for experiment_id, values in attention_distributions.items():
-        dataset_name = values["dataset_name"]
-        seed = values["seed"]
-        alphas = values["alphas"]
+        df_partial = _read_csv_tqdm(file, desc=f'Reading {dataset}_s-{seed}', leave=False, dtype={
+            'split': pd.CategoricalDtype(categories=["train", "val", "test"], ordered=True),
+            'observation': np.int32,
+            'index': np.int32,
+            'alpha': np.float64
+        })
 
-        # Compute number of tokens that make up of the top {args.mass}% of the mass
-        token_counts = [
-            _get_n_tokens_in_top_mass(alpha, mass=args.mass) for alpha in alphas
-        ]
-        # Average over examples in dataset
-        average_n_tokens = np.mean(token_counts)
+        tqdm.pandas(desc=f"Aggregating {dataset}_s-{seed}", leave=False)
+        df_partial = df_partial.groupby(['split', 'observation'], observed=True).progress_apply(_aggregate_alpha)
+        df_partial = pd.melt(df_partial,
+                             id_vars=['length'],
+                             value_vars=['p80', 'p90', 'p95', 'p99'],
+                             var_name='percentage',
+                             value_name='absolute',
+                             ignore_index=False)
+        df_partial['relative'] = df_partial['absolute'] / df_partial['length']
+        df_partials.append(df_partial)
+        df_partials_keys.append((dataset, int(seed)))
 
-        results.append(
-            {
-                "dataset_name": dataset_name,
-                "seed": seed,
-                "average_n_tokens": average_n_tokens,
-            }
-        )
+    df = pd.concat(df_partials, keys=df_partials_keys, names=['dataset', 'seed'])
 
-    df = pd.DataFrame(results)
-    df = df.merge(dataset_mapping, on="dataset_name").drop("dataset_name", axis=1)
     # Average over seeds
-    df = df.groupby("dataset_pretty_name").agg({"average_n_tokens": ["mean", "std"]})
-    df = df.xs("average_n_tokens", axis=1, drop_level=True)
-    df = df.reset_index()
-    df["pretty_mean_and_std"] = df.apply(
-        lambda row: _get_pretty_mean_and_std(row), axis=1
+    latex_df = df.loc[
+        pd.IndexSlice[:, :, 'train', :]
+    ].groupby(
+        ["dataset", "seed", "percentage"]
+    ).agg({
+        'length': 'mean',
+        'absolute': 'mean',
+        'relative': 'mean'
+    }).groupby(
+        ["dataset", "percentage"]
+    ).agg({
+        'length': partial(_compute_stats_and_format, percentage=False),
+        'absolute': partial(_compute_stats_and_format, percentage=False),
+        'relative': partial(_compute_stats_and_format, percentage=True)
+    }).reset_index(
+    ).merge(
+        dataset_mapping,
+        on="dataset"
+    ).pivot(
+        index=['print_name', 'length'],
+        columns=['percentage'],
+        values=['absolute', 'relative']
+    ).reset_index(
+        level='length'
     )
-    print(df)
-
-    latex_str = df.to_latex(
-        header=["Dataset", "Avg. num. tokens $\pm$ STD"],
-        columns=["dataset_pretty_name", "pretty_mean_and_std"],
-        float_format="%.2f",
-        escape=False,
-        index=False,
-        index_names=False,
-    )
-
+    print(latex_df)
     os.makedirs(f"{args.persistent_dir}/tables", exist_ok=True)
-    with open(f"{args.persistent_dir}/tables/attention_sparsity.tex", "w") as f:
-        f.write(latex_str)
+    latex_df.to_latex(f'{args.persistent_dir}/tables/attention_sparsity.tex', escape=False, index_names=False)
+
+    # Draw figure
+    plot_df = df.loc[
+        pd.IndexSlice[:, 0, 'train', :]
+    ].reset_index(
+    ).merge(
+        dataset_mapping,
+        on="dataset"
+    )
+
+    p = (p9.ggplot(plot_df, p9.aes(x='absolute', fill='percentage'))
+        + p9.geom_histogram(p9.aes(y=p9.after_stat('density')), position = "identity", alpha=0.5, bins=100)
+        + p9.facet_grid('print_name ~ .', scales='free')
+        + p9.labs(x = 'number of tokens attended to'))
+    # Save plot, the width is the \linewidth of a collumn in the LaTeX document
+    os.makedirs(f'{args.persistent_dir}/plots', exist_ok=True)
+    p.save(f'{args.persistent_dir}/plots/attention_absolute.pdf', width=3.03209, height=7, units='in')
+    p.save(f'{args.persistent_dir}/plots/attention_absolute.png', width=3.03209, height=7, units='in')
+
+    p = (p9.ggplot(plot_df, p9.aes(x='relative', fill='percentage'))
+        + p9.geom_histogram(p9.aes(y=p9.after_stat('density')), position = "identity", alpha=0.5, bins=100)
+        + p9.facet_grid('print_name ~ .')
+        + p9.labs(x = 'relative number of tokens attended to'))
+    # Save plot, the width is the \linewidth of a collumn in the LaTeX document
+    os.makedirs(f'{args.persistent_dir}/plots', exist_ok=True)
+    p.save(f'{args.persistent_dir}/plots/attention_relative.pdf', width=3.03209, height=7, units='in')
+    p.save(f'{args.persistent_dir}/plots/attention_relative.png', width=3.03209, height=7, units='in')
