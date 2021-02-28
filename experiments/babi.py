@@ -29,10 +29,21 @@ parser.add_argument("--k",
                     default=0,
                     type=int,
                     help="The proportion of tokens to mask.")
+parser.add_argument("--roar-strategy",
+                    action="store",
+                    default='absolute',
+                    type=str,
+                    choices=['count', 'quantile'],
+                    help="The meaning of k in terms of how to mask tokens.")
 parser.add_argument("--recursive",
                     action='store_true',
                     default=False,
                     help="Should ROAR masking be applied recursively.")
+parser.add_argument("--recursive-step-size",
+                    action="store",
+                    default=1,
+                    type=int,
+                    help="The proportion of tokens to mask.")
 parser.add_argument("--importance-measure",
                     action="store",
                     default='attention',
@@ -70,13 +81,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
     torch.set_num_threads(max(1, args.num_workers))
     pl.seed_everything(args.seed)
-    experiment_id = generate_experiment_id(f'babi-{args.task}', args.seed, args.k, args.importance_measure, args.recursive)
+    experiment_id = generate_experiment_id(f'babi-{args.task}', args.seed,
+                                           k=args.k,
+                                           strategy=args.roar_strategy,
+                                           importance_measure=args.importance_measure,
+                                           recursive=args.recursive)
 
     print(f'Running babi-{args.task}-ROAR experiment:')
     print(f' - k: {args.k}')
     print(f' - seed: {args.seed}')
-    print(f' - task: {args.task}')
+    print(f' - strategy: {args.roar_strategy}')
     print(f' - recursive: {args.recursive}')
+    print(f' - recursive_step_size: {args.recursive_step_size}')
     print(f' - importance_measure: {args.importance_measure}')
 
     base_dataset = BabiDataset(
@@ -90,7 +106,11 @@ if __name__ == "__main__":
     if args.k == 0:
         main_dataset = base_dataset
     else:
-        base_experiment_id = generate_experiment_id(f'babi-{args.task}', args.seed, args.k-1 if args.recursive else 0, args.importance_measure, args.recursive)
+        base_experiment_id = generate_experiment_id(f'babi-{args.task}', args.seed,
+                                                    k=args.k-args.recursive_step_size if args.recursive else 0,
+                                                    strategy=args.roar_strategy,
+                                                    importance_measure=args.importance_measure,
+                                                    recursive=args.recursive)
         main_dataset = ROARDataset(
             cachedir=f'{args.persistent_dir}/cache',
             model=MultipleSequenceToClass.load_from_checkpoint(
@@ -101,7 +121,9 @@ if __name__ == "__main__":
             ),
             base_dataset=base_dataset,
             k=args.k,
+            strategy=args.roar_strategy,
             recursive=args.recursive,
+            recursive_step_size=args.recursive_step_size,
             importance_measure=args.importance_measure,
             use_gpu=args.use_gpu,
             seed=args.seed,
@@ -143,6 +165,6 @@ if __name__ == "__main__":
 
     os.makedirs(f'{args.persistent_dir}/results', exist_ok=True)
     with open(f'{args.persistent_dir}/results/{experiment_id}.json', "w") as f:
-        json.dump({"seed": args.seed, "dataset": f"babi-{args.task}",
+        json.dump({"seed": args.seed, "dataset": f"babi-{args.task}", "strategy": args.roar_strategy,
                    "k": args.k, "recursive": args.recursive, "importance_measure": args.importance_measure,
                    **results}, f)
