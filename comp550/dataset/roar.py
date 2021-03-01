@@ -135,7 +135,7 @@ class ROARDataset(Dataset):
         with torch.no_grad():
             for importance, observation in zip(batch_importance, self.uncollate(batch)):
                 # Trim importance to the observation length
-                importance = importance[0:len(observation['sentence'])]
+                importance = importance[0:observation['length']]
 
                 # Prevent masked tokens from being "removed"
                 importance[torch.logical_not(observation['mask'])] = -np.inf
@@ -146,13 +146,13 @@ class ROARDataset(Dataset):
                 # Tokens to remove.
                 # Ensure that k does not exceed the number of un-masked tokens, if it does
                 # masked tokens will be "removed" too.
+                no_attended_elements = torch.sum(observation['mask'])
                 if self._strategy == 'count':
-                    k = torch.minimum(torch.tensor(self._k), torch.sum(observation['mask']))
-                    _, remove_indices = torch.topk(importance, k=k, sorted=False)
+                    k = torch.minimum(torch.tensor(self._k), no_attended_elements)
                 elif self._strategy == 'quantile':
-                    threshold = torch.quantile(importance, q=1 - (self._k / 100))
-                    remove_indices = torch.where(importance >= threshold)[0]
+                    k = (torch.tensor(self._k / 100) * no_attended_elements).int()
 
+                _, remove_indices = torch.topk(importance, k=k, sorted=False)
                 observation['sentence'][remove_indices] = self.tokenizer.mask_token_id
                 # "Remove" top-k important tokens
                 masked_batch.append(observation)
