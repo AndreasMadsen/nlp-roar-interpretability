@@ -1,11 +1,24 @@
+from collections import namedtuple
+
 import pickle
 import os.path as path
 
 import numpy as np
 import pytorch_lightning as pl
+import torch
 from torch.utils.data import DataLoader
 
 from ._tokenizer import Tokenizer
+
+class SequenceBatch(namedtuple('SequenceBatch', [
+    'sentence', 'length', 'mask', 'sentence_aux',
+    'sentence_aux_length', 'sentence_aux_mask', 'label', 'index'
+])):
+    def cuda(self):
+        return self._make(
+            val.cuda() if isinstance(val, torch.Tensor) else val
+            for val in self
+        )
 
 class Dataset(pl.LightningDataModule):
     def __init__(self, cachedir, name, tokenizer, seed=0, batch_size=32, num_workers=4):

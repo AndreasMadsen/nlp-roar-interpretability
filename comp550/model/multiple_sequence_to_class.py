@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 import sklearn.metrics
 import torch
@@ -6,6 +8,7 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 
 from ._differentiable_embedding import DifferentiableEmbedding
+from ..dataset import SequenceBatch
 
 class _Decoder(nn.Module):
     def __init__(self, hidden_size=128, num_of_classes=3):
@@ -39,7 +42,7 @@ class _Encoder(nn.Module):
         h2_packed, (h, c) = self.rnn(h1_packed)
         last_hidden = torch.cat([h[0], h[1]], dim=-1)
         h2_unpacked, _ = nn.utils.rnn.pad_packed_sequence(
-            h2_packed, batch_first=True, padding_value=0)
+            h2_packed, batch_first=True, padding_value=0.0)
 
         return h2_unpacked, last_hidden
 
@@ -95,27 +98,27 @@ class MultipleSequenceToClass(pl.LightningModule):
         self.ce_loss = nn.CrossEntropyLoss()
 
 
-    def forward(self, batch):
+    def forward(self, batch: SequenceBatch) -> Tuple[torch.Tensor, torch.Tensor]:
         h1_premise, _ = self.encoder_premise(
-            batch['sentence'], batch['length'])
+            batch.sentence, batch.length)
         _, last_hidden_hypothesis = self.encoder_hypothesis(
-            batch['sentence_aux'], batch['sentence_aux_length'])
+            batch.sentence_aux, batch.sentence_aux_length)
         h2, alpha = self.attention(
-            h1_premise, last_hidden_hypothesis, batch['mask'])
+            h1_premise, last_hidden_hypothesis, batch.mask)
         predict = self.decoder(h2, last_hidden_hypothesis)
         return predict, alpha
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch: SequenceBatch, batch_idx):
         y, alpha = self.forward(batch)
-        train_loss = self.ce_loss(y, batch['label'])
+        train_loss = self.ce_loss(y, batch.label)
         self.log('loss_train', train_loss, on_step=True)
         return train_loss
 
-    def _valid_test_step(self, batch):
+    def _valid_test_step(self, batch: SequenceBatch):
         y, alpha = self.forward(batch)
         return {
             'predict': y,
-            'target': batch['label']
+            'target': batch.label
         }
 
     def validation_step(self, batch, batch_nb):

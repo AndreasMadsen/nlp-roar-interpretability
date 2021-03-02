@@ -1,3 +1,4 @@
+from typing import Tuple
 
 import numpy as np
 import sklearn.metrics
@@ -7,6 +8,7 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 
 from ._differentiable_embedding import DifferentiableEmbedding
+from ..dataset import SequenceBatch
 
 class _Encoder(nn.Module):
     def __init__(self, embedding, output_size):
@@ -22,7 +24,7 @@ class _Encoder(nn.Module):
         h1 = self.embedding(x)
         h1_packed = nn.utils.rnn.pack_padded_sequence(h1, length, batch_first=True, enforce_sorted=False)
         h2_packed, _ = self.rnn(h1_packed)
-        h2_unpacked, _ = nn.utils.rnn.pad_packed_sequence(h2_packed, batch_first=True, padding_value=0)
+        h2_unpacked, _ = nn.utils.rnn.pad_packed_sequence(h2_packed, batch_first=True, padding_value=0.0)
         return h2_unpacked
 
 class _Attention(nn.Module):
@@ -88,24 +90,24 @@ class SingleSequenceToClass(pl.LightningModule):
         self.decoder = nn.Linear(2 * hidden_size, num_of_classes)
         self.ce_loss = nn.CrossEntropyLoss()
 
-    def forward(self, batch):
+    def forward(self, batch: SequenceBatch) -> Tuple[torch.Tensor, torch.Tensor]:
         # Mask = True, indicates to use. Mask = False, indicates should be ignored.
-        h1 = self.encoder(batch['sentence'], batch['length'])
-        h2, alpha = self.attention(h1, batch['mask'])
+        h1 = self.encoder(batch.sentence, batch.length)
+        h2, alpha = self.attention(h1, batch.mask)
         h3 = self.decoder(h2)
         return h3, alpha
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch: SequenceBatch, batch_idx):
         y, alpha = self.forward(batch)
-        train_loss = self.ce_loss(y, batch['label'])
+        train_loss = self.ce_loss(y, batch.label)
         self.log('loss_train', train_loss, on_step=True)
         return train_loss
 
-    def _valid_test_step(self, batch):
+    def _valid_test_step(self, batch: SequenceBatch):
         y, alpha = self.forward(batch)
         return {
             'predict': y,
-            'target': batch['label']
+            'target': batch.label
         }
 
     def validation_step(self, batch, batch_nb):
