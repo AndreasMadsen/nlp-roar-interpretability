@@ -1,4 +1,6 @@
 #!/bin/bash
+# jobs: 5
+
 declare -A time=( ["anemia"]="0:20:0" ["diabetes"]="0:40:0")
 
 for seed in {0..4}

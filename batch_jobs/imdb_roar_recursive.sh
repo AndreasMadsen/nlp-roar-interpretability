@@ -1,4 +1,6 @@
 #!/bin/bash
+# jobs: 5 * 1 * 2 * (10 + 9) = 190
+
 declare -A time=( ["random"]="0:20:0" ["attention"]="0:20:0" ["gradient"]="0:40:0")
 
 for seed in {0..4}
@@ -28,7 +30,7 @@ do
             fi
         done
 
-        for k in {5..95..5}
+        for k in {10..90..10}
         do
             if [ ! -f $SCRATCH"/comp550/results/imdb_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1.json" ]; then
                 echo imdb_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1
@@ -37,7 +39,7 @@ do
                             -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                             -J imdb_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1 ./python_job.sh \
                             experiments/imdb.py --recursive \
-                            --seed ${seed} --k ${k} --recursive-step-size 5 \
+                            --seed ${seed} --k ${k} --recursive-step-size 10 \
                             --roar-strategy quantile --importance-measure ${importance_measure}
                 ); then
                     echo "Submitted batch job ${last_jobid}"

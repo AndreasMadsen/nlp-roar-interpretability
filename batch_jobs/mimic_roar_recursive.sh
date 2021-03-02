@@ -1,4 +1,6 @@
 #!/bin/bash
+# jobs: 5 * 1 * 2 * (10 + 9) = 380
+
 declare -A time=( ["anemia random"]="0:20:0" ["anemia attention"]="0:20:0" ["anemia gradient"]="1:50:0"
                   ["diabetes random"]="0:40:0" ["diabetes attention"]="0:40:0" ["diabetes gradient"]="2:50:0")
 
@@ -34,7 +36,7 @@ do
 
             dependency=''
 
-            for k in {5..95..5}
+            for k in {10..90..10}
             do
                 if [ ! -f $SCRATCH"/comp550/results/mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1.json" ]; then
                     echo mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1
@@ -43,7 +45,7 @@ do
                             -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                             -J mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1 ./python_job.sh \
                             experiments/mimic.py --recursive \
-                            --seed ${seed} --k ${k} --recursive-step-size 5 \
+                            --seed ${seed} --k ${k} --recursive-step-size 10 \
                             --roar-strategy quantile --importance-measure ${importance_measure} \
                             --subset ${subset}
                     ); then

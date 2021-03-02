@@ -1,4 +1,6 @@
 #!/bin/bash
+# jobs: 5 * 3 * 3 * (10 + 9) = 855
+
 declare -A time=( ["1 random"]="0:20:0" ["1 attention"]="0:20:0" ["1 gradient"]="0:20:0"
                   ["2 random"]="0:40:0" ["2 attention"]="0:40:0" ["2 gradient"]="0:40:0"
                   ["3 random"]="0:50:0" ["3 attention"]="0:50:0" ["3 gradient"]="0:50:0")
@@ -23,7 +25,7 @@ do
                 fi
             done
 
-            for k in {5..95..5}
+            for k in {10..90..10}
             do
                 if [ ! -f $SCRATCH"/comp550/results/babi-${type}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0.json" ]; then
                     echo babi-${type}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0
@@ -31,7 +33,7 @@ do
                         -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                         -J babi-${type}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0 ./python_job.sh \
                         experiments/babi.py \
-                        --seed ${seed} --k ${k} --recursive-step-size 5 \
+                        --seed ${seed} --k ${k} --recursive-step-size 10 \
                         --roar-strategy quantile --importance-measure ${importance_measure} \
                         --task ${type}
                 fi
