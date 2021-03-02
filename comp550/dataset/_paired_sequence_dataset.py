@@ -23,7 +23,7 @@ class PairedSequenceDataset(Dataset):
             length=torch.stack([observation['length'] for observation in observations]),
             mask=self.tokenizer.stack_pad([observation['mask'] for observation in observations]),
             sentence_aux=self.tokenizer.stack_pad([observation['sentence_aux'] for observation in observations]),
-            sentence_aux_length=torch.stakc([observation['sentence_aux_length'] for observation in observations]),
+            sentence_aux_length=torch.stack([observation['sentence_aux_length'] for observation in observations]),
             sentence_aux_mask=self.tokenizer.stack_pad([observation['sentence_aux_mask'] for observation in observations]),
             label=torch.stack([observation['label'] for observation in observations]),
             index=torch.stack([observation['index'] for observation in observations])

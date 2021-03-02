@@ -130,9 +130,9 @@ if __name__ == "__main__":
     # Source uses the best model, measured with AUC metric, and evaluates every epoch.
     #  https://github.com/successar/AttentionExplanation/blob/master/Trainers/TrainerBC.py#L28
     checkpoint_callback = ModelCheckpoint(
-        monitor="auc_val",
+        monitor="auroc_val",
         dirpath=f'{args.persistent_dir}/checkpoints/{experiment_id}',
-        filename="checkpoint-{epoch:02d}-{auc_val:.2f}",
+        filename="checkpoint-{epoch:02d}-{auroc_val:.2f}",
         mode="max",
     )
     trainer = pl.Trainer(
