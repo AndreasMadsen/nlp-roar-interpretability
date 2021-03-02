@@ -1,6 +1,6 @@
 #!/bin/bash
-declare -A time=( ["anemia random"]="0:20:0" ["anemia attention"]="0:20:0" ["anemia gradient"]="0:50:0"
-                  ["diabetes random"]="0:40:0" ["diabetes attention"]="0:40:0" ["diabetes gradient"]="2:30:0")
+declare -A time=( ["anemia random"]="0:20:0" ["anemia attention"]="0:20:0" ["anemia gradient"]="1:50:0"
+                  ["diabetes random"]="0:40:0" ["diabetes attention"]="0:40:0" ["diabetes gradient"]="2:50:0")
 
 for seed in {0..4}
 do
