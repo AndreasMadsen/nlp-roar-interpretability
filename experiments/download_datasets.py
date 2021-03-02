@@ -1,7 +1,7 @@
 import argparse
 import os.path as path
 
-from comp550.dataset import MimicDataset, SNLIDataModule, StanfordSentimentDataset, IMDBDataModule, BabiDataModule
+from comp550.dataset import MimicDataset, SNLIDataset, SSTDataset, IMDBDataset, BabiDataset
 
 thisdir = path.dirname(path.realpath(__file__))
 parser = argparse.ArgumentParser()
@@ -20,20 +20,20 @@ if __name__ == "__main__":
     mimic.prepare_data()
 
     print('SST ...')
-    sst = StanfordSentimentDataset(cachedir=f'{args.persistent_dir}/cache')
+    sst = SSTDataset(cachedir=f'{args.persistent_dir}/cache')
     sst.prepare_data()
 
     print('SNLI ...')
-    snli = SNLIDataModule(cachedir=f'{args.persistent_dir}/cache')
+    snli = SNLIDataset(cachedir=f'{args.persistent_dir}/cache')
     snli.prepare_data()
 
     print('IMDB ...')
-    imdb = IMDBDataModule(cachedir=f'{args.persistent_dir}/cache')
+    imdb = IMDBDataset(cachedir=f'{args.persistent_dir}/cache')
     imdb.prepare_data()
 
     print('Babi ...')
     for i in range(1, 4):
-        babi = BabiDataModule(cachedir=f'{args.persistent_dir}/cache', task_idx=i)
+        babi = BabiDataset(cachedir=f'{args.persistent_dir}/cache', task=i)
         babi.prepare_data()
 
     print("Download complete!")

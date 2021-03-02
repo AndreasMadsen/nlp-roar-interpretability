@@ -9,7 +9,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from comp550.dataset import StanfordSentimentDataset, ROARDataset
+from comp550.dataset import SSTDataset, ROARDataset
 from comp550.model import SingleSequenceToClass
 from comp550.util import generate_experiment_id
 
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     print(f' - importance_measure: {args.importance_measure}')
 
     # Load base dataset
-    base_dataset = StanfordSentimentDataset(
+    base_dataset = SSTDataset(
         cachedir=f'{args.persistent_dir}/cache', seed=args.seed, num_workers=args.num_workers
     )
     base_dataset.prepare_data()
