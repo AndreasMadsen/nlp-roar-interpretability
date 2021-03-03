@@ -15,10 +15,7 @@ class SequenceBatch(namedtuple('SequenceBatch', [
     'sentence_aux_length', 'sentence_aux_mask', 'label', 'index'
 ])):
     def cuda(self):
-        return self._make(
-            val.cuda() if isinstance(val, torch.Tensor) else val
-            for val in self
-        )
+        return self._make(val.cuda() for val in self)
 
 class Dataset(pl.LightningDataModule):
     def __init__(self, cachedir, name, tokenizer, seed=0, batch_size=32, num_workers=4):

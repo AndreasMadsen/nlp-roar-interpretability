@@ -12,6 +12,17 @@ import torch.nn as nn
 from ..util import generate_experiment_id
 from ._dataset import Dataset, SequenceBatch
 
+lookup_dtype = {
+    'sentence': torch.int64,
+    'length': torch.int64,
+    'mask': torch.bool,
+    'sentence_aux': torch.int64,
+    'sentence_aux_length': torch.int64,
+    'sentence_aux_mask': torch.bool,
+    'label': torch.int64,
+    'index': torch.int64
+}
+
 class ImportanceMeasureModule(nn.Module):
     def __init__(self, model):
         super().__init__()
@@ -161,10 +172,11 @@ class ROARDataset(Dataset):
                 elif self._strategy == 'quantile':
                     k = (torch.tensor(self._k / 100) * no_attended_elements).int()
 
+                # "Remove" top-k important tokens
                 _, remove_indices = torch.topk(importance, k=k, sorted=False)
                 observation['sentence'][remove_indices] = self.tokenizer.mask_token_id
-                # "Remove" top-k important tokens
-                masked_batch.append(observation)
+
+                masked_batch.append({ key: val.tolist() for key, val in observation.items() })
 
         return masked_batch
 
@@ -222,13 +234,18 @@ class ROARDataset(Dataset):
             # Because the self._model ref no longer exists, the dataset can't be rebuild
             self._read_from_cache = True
 
+    def _pickle_data_to_torch_data(self, data):
+        return [{
+            key: torch.tensor(val, dtype=lookup_dtype[key]) for key, val in x.items()
+        } for x in data]
+
     def setup(self, stage=None):
         with open(f'{self._cachedir}/encoded-roar/{self._basename}.pkl', 'rb') as fp:
             data = pickle.load(fp)
         if stage == 'fit':
-            self._train = data['train']
-            self._val = data['val']
+            self._train = self._pickle_data_to_torch_data(data['train'])
+            self._val = self._pickle_data_to_torch_data(data['val'])
         elif stage == 'test':
-            self._test = data['test']
+            self._test = self._pickle_data_to_torch_data(data['test'])
         else:
             raise ValueError(f'unexpected setup stage: {stage}')

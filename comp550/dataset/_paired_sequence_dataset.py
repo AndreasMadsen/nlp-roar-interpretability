@@ -8,7 +8,7 @@ class PairedSequenceDataset(Dataset):
     def _pickle_data_to_torch_data(self, data):
         return [{
             'sentence': torch.tensor(x['sentence'], dtype=torch.int64),
-            'length': torch.tensor(len(x['sentence'])),
+            'length': torch.tensor(len(x['sentence']), dtype=torch.int64),
             'mask': torch.tensor(self.tokenizer.mask(x['sentence']), dtype=torch.bool),
             'sentence_aux': torch.tensor(x['sentence_aux'], dtype=torch.int64),
             'sentence_aux_length': torch.tensor(len(x['sentence_aux'])),

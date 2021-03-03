@@ -10,7 +10,7 @@ class SingleSequenceDataset(Dataset):
     def _pickle_data_to_torch_data(self, data):
         return [{
             'sentence': torch.tensor(x['sentence'], dtype=torch.int64),
-            'length': torch.tensor(len(x['sentence'])),
+            'length': torch.tensor(len(x['sentence']), dtype=torch.int64),
             'mask': torch.tensor(self.tokenizer.mask(x['sentence']), dtype=torch.bool),
             'label': torch.tensor(x['label'], dtype=torch.int64),
             'index': torch.tensor(idx, dtype=torch.int64)
