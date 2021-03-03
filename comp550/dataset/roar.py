@@ -85,6 +85,7 @@ class ROARDataset(Dataset):
                                                 recursive=recursive)
 
         if importance_measure == 'random':
+            self._importance_measure_calc = None
             self._importance_measure_fn = self._importance_measure_random
         elif importance_measure == 'attention':
             self._importance_measure_calc = torch.jit.script(AttentionImportanceMeasureModule(self._model))
@@ -216,6 +217,8 @@ class ROARDataset(Dataset):
 
             # Free the refcount to the model, as it is not required anymore
             del self._model
+            del self._importance_measure_calc
+
             # Because the self._model ref no longer exists, the dataset can't be rebuild
             self._read_from_cache = True
 
