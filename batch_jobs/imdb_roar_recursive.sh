@@ -30,6 +30,8 @@ do
             fi
         done
 
+        dependency=''
+
         for k in {10..90..10}
         do
             if [ ! -f $SCRATCH"/comp550/results/imdb_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1.json" ]; then
