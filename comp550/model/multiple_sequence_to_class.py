@@ -6,7 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 
-from ._differentiable_embedding import DifferentiableEmbedding
 from ..dataset import SequenceBatch
 
 class _Decoder(nn.Module):
@@ -28,8 +27,8 @@ class _Encoder(nn.Module):
         super().__init__()
         vocab_size, embedding_size = embedding.shape[0], embedding.shape[1]
 
-        self.embedding = DifferentiableEmbedding(vocab_size, embedding_size,
-                                                 padding_idx=0, _weight=torch.Tensor(embedding))
+        self.embedding = nn.Embedding(vocab_size, embedding_size,
+                                      padding_idx=0, _weight=torch.Tensor(embedding))
         self.rnn = nn.LSTM(embedding_size, hidden_size,
                            batch_first=True, bidirectional=True)
 
@@ -43,7 +42,7 @@ class _Encoder(nn.Module):
         h2_unpacked, _ = nn.utils.rnn.pad_packed_sequence(
             h2_packed, batch_first=True, padding_value=0.0)
 
-        return h2_unpacked, last_hidden
+        return h2_unpacked, last_hidden, h1
 
 
 class _Attention(nn.Module):
@@ -101,18 +100,22 @@ class MultipleSequenceToClass(pl.LightningModule):
         self.test_metric_acc = pl.metrics.Accuracy(compute_on_step=False)
         self.test_metric_f1 = pl.metrics.F1(num_classes=num_of_classes, average='micro', compute_on_step=False)
 
-    def forward(self, batch: SequenceBatch) -> Tuple[torch.Tensor, torch.Tensor]:
-        h1_premise, _ = self.encoder_premise(
+    @property
+    def embedding_matrix(self):
+        return self.encoder_premise.embedding.weight.data
+
+    def forward(self, batch: SequenceBatch) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        h1_premise, _, embedding = self.encoder_premise(
             batch.sentence, batch.length)
-        _, last_hidden_hypothesis = self.encoder_hypothesis(
+        _, last_hidden_hypothesis, _ = self.encoder_hypothesis(
             batch.sentence_aux, batch.sentence_aux_length)
         h2, alpha = self.attention(
             h1_premise, last_hidden_hypothesis, batch.mask)
         predict = self.decoder(h2, last_hidden_hypothesis)
-        return predict, alpha
+        return predict, alpha, embedding
 
     def training_step(self, batch: SequenceBatch, batch_idx):
-        y, alpha = self.forward(batch)
+        y, _, _ = self.forward(batch)
         train_loss = self.ce_loss(y, batch.label)
         self.log('loss_train', train_loss, on_step=True)
         return train_loss

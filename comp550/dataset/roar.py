@@ -31,26 +31,37 @@ class ImportanceMeasureModule(nn.Module):
 class AttentionImportanceMeasureModule(ImportanceMeasureModule):
     def forward(self, batch: SequenceBatch) -> torch.Tensor:
         with torch.no_grad():
-            _, alpha = self.model(batch)
+            _, alpha, _ = self.model(batch)
         return alpha
 
 class GradientImportanceMeasureModule(ImportanceMeasureModule):
     def forward(self, batch: SequenceBatch) -> torch.Tensor:
         # Compute model
-        y, _ = self.model(batch)
-
+        y, _, embedding = self.model(batch)
         # Select correct label, as we would like gradient of y[correct_label] w.r.t. x
         yc = y[torch.arange(batch.label.numel()), batch.label]
+
         # autograd.grad must take a scalar, however we would like $d y_{i,c}/d x_i$
         # to be computed as a batch, meaning for each $i$. To work around this,
         # use that for $g(x) = \sum_i f(x_i)$, we have $d g(x)/d x_{x_i} = d f(x_i)/d x_{x_i}$.
         # The gradient of the sum, is therefore equivalent to the batch_gradient.
-        yc_wrt_x, = torch.autograd.grad([torch.sum(yc, dim=0)], (batch.sentence, ))
-        if yc_wrt_x is None:
-            raise ValueError('Could not compute gradient')
+        yc_batch = torch.sum(yc, dim=0)
 
-        # Normalize the vector-gradient per token into one scalar
-        return torch.norm(yc_wrt_x, p=2, dim=2)
+        with torch.no_grad():
+            yc_wrt_embedding, = torch.autograd.grad([yc_batch], (embedding, ))
+            if yc_wrt_embedding is None:
+                raise ValueError('Could not compute gradient')
+
+            # We need the gradient wrt. x. However, to compute that directly with .grad would
+            # require the model input to be a one_hot encoding. Creating a one_hot encoding
+            # is very memory inefficient. To avoid that, manually compute the gradient wrt. x
+            # based on the gradient yc_wrt_embedding.
+            # yc_wrt_x = yc_wrt_emb @ emb_wrt_x = yc_wrt_emb @ emb_matix.T
+            embedding_matrix_t = torch.transpose(self.model.embedding_matrix, 0, 1)
+            yc_wrt_x = torch.matmul(yc_wrt_embedding, embedding_matrix_t)
+
+            # Normalize the vector-gradient per token into one scalar
+            return torch.norm(yc_wrt_x, p=2, dim=2)
 
 class ROARDataset(Dataset):
     """Loads a dataset with masking for ROAR."""
@@ -103,6 +114,7 @@ class ROARDataset(Dataset):
             self._importance_measure_calc = torch.jit.script(AttentionImportanceMeasureModule(self._model))
             self._importance_measure_fn = self._importance_measure_attention
         elif importance_measure == 'gradient':
+            #self._importance_measure_calc = torch.jit.script(GradientImportanceMeasureModule(self._model))
             self._importance_measure_calc = torch.jit.script(GradientImportanceMeasureModule(self._model))
             self._importance_measure_fn = self._importance_measure_gradient
         else:
@@ -133,14 +145,6 @@ class ROARDataset(Dataset):
         return self._importance_measure_calc(batch.cuda() if self._use_gpu else batch)
 
     def _importance_measure_gradient(self, batch):
-        # Setup batch to be a one-hot encoded float32 with require_grad. This is neccesary
-        # as torch does not allow computing grad w.r.t. to an int-tensor.
-        sentence = torch.nn.functional.one_hot(batch.sentence, len(self.vocabulary))
-        sentence = sentence.type(torch.float32)
-        sentence.requires_grad_()
-        batch = batch._replace(sentence=sentence)
-
-        # Compute model
         return self._importance_measure_calc(batch.cuda() if self._use_gpu else batch)
 
     def _importance_measure_integrated_gradient(self, observation):

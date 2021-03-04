@@ -6,7 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 
-from ._differentiable_embedding import DifferentiableEmbedding
 from ..dataset import SequenceBatch
 
 class _Encoder(nn.Module):
@@ -15,8 +14,8 @@ class _Encoder(nn.Module):
         vocab_size, embedding_size = embedding.shape[0], embedding.shape[1]
 
         self.vocab_size = vocab_size
-        self.embedding = DifferentiableEmbedding(vocab_size, embedding_size,
-                                                 padding_idx=0, _weight=torch.Tensor(embedding))
+        self.embedding = nn.Embedding(vocab_size, embedding_size,
+                                      padding_idx=0, _weight=torch.Tensor(embedding))
         self.rnn = nn.LSTM(embedding_size, output_size // 2, batch_first=True, bidirectional=True)
 
     def forward(self, x, length):
@@ -24,7 +23,7 @@ class _Encoder(nn.Module):
         h1_packed = nn.utils.rnn.pack_padded_sequence(h1, length.cpu(), batch_first=True, enforce_sorted=False)
         h2_packed, _ = self.rnn(h1_packed)
         h2_unpacked, _ = nn.utils.rnn.pad_packed_sequence(h2_packed, batch_first=True, padding_value=0.0)
-        return h2_unpacked
+        return h1, h2_unpacked
 
 class _Attention(nn.Module):
     def __init__(self,
@@ -96,21 +95,25 @@ class SingleSequenceToClass(pl.LightningModule):
         self.test_metric_auroc = pl.metrics.AUROC(num_classes=num_of_classes, compute_on_step=False)
         self.test_metric_f1 = pl.metrics.F1(num_classes=num_of_classes, average='macro', compute_on_step=False)
 
-    def forward(self, batch: SequenceBatch) -> Tuple[torch.Tensor, torch.Tensor]:
+    @property
+    def embedding_matrix(self):
+        return self.encoder.embedding.weight.data
+
+    def forward(self, batch: SequenceBatch) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Mask = True, indicates to use. Mask = False, indicates should be ignored.
-        h1 = self.encoder(batch.sentence, batch.length)
+        embedding, h1 = self.encoder(batch.sentence, batch.length)
         h2, alpha = self.attention(h1, batch.mask)
         h3 = self.decoder(h2)
-        return h3, alpha
+        return h3, alpha, embedding
 
     def training_step(self, batch: SequenceBatch, batch_idx):
-        y, alpha = self.forward(batch)
+        y, _, _ = self.forward(batch)
         train_loss = self.ce_loss(y, batch.label)
         self.log('loss_train', train_loss, on_step=True)
         return train_loss
 
     def validation_step(self, batch: SequenceBatch, batch_nb):
-        y, _ = self.forward(batch)
+        y, _, _ = self.forward(batch)
         predict_label = torch.argmax(y, dim=1)
         predict_prop = F.softmax(y, dim=1)
         self.val_metric_acc.update(predict_label, batch.label)
@@ -118,7 +121,7 @@ class SingleSequenceToClass(pl.LightningModule):
         self.val_metric_f1.update(predict_label, batch.label)
 
     def test_step(self, batch: SequenceBatch, batch_nb):
-        y, _ = self.forward(batch)
+        y, _, _ = self.forward(batch)
         predict_label = torch.argmax(y, dim=1)
         predict_prop = F.softmax(y, dim=1)
         self.test_metric_acc.update(predict_label, batch.label)
