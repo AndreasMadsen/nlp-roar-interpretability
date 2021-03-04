@@ -88,6 +88,7 @@ class ROARDataset(Dataset):
         self._importance_measure = importance_measure
         self._use_gpu = use_gpu
         self._read_from_cache = _read_from_cache
+        self._device = torch.device('cuda' if use_gpu else 'cpu')
 
         self._basename = generate_experiment_id(base_dataset.name, seed,
                                                 k=k,
