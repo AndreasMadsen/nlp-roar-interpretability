@@ -119,6 +119,7 @@ if __name__ == "__main__":
             recursive_step_size=args.recursive_step_size,
             importance_measure=args.importance_measure,
             use_gpu=args.use_gpu,
+            build_batch_size=8,
             seed=args.seed,
             num_workers=args.num_workers,
         )

@@ -70,7 +70,8 @@ class ROARDataset(Dataset):
                  k=1, strategy='count',
                  recursive=False, recursive_step_size=1,
                  importance_measure='attention',
-                 use_gpu=False, seed=0, _read_from_cache=False, **kwargs):
+                 build_batch_size=None, use_gpu=False,
+                 seed=0, _read_from_cache=False, **kwargs):
         """
         Args:
             model: The model to use to determine which tokens to mask.
@@ -97,6 +98,7 @@ class ROARDataset(Dataset):
         self._recursive = recursive
         self._recursive_step_size = recursive_step_size
         self._importance_measure = importance_measure
+        self._build_batch_size = build_batch_size
         self._use_gpu = use_gpu
         self._read_from_cache = _read_from_cache
         self._device = torch.device('cuda' if use_gpu else 'cpu')
@@ -187,7 +189,7 @@ class ROARDataset(Dataset):
 
     def _mask_dataset(self, dataloader, name):
         outputs = []
-        for batch in tqdm(dataloader(batch_size=8, num_workers=0, shuffle=False),
+        for batch in tqdm(dataloader(batch_size=self._build_batch_size, num_workers=1, shuffle=False),
                           desc=f'Building {name} dataset', leave=False):
             outputs += self._mask_batch(batch)
         return outputs
@@ -208,6 +210,7 @@ class ROARDataset(Dataset):
                     recursive=self._recursive,
                     recursive_step_size=self._recursive_step_size,
                     importance_measure=self._importance_measure,
+                    build_batch_size=self._build_batch_size,
                     seed=self._seed,
                     num_workers=self._num_workers,
                     _read_from_cache=True
