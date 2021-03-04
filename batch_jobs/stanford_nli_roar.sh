@@ -1,7 +1,7 @@
 #!/bin/bash
 # jobs: 5 * 1 * 3 * (10 + 9) = 285
 
-declare -A time=( ["random"]="1:30:0" ["attention"]="1:30:0" ["gradient"]="1:40:0")
+declare -A time=( ["random"]="1:15:0" ["attention"]="1:15:0" ["gradient"]="1:15:0")
 
 for seed in {0..4}
 do

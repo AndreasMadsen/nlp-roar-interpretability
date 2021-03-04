@@ -1,4 +1,5 @@
 #!/bin/bash
+# Actual time: "0:04:0"
 for seed in {0..4}
 do
     if [ ! -f $SCRATCH"/comp550/results/imdb_s-${seed}.json" ]; then

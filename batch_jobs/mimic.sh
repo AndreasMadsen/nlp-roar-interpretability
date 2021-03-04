@@ -1,6 +1,6 @@
 #!/bin/bash
-# jobs: 5
-
+# jobs: 5*2=10
+# Actual time: ["anemia"]="0:07:0" ["diabetes"]="0:15:0"
 declare -A time=( ["anemia"]="0:20:0" ["diabetes"]="0:40:0")
 
 for seed in {0..4}
