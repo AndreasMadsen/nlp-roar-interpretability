@@ -21,4 +21,4 @@ pip3 install --no-index --find-links $HOME/python_wheels \
 # Install comp550
 cd $HOME/workspace/comp550
 pip3 install --no-index --no-deps -e .
-python3 -u -X faulthandler "$@" --use-gpu True --num-workers 3 --persistent-dir $SCRATCH/comp550
+python3 -u -X faulthandler "$@" --use-gpu True --num-workers 4 --persistent-dir $SCRATCH/comp550
