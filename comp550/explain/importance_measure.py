@@ -14,15 +14,9 @@ setup_name = {
 class ImportanceMeasureModule(nn.Module):
     def __init__(self, model, use_gpu, rng):
         super().__init__()
-        self.model = model.cuda() if use_gpu else model
-        self.model.flatten_parameters()
-        self.use_gpu = use_gpu
+        self.model = model
         self.device = torch.device('cuda' if use_gpu else 'cpu')
         self.rng = rng
-
-    def __call__(self, batch: SequenceBatch) -> torch.Tensor:
-        importance = super().__call__(self, batch.cuda() if self.use_gpu else batch)
-        return importance.cpu() if self.use_gpu else importance
 
 class RandomImportanceMeasure(ImportanceMeasureModule):
     def forward(self, batch: SequenceBatch) -> torch.Tensor:
@@ -116,9 +110,10 @@ class IntegratedGradientImportanceMeasure(ImportanceMeasureModule):
         return torch.abs(online_mean)
 
 class ImportanceMeasureEvaluator:
-    def __init__(self, importance_measure_fn, dataset, split, **kwargs):
+    def __init__(self, importance_measure_fn, dataset, use_gpu, split, **kwargs):
         self._importance_measure_fn = importance_measure_fn
         self._dataset = dataset
+        self._use_gpu = use_gpu
         self._split = split
         self._kwargs = kwargs
 
@@ -126,7 +121,8 @@ class ImportanceMeasureEvaluator:
 
     def __iter__(self):
         for batch in self._dataset.dataloader(self._split, **self._kwargs):
-            batch_importance = self._importance_measure_fn(batch)
+            batch_importance = self._importance_measure_fn(batch.cuda() if self._use_gpu else batch)
+            batch_importance = batch_importance.cpu() if self._use_gpu else batch_importance
 
             yield from (
                 (observation, importance[0:observation['length']])
@@ -149,24 +145,32 @@ class ImportanceMeasure:
         self._batch_size = batch_size
 
         if importance_measure == 'random':
-            self._importance_measure_fn = RandomImportanceMeasure(model, use_gpu=False, rng=self._np_rng)
+            self._use_gpu = False
+            self._importance_measure_fn = RandomImportanceMeasure(model, use_gpu=self._use_gpu, rng=self._np_rng)
         elif importance_measure == 'attention':
+            self._use_gpu = use_gpu
             self._importance_measure_fn = torch.jit.script(
-                AttentionImportanceMeasure(model, use_gpu=use_gpu, rng=self._np_rng))
+                AttentionImportanceMeasure(model, use_gpu=self._use_gpu, rng=self._np_rng))
         elif importance_measure == 'gradient':
+            self._use_gpu = use_gpu
             self._importance_measure_fn = torch.jit.script(
-                GradientImportanceMeasure(model, use_gpu=use_gpu, rng=self._np_rng))
+                GradientImportanceMeasure(model, use_gpu=self._use_gpu, rng=self._np_rng))
         elif importance_measure == 'integrated-gradient':
+            self._use_gpu = use_gpu
             self._importance_measure_fn = torch.jit.script(
                 IntegratedGradientImportanceMeasure(model, riemann_samples=riemann_samples,
-                                                    use_gpu=use_gpu, rng=self._np_rng))
+                                                    use_gpu=self._use_gpu, rng=self._np_rng))
         else:
             raise ValueError(f'{importance_measure} is not supported')
+
+        if self._use_gpu:
+            self._importance_measure_fn.cuda()
+        model.flatten_parameters()
 
     def evaluate(self, split):
         if split not in setup_name:
             raise ValueError(f'split "{split}" is not supported')
 
-        return ImportanceMeasureEvaluator(self._importance_measure_fn, self._dataset, split,
+        return ImportanceMeasureEvaluator(self._importance_measure_fn, self._dataset, self._use_gpu, split,
                                           batch_size=self._batch_size, num_workers=self._num_workers,
                                           shuffle=False)
