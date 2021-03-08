@@ -14,7 +14,9 @@ class ROARDataset(Dataset):
     """Loads a dataset with masking for ROAR."""
 
     def __init__(self, cachedir, model, base_dataset,
-                 k=1, recursive=False, importance_measure='attention',
+                 k=1, strategy='count',
+                 recursive=False, recursive_step_size=1,
+                 importance_measure='attention',
                  use_gpu=False, seed=0, _read_from_cache=False, **kwargs):
         """
         Args:
@@ -32,15 +34,24 @@ class ROARDataset(Dataset):
                          base_dataset.tokenizer, batch_size=base_dataset.batch_size,
                          seed=seed, **kwargs)
 
+        if strategy not in ['count', 'quantile']:
+            raise ValueError(f'The "{strategy}" strategy is not supported')
+
         self._model = model
         self._base_dataset = base_dataset
         self._k = k
+        self._strategy = strategy
         self._recursive = recursive
+        self._recursive_step_size = recursive_step_size
         self._importance_measure = importance_measure
         self._use_gpu = use_gpu
         self._read_from_cache = _read_from_cache
 
-        self._basename = generate_experiment_id(base_dataset.name, seed, k, importance_measure, recursive)
+        self._basename = generate_experiment_id(base_dataset.name, seed,
+                                                k=k,
+                                                strategy=strategy,
+                                                importance_measure=importance_measure,
+                                                recursive=recursive)
 
         if importance_measure == 'random':
             self._importance_measure_fn = self._importance_measure_random
@@ -124,7 +135,7 @@ class ROARDataset(Dataset):
         with torch.no_grad():
             for importance, observation in zip(batch_importance, self.uncollate(batch)):
                 # Trim importance to the observation length
-                importance = importance[0:len(observation['sentence'])]
+                importance = importance[0:observation['length']]
 
                 # Prevent masked tokens from being "removed"
                 importance[torch.logical_not(observation['mask'])] = -np.inf
@@ -135,11 +146,15 @@ class ROARDataset(Dataset):
                 # Tokens to remove.
                 # Ensure that k does not exceed the number of un-masked tokens, if it does
                 # masked tokens will be "removed" too.
-                k = torch.minimum(torch.tensor(self._k), torch.sum(observation['mask']))
-                _, remove_indices = torch.topk(importance, k=k, sorted=False)
+                no_attended_elements = torch.sum(observation['mask'])
+                if self._strategy == 'count':
+                    k = torch.minimum(torch.tensor(self._k), no_attended_elements)
+                elif self._strategy == 'quantile':
+                    k = (torch.tensor(self._k / 100) * no_attended_elements).int()
 
-                # "Remove" top-k important tokens
+                _, remove_indices = torch.topk(importance, k=k, sorted=False)
                 observation['sentence'][remove_indices] = self.tokenizer.mask_token_id
+                # "Remove" top-k important tokens
                 masked_batch.append(observation)
 
         return masked_batch
@@ -157,13 +172,15 @@ class ROARDataset(Dataset):
             os.makedirs(self._cachedir + '/encoded-roar', exist_ok=True)
 
             # If we are in a recursive situation, load the k-1 ROAR dataset
-            if self._k > 1 and self._recursive:
+            if self._k > self._recursive_step_size and self._recursive:
                 base_dataset = ROARDataset(
                     cachedir=self._cachedir,
                     model=self._model,
                     base_dataset=self._base_dataset,
-                    k=self._k - 1,
+                    k=self._k - self._recursive_step_size,
+                    strategy=self._strategy,
                     recursive=self._recursive,
+                    recursive_step_size=self._recursive_step_size,
                     importance_measure=self._importance_measure,
                     seed=self._seed,
                     num_workers=self._num_workers,
