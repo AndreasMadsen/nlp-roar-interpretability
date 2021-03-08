@@ -101,7 +101,6 @@ class ROARDataset(Dataset):
         self._build_batch_size = build_batch_size
         self._use_gpu = use_gpu
         self._read_from_cache = _read_from_cache
-        self._device = torch.device('cuda' if use_gpu else 'cpu')
 
         self._basename = generate_experiment_id(base_dataset.name, seed,
                                                 k=k,
@@ -116,7 +115,6 @@ class ROARDataset(Dataset):
             self._importance_measure_calc = torch.jit.script(AttentionImportanceMeasureModule(self._model))
             self._importance_measure_fn = self._importance_measure_attention
         elif importance_measure == 'gradient':
-            #self._importance_measure_calc = torch.jit.script(GradientImportanceMeasureModule(self._model))
             self._importance_measure_calc = torch.jit.script(GradientImportanceMeasureModule(self._model))
             self._importance_measure_fn = self._importance_measure_gradient
         else:
@@ -148,10 +146,6 @@ class ROARDataset(Dataset):
 
     def _importance_measure_gradient(self, batch):
         return self._importance_measure_calc(batch.cuda() if self._use_gpu else batch)
-
-    def _importance_measure_integrated_gradient(self, observation):
-        # Implement as x .* (1/k) .* sum([f'((i/k) .* x) for i in range(1, k+1))
-        pass
 
     def _mask_batch(self, batch):
         batch_importance = self._importance_measure_fn(batch)
