@@ -62,11 +62,11 @@ class GradientImportanceMeasureModule(ImportanceMeasureModule):
             return torch.norm(yc_wrt_x, p=2, dim=2)
 
 class IntegratedGradientImportanceMeasureModule(ImportanceMeasureModule):
-    num_intervals: int
+    riemann_samples: int
 
-    def __init__(self, *args, num_intervals=20, **kwargs):
+    def __init__(self, *args, riemann_samples=20, **kwargs):
         super().__init__(*args, **kwargs)
-        self.num_intervals = num_intervals
+        self.riemann_samples = riemann_samples
 
     def forward(self, batch: SequenceBatch) -> torch.Tensor:
         embedding_matrix_t = torch.transpose(self.model.embedding_matrix, 0, 1)
@@ -76,10 +76,10 @@ class IntegratedGradientImportanceMeasureModule(ImportanceMeasureModule):
             self.model.embedding_matrix, 0, batch.sentence.view(-1)
         ).unsqueeze(-1)
 
-        # Riemman approximation of the integral
+        # Riemann approximation of the integral
         online_mean = torch.zeros_like(batch.sentence, dtype=self.model.embedding_matrix.dtype)
-        for i in range(1, self.num_intervals + 1):
-            embedding_scale = i / self.num_intervals
+        for i in range(1, self.riemann_samples + 1):
+            embedding_scale = i / self.riemann_samples
             y, _, embedding = self.model(batch, embedding_scale=embedding_scale)
             yc = y[torch.arange(batch.label.numel()), batch.label]
             yc_batch = yc.sum(dim=0)
@@ -97,7 +97,7 @@ class IntegratedGradientImportanceMeasureModule(ImportanceMeasureModule):
                 # because they will anyway go away after sum.
                 # In this context, the sum comes from the 2-norm. The mean
                 # does not affect anything, as x remains the same for all
-                # # Riemman steps.
+                # # Riemann steps.
                 yc_wrt_x_unscaled_compact = torch.bmm(
                     yc_wrt_unscaled_embedding.view(
                         embedding_matrix_compact.shape[0], 1, embedding_matrix_compact.shape[1]
@@ -113,7 +113,7 @@ class IntegratedGradientImportanceMeasureModule(ImportanceMeasureModule):
                 yc_wrt_x_compact = yc_wrt_x_unscaled_compact * embedding_scale
 
                 # Update the online mean (Knuth Algorithm), this is more memory
-                # efficient that storing x_yc_wrt_x for each Riemman step.
+                # efficient that storing x_yc_wrt_x for each Riemann step.
                 online_mean += (yc_wrt_x_compact - online_mean)/i
 
         # Abs is equivalent to 2-norm, because the naive sum is essentially
@@ -128,6 +128,7 @@ class ROARDataset(Dataset):
                  k=1, strategy='count',
                  recursive=False, recursive_step_size=1,
                  importance_measure='attention',
+                 riemann_samples=20,
                  build_batch_size=None, use_gpu=False,
                  seed=0, _read_from_cache=False, **kwargs):
         """
@@ -176,7 +177,8 @@ class ROARDataset(Dataset):
             self._importance_measure_calc = torch.jit.script(GradientImportanceMeasureModule(self._model))
             self._importance_measure_fn = self._importance_measure_gradient
         elif importance_measure == 'integrated-gradient':
-            self._importance_measure_calc = torch.jit.script(IntegratedGradientImportanceMeasureModule(self._model))
+            self._importance_measure_calc = torch.jit.script(
+                IntegratedGradientImportanceMeasureModule(self._model, riemann_samples=riemann_samples))
             self._importance_measure_fn = self._importance_measure_integrated_gradient
         else:
             raise ValueError(f'{importance_measure} is not supported')
