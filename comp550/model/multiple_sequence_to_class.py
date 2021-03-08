@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Optional
 
 import numpy as np
 import torch
@@ -32,10 +32,10 @@ class _Encoder(nn.Module):
         self.rnn = nn.LSTM(embedding_size, hidden_size,
                            batch_first=True, bidirectional=True)
 
-    def forward(self, x, length, ig_weight:float=0.0):
+    def forward(self, x, length, embedding_scale: Optional[float]):
         h1 = self.embedding(x)
-        if ig_weight > 0:
-            h1 = h1*ig_weight
+        if embedding_scale is not None:
+            h1 = h1 * embedding_scale
         h1_packed = nn.utils.rnn.pack_padded_sequence(
             h1, length.cpu(), batch_first=True, enforce_sorted=False)
 
@@ -106,9 +106,9 @@ class MultipleSequenceToClass(pl.LightningModule):
     def embedding_matrix(self):
         return self.encoder_premise.embedding.weight.data
 
-    def forward(self, batch: SequenceBatch, ig_weight: float=0.0) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, batch: SequenceBatch, embedding_scale: Optional[float]=None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         h1_premise, _, embedding = self.encoder_premise(
-            batch.sentence, batch.length, ig_weight)
+            batch.sentence, batch.length, embedding_scale)
         _, last_hidden_hypothesis, _ = self.encoder_hypothesis(
             batch.sentence_aux, batch.sentence_aux_length)
         h2, alpha = self.attention(

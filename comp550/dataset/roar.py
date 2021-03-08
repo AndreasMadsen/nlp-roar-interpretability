@@ -1,5 +1,3 @@
-from typing import TypeVar, Generic, Union
-
 import pickle
 import os
 import os.path as path
@@ -64,8 +62,63 @@ class GradientImportanceMeasureModule(ImportanceMeasureModule):
             return torch.norm(yc_wrt_x, p=2, dim=2)
 
 class IntegratedGradientImportanceMeasureModule(ImportanceMeasureModule):
+    num_intervals: int
+
+    def __init__(self, *args, num_intervals=20, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.num_intervals = num_intervals
+
     def forward(self, batch: SequenceBatch) -> torch.Tensor:
-        pass
+        embedding_matrix_t = torch.transpose(self.model.embedding_matrix, 0, 1)
+
+        # Prepear a compact embedding matrix for doing sum(x * dy/dz @ W.T) efficently.
+        embedding_matrix_compact = torch.index_select(
+            self.model.embedding_matrix, 0, batch.sentence.view(-1)
+        ).unsqueeze(-1)
+
+        # Riemman approximation of the integral
+        online_mean = torch.zeros_like(batch.sentence, dtype=self.model.embedding_matrix.dtype)
+        for i in range(1, self.num_intervals + 1):
+            embedding_scale = i / self.num_intervals
+            y, _, embedding = self.model(batch, embedding_scale=embedding_scale)
+            yc = y[torch.arange(batch.label.numel()), batch.label]
+            yc_batch = yc.sum(dim=0)
+
+            with torch.no_grad():
+                # NOTE: There is max difference of about 0.08 between, the gradient
+                # in normal PyTorch mode and the gradient in TorchScript mode.
+                yc_wrt_unscaled_embedding, = torch.autograd.grad([yc_batch], (embedding, )) # (B, T, Z)
+                if yc_wrt_unscaled_embedding is None:
+                    raise ValueError('Could not compute gradient')
+
+                # This is a fast and memory-efficient version of sum(one_hot(x) * dy/dz @ W.T)
+                # We can do this because x is one_hot, hence there is no need to
+                # compute all the dy/dx = dy/dz @ W.T elements, where x = 0,
+                # because they will anyway go away after sum.
+                # In this context, the sum comes from the 2-norm. The mean
+                # does not affect anything, as x remains the same for all
+                # # Riemman steps.
+                yc_wrt_x_unscaled_compact = torch.bmm(
+                    yc_wrt_unscaled_embedding.view(
+                        embedding_matrix_compact.shape[0], 1, embedding_matrix_compact.shape[1]
+                    ), # (B * T, 1, Z)
+                    embedding_matrix_compact, # (B * T, Z, 1)
+                ).view_as(batch.sentence) # (B*T, 1, 1) -> (B, T)
+
+                # Due to a PyTorch bug, differentating wrt. the actual embedding,
+                # does not work. Instead we differentat wrt. the scaled embedding.
+                # To correct this, rescale yc_wrt_x now. We could do this early,
+                # however, it is at this point yc_wrt_x has the least amount of
+                # values.
+                yc_wrt_x_compact = yc_wrt_x_unscaled_compact * embedding_scale
+
+                # Update the online mean (Knuth Algorithm), this is more memory
+                # efficient that storing x_yc_wrt_x for each Riemman step.
+                online_mean += (yc_wrt_x_compact - online_mean)/i
+
+        # Abs is equivalent to 2-norm, because the naive sum is essentially
+        # sqrt(0^2 + ... + 0^2 + y_wrt_x^2 + 0^2 + ... + 0^2) = abs(y_wrt_x)
+        return torch.abs(online_mean)
 
 
 class ROARDataset(Dataset):
@@ -123,6 +176,7 @@ class ROARDataset(Dataset):
             self._importance_measure_calc = torch.jit.script(GradientImportanceMeasureModule(self._model))
             self._importance_measure_fn = self._importance_measure_gradient
         elif importance_measure == 'integrated-gradient':
+            self._importance_measure_calc = torch.jit.script(IntegratedGradientImportanceMeasureModule(self._model))
             self._importance_measure_fn = self._importance_measure_integrated_gradient
         else:
             raise ValueError(f'{importance_measure} is not supported')
@@ -155,32 +209,7 @@ class ROARDataset(Dataset):
         return self._importance_measure_calc(batch.cuda() if self._use_gpu else batch)
 
     def _importance_measure_integrated_gradient(self, batch):
-
-        # To be shifted to Argument Parser
-        num_intervals = 20
-        ig_results = []
-
-        for i in range(1, num_intervals + 1):
-            ig_weight = i/num_intervals
-
-            y, _, embedding = self._model(batch, ig_weight)
-            yc = y[:, batch.label]
-
-            yc_wrt_embedding = torch.autograd.grad(yc.sum(), (embedding))[0]
-            embedding_matrix_t = torch.transpose(self._model.embedding_matrix*ig_weight, 0, 1)
-            yc_wrt_x = torch.matmul(yc_wrt_embedding, embedding_matrix_t)
-
-            ig_results.append(yc_wrt_x)
-
-        yc_wrt_x = torch.stack(ig_results, dim=1)
-
-        # Riemman approximation of the integral
-        yc_wrt_x = yc_wrt_x.sum(dim=1) * (1/num_intervals)
-
-        x = torch.nn.functional.one_hot(batch.sentence, len(self.vocabulary))
-        yc_wrt_x = yc_wrt_x * x
-
-        return torch.norm(yc_wrt_x, 2, dim=1)
+        return self._importance_measure_calc(batch.cuda() if self._use_gpu else batch)
 
     def _mask_batch(self, batch):
         batch_importance = self._importance_measure_fn(batch)
