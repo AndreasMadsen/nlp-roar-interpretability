@@ -32,7 +32,7 @@ class _Encoder(nn.Module):
         self.rnn = nn.LSTM(embedding_size, hidden_size,
                            batch_first=True, bidirectional=True)
 
-    def forward(self, x, length, embedding_scale: Optional[float]):
+    def forward(self, x, length, embedding_scale: Optional[float]=None):
         h1 = self.embedding(x)
         if embedding_scale is not None:
             h1 = h1 * embedding_scale
