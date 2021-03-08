@@ -189,7 +189,9 @@ class ROARDataset(Dataset):
 
     def _mask_dataset(self, dataloader, name):
         outputs = []
-        for batch in tqdm(dataloader(batch_size=self._build_batch_size, num_workers=1, shuffle=False),
+        for batch in tqdm(dataloader(batch_size=self._build_batch_size,
+                                     num_workers=min(self._num_workers, 1),
+                                     shuffle=False),
                           desc=f'Building {name} dataset', leave=False):
             outputs += self._mask_batch(batch)
         return outputs
