@@ -63,6 +63,11 @@ class GradientImportanceMeasureModule(ImportanceMeasureModule):
             # Normalize the vector-gradient per token into one scalar
             return torch.norm(yc_wrt_x, p=2, dim=2)
 
+class IntegratedGradientImportanceMeasureModule(ImportanceMeasureModule):
+    def forward(self, batch: SequenceBatch) -> torch.Tensor:
+        pass
+
+
 class ROARDataset(Dataset):
     """Loads a dataset with masking for ROAR."""
 
@@ -149,27 +154,31 @@ class ROARDataset(Dataset):
     def _importance_measure_gradient(self, batch):
         return self._importance_measure_calc(batch.cuda() if self._use_gpu else batch)
 
-    def _importance_measure_integrated_gradient(self, observation):
+    def _importance_measure_integrated_gradient(self, batch):
 
+        # To be shifted to Argument Parser
         num_intervals = 20
-        observations = [observation]*num_intervals
-        batch = self.collate(observations)
-        batch['sentence'] = torch.nn.functional.one_hot(batch['sentence'], len(self.vocabulary))
-        batch['sentence'] = batch['sentence'].type(torch.float32)
-        batch['sentence'].requires_grad = True
+        ig_results = []
 
-        interval = torch.arange(1, num_intervals + 1)/num_intervals
-        batch['sentence'] = batch['sentence'] * interval.unsqueeze(1).unsqueeze(2)
+        for i in range(1, num_intervals + 1):
+            ig_weight = i/num_intervals
 
-        for k in batch.keys():
-            if k is not 'length':
-                batch[k] = batch[k].cuda()
-        y, _ = self._model(batch)
-        yc = y[:, observation['label']]
+            y, _, embedding = self._model(batch, ig_weight)
+            yc = y[:, batch.label]
 
-        yc_wrt_x = torch.autograd.grad(yc.sum(), (batch['sentence']))[0]
-        yc_wrt_x = yc_wrt_x.sum(dim=0)
-        yc_wrt_x = (1/num_intervals)*batch['sentence'][-1]*yc_wrt_x
+            yc_wrt_embedding = torch.autograd.grad(yc.sum(), (embedding))[0]
+            embedding_matrix_t = torch.transpose(self._model.embedding_matrix*ig_weight, 0, 1)
+            yc_wrt_x = torch.matmul(yc_wrt_embedding, embedding_matrix_t)
+
+            ig_results.append(yc_wrt_x)
+
+        yc_wrt_x = torch.stack(ig_results, dim=1)
+
+        # Riemman approximation of the integral
+        yc_wrt_x = yc_wrt_x.sum(dim=1) * (1/num_intervals)
+
+        x = torch.nn.functional.one_hot(batch.sentence, len(self.vocabulary))
+        yc_wrt_x = yc_wrt_x * x
 
         return torch.norm(yc_wrt_x, 2, dim=1)
 
