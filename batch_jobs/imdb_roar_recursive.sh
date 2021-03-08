@@ -1,12 +1,12 @@
 #!/bin/bash
-# jobs: 5 * 1 * 2 * (10 + 9) = 190
+# jobs: 5 * 1 * 3 * (10 + 9) = 285
 
 # Actual time:    ["random"]="0:05:0" ["attention"]="0:05:0" ["gradient"]="0:05:0")
-declare -A time=( ["random"]="0:20:0" ["attention"]="0:20:0" ["gradient"]="0:20:0")
+declare -A time=( ["random"]="0:20:0" ["attention"]="0:20:0" ["gradient"]="0:20:0" ["integrated-gradient"]="0:50:0" )
 
 for seed in {0..4}
 do
-    for importance_measure in 'attention' 'gradient'
+    for importance_measure in 'attention' 'gradient' 'integrated-gradient'
     do
         dependency=''
 

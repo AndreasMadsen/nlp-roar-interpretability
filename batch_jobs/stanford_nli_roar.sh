@@ -1,11 +1,11 @@
 #!/bin/bash
-# jobs: 5 * 1 * 3 * (10 + 9) = 285
+# jobs: 5 * 1 * 4 * (10 + 9) = 380
 
 declare -A time=( ["random"]="1:15:0" ["attention"]="1:15:0" ["gradient"]="1:15:0")
 
 for seed in {0..4}
 do
-    for importance_measure in 'random' 'attention' 'gradient'
+    for importance_measure in 'random' 'attention' 'gradient' 'integrated-gradient'
     do
         for k in {1..10}
         do

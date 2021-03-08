@@ -1,5 +1,5 @@
 #!/bin/bash
-# jobs: 5 * 2 * 3 * (10 + 9) = 570
+# jobs: 5 * 2 * 4 * (10 + 9) = 760
 
 declare -A time=( ["anemia random"]="0:25:0"   ["anemia attention"]="0:25:0"   ["anemia gradient"]="0:30:0"
                   ["diabetes random"]="0:40:0" ["diabetes attention"]="0:40:0" ["diabetes gradient"]="0:50:0")
@@ -8,7 +8,7 @@ for seed in {0..4}
 do
     for subset in 'anemia' 'diabetes'
     do
-    for importance_measure in 'random' 'attention' 'gradient'
+    for importance_measure in 'random' 'attention' 'gradient' 'integrated-gradient'
         do
             for k in {1..10}
             do

@@ -1,16 +1,16 @@
 #!/bin/bash
-# jobs: 5 * 1 * 2 * (10 + 9) = 380
+# jobs: 5 * 2 * 3 * (10 + 9) = 570
 
 # Actual time:    ["anemia random"]="0:09:0"   ["anemia attention"]="0:09:0"   ["anemia gradient"]="0:11:0"
 #                 ["diabetes random"]="0:17:0" ["diabetes attention"]="0:17:0" ["diabetes gradient"]="0:32:0"
-declare -A time=( ["anemia random"]="0:25:0"   ["anemia attention"]="0:25:0"   ["anemia gradient"]="0:30:0"
-                  ["diabetes random"]="0:40:0" ["diabetes attention"]="0:40:0" ["diabetes gradient"]="0:50:0")
+declare -A time=( ["anemia random"]="0:25:0"   ["anemia attention"]="0:25:0"   ["anemia gradient"]="0:30:0" ["anemia integrated-gradient"]="1:30:0"
+                  ["diabetes random"]="0:40:0" ["diabetes attention"]="0:40:0" ["diabetes gradient"]="0:50:0" ["diabetes integrated-gradient"]="1:50:0" )
 
 for seed in {0..4}
 do
     for subset in 'anemia' 'diabetes'
     do
-        for importance_measure in 'attention' 'gradient'
+        for importance_measure in 'attention' 'gradient' 'integrated-gradient'
         do
             dependency=''
 
