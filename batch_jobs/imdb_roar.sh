@@ -11,7 +11,7 @@ do
         do
             if [ ! -f $SCRATCH"/comp550/results/imdb_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-0.json" ]; then
                 echo imdb_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-0
-                sbatch --time=${time[$importance_measure]} --mem=12G \
+                sbatch --time=${time[$importance_measure]} --mem=6G \
                     -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                     -J imdb_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-0 ./python_job.sh \
                     experiments/imdb.py \
@@ -24,7 +24,7 @@ do
         do
             if [ ! -f $SCRATCH"/comp550/results/imdb_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0.json" ]; then
                 echo imdb_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0
-                sbatch --time=${time[$importance_measure]} --mem=12G \
+                sbatch --time=${time[$importance_measure]} --mem=6G \
                     -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                     -J imdb_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0 ./python_job.sh \
                     experiments/imdb.py \

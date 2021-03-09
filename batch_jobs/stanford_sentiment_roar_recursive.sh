@@ -15,7 +15,7 @@ do
             if [ ! -f $SCRATCH"/comp550/results/sst_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1.json" ]; then
                 echo sst_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1
                 if last_jobid=$(
-                    sbatch --time=${time[$importance_measure]} --mem=12G --parsable ${dependency} \
+                    sbatch --time=${time[$importance_measure]} --mem=6G --parsable ${dependency} \
                     -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                     -J sst_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1 ./python_job.sh \
                     experiments/stanford_sentiment.py --recursive \
@@ -38,7 +38,7 @@ do
             if [ ! -f $SCRATCH"/comp550/results/sst_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1.json" ]; then
                 echo sst_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1
                 if last_jobid=$(
-                    sbatch --time=${time[$importance_measure]} --mem=12G --parsable ${dependency} \
+                    sbatch --time=${time[$importance_measure]} --mem=6G --parsable ${dependency} \
                     -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                     -J sst_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1 ./python_job.sh \
                     experiments/stanford_sentiment.py --recursive \

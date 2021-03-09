@@ -21,7 +21,7 @@ do
                 if [ ! -f $SCRATCH"/comp550/results/babi-${type}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1.json" ]; then
                     echo babi-${type}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1
                     if last_jobid=$(
-                        sbatch --time=${time[$type $importance_measure]} --mem=24G --parsable ${dependency} \
+                        sbatch --time=${time[$type $importance_measure]} --mem=6G --parsable ${dependency} \
                             -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                             -J babi-${type}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1 ./python_job.sh \
                             experiments/babi.py --recursive \
@@ -45,7 +45,7 @@ do
                 if [ ! -f $SCRATCH"/comp550/results/babi-${type}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1.json" ]; then
                     echo babi-${type}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1
                     if last_jobid=$(
-                        sbatch --time=${time[$type $importance_measure]} --mem=24G --parsable ${dependency} \
+                        sbatch --time=${time[$type $importance_measure]} --mem=6G --parsable ${dependency} \
                             -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                             -J babi-${type}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1 ./python_job.sh \
                             experiments/babi.py --recursive \

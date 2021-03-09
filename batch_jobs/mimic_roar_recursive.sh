@@ -19,7 +19,7 @@ do
                 if [ ! -f $SCRATCH"/comp550/results/mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1.json" ]; then
                     echo mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1
                     if last_jobid=$(
-                        sbatch --time=${time[$subset $importance_measure]} --mem=32G --parsable ${dependency} \
+                        sbatch --time=${time[$subset $importance_measure]} --mem=8G --parsable ${dependency} \
                             -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                             -J mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1 ./python_job.sh \
                             experiments/mimic.py --recursive \
@@ -43,7 +43,7 @@ do
                 if [ ! -f $SCRATCH"/comp550/results/mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1.json" ]; then
                     echo mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1
                     if last_jobid=$(
-                        sbatch --time=${time[$subset $importance_measure]} --mem=32G --parsable ${dependency} \
+                        sbatch --time=${time[$subset $importance_measure]} --mem=8G --parsable ${dependency} \
                             -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                             -J mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1 ./python_job.sh \
                             experiments/mimic.py --recursive \
