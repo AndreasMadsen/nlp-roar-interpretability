@@ -1,11 +1,24 @@
+from collections import namedtuple
+
 import pickle
 import os.path as path
 
 import numpy as np
 import pytorch_lightning as pl
+import torch
 from torch.utils.data import DataLoader
 
 from ._tokenizer import Tokenizer
+
+class SequenceBatch(namedtuple('SequenceBatch', [
+    'sentence', 'length', 'mask', 'sentence_aux',
+    'sentence_aux_length', 'sentence_aux_mask', 'label', 'index'
+])):
+    def cuda(self):
+        return self._make(val.cuda() for val in self)
+
+    def pin_memory(self):
+        return self._make(val.pin_memory() for val in self)
 
 class Dataset(pl.LightningDataModule):
     def __init__(self, cachedir, name, tokenizer, seed=0, batch_size=32, num_workers=4):
@@ -57,16 +70,16 @@ class Dataset(pl.LightningDataModule):
         return DataLoader(self._train,
                           batch_size=batch_size or self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers if num_workers is None else num_workers,
-                          shuffle=shuffle)
+                          shuffle=shuffle, pin_memory=True)
 
     def val_dataloader(self, batch_size=None, num_workers=None, shuffle=False):
         return DataLoader(self._val,
                           batch_size=batch_size or self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers if num_workers is None else num_workers,
-                          shuffle=shuffle)
+                          shuffle=shuffle, pin_memory=True)
 
     def test_dataloader(self, batch_size=None, num_workers=None, shuffle=False):
         return DataLoader(self._test,
                           batch_size=batch_size or self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers if num_workers is None else num_workers,
-                          shuffle=shuffle)
+                          shuffle=shuffle, pin_memory=True)

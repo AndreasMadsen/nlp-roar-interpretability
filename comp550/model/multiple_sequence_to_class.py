@@ -1,11 +1,12 @@
+from typing import Tuple
+
 import numpy as np
-import sklearn.metrics
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 
-from ._differentiable_embedding import DifferentiableEmbedding
+from ..dataset import SequenceBatch
 
 class _Decoder(nn.Module):
     def __init__(self, hidden_size=128, num_of_classes=3):
@@ -26,22 +27,22 @@ class _Encoder(nn.Module):
         super().__init__()
         vocab_size, embedding_size = embedding.shape[0], embedding.shape[1]
 
-        self.embedding = DifferentiableEmbedding(vocab_size, embedding_size,
-                                                 padding_idx=0, _weight=torch.Tensor(embedding))
+        self.embedding = nn.Embedding(vocab_size, embedding_size,
+                                      padding_idx=0, _weight=torch.Tensor(embedding))
         self.rnn = nn.LSTM(embedding_size, hidden_size,
                            batch_first=True, bidirectional=True)
 
     def forward(self, x, length):
         h1 = self.embedding(x)
         h1_packed = nn.utils.rnn.pack_padded_sequence(
-            h1, length, batch_first=True, enforce_sorted=False)
+            h1, length.cpu(), batch_first=True, enforce_sorted=False)
 
         h2_packed, (h, c) = self.rnn(h1_packed)
         last_hidden = torch.cat([h[0], h[1]], dim=-1)
         h2_unpacked, _ = nn.utils.rnn.pad_packed_sequence(
-            h2_packed, batch_first=True, padding_value=0)
+            h2_packed, batch_first=True, padding_value=0.0)
 
-        return h2_unpacked, last_hidden
+        return h2_unpacked, last_hidden, h1
 
 
 class _Attention(nn.Module):
@@ -94,65 +95,52 @@ class MultipleSequenceToClass(pl.LightningModule):
         self.decoder = _Decoder(hidden_size, num_of_classes)
         self.ce_loss = nn.CrossEntropyLoss()
 
+        self.val_metric_acc = pl.metrics.Accuracy(compute_on_step=False)
+        self.val_metric_f1 = pl.metrics.F1(num_classes=num_of_classes, average='micro', compute_on_step=False)
+        self.test_metric_acc = pl.metrics.Accuracy(compute_on_step=False)
+        self.test_metric_f1 = pl.metrics.F1(num_classes=num_of_classes, average='micro', compute_on_step=False)
 
-    def forward(self, batch):
-        h1_premise, _ = self.encoder_premise(
-            batch['sentence'], batch['length'])
-        _, last_hidden_hypothesis = self.encoder_hypothesis(
-            batch['sentence_aux'], batch['sentence_aux_length'])
+    @property
+    def embedding_matrix(self):
+        return self.encoder_premise.embedding.weight.data
+
+    def forward(self, batch: SequenceBatch) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        h1_premise, _, embedding = self.encoder_premise(
+            batch.sentence, batch.length)
+        _, last_hidden_hypothesis, _ = self.encoder_hypothesis(
+            batch.sentence_aux, batch.sentence_aux_length)
         h2, alpha = self.attention(
-            h1_premise, last_hidden_hypothesis, batch['mask'])
+            h1_premise, last_hidden_hypothesis, batch.mask)
         predict = self.decoder(h2, last_hidden_hypothesis)
-        return predict, alpha
+        return predict, alpha, embedding
 
-    def training_step(self, batch, batch_idx):
-        y, alpha = self.forward(batch)
-        train_loss = self.ce_loss(y, batch['label'])
+    def training_step(self, batch: SequenceBatch, batch_idx):
+        y, _, _ = self.forward(batch)
+        train_loss = self.ce_loss(y, batch.label)
         self.log('loss_train', train_loss, on_step=True)
         return train_loss
 
-    def _valid_test_step(self, batch):
-        y, alpha = self.forward(batch)
-        return {
-            'predict': y,
-            'target': batch['label']
-        }
+    def validation_step(self, batch: SequenceBatch, batch_nb):
+        predict = torch.argmax(self.forward(batch)[0], dim=1)
+        self.val_metric_acc.update(predict, batch.label)
+        self.val_metric_f1.update(predict, batch.label)
 
-    def validation_step(self, batch, batch_nb):
-        return self._valid_test_step(batch)
-
-    def test_step(self, batch, batch_nb):
-        return self._valid_test_step(batch)
-
-    def _valid_test_epoch_end(self, outputs, name='val'):
-        predict = torch.cat([output['predict'] for output in outputs], dim=0)
-        target = torch.cat([output['target'] for output in outputs], dim=0)
-        predict_label = torch.argmax(predict, dim=1)
-
-        loss = self.ce_loss(predict, target)
-        self.log(f'loss_{name}', loss, on_epoch=True, prog_bar=True)
-
-        acc = torch.mean((predict_label == target).type(torch.float32))
-        self.log(f'acc_{name}', acc, on_epoch=True, prog_bar=True)
-
-        # auc = torch.tensor(sklearn.metrics.roc_auc_score(
-        #     F.one_hot(target, predict.shape[1]).cpu().numpy(),
-        #     F.softmax(predict, dim=1).cpu().numpy()), dtype=torch.float32)
-        # self.log(f'auc_{name}', auc, on_epoch=True)
-        # print(
-        #     np.sum(F.one_hot(target, predict.shape[1]).cpu().numpy(), axis=0))
-
-        f1 = torch.tensor(sklearn.metrics.f1_score(
-            target.cpu().numpy(),
-            predict_label.cpu().numpy(),
-            average='micro'), dtype=torch.float32)
-        self.log(f'f1_{name}', f1, on_epoch=True)
+    def test_step(self, batch: SequenceBatch, batch_nb):
+        predict = torch.argmax(self.forward(batch)[0], dim=1)
+        self.test_metric_acc.update(predict, batch.label)
+        self.test_metric_f1.update(predict, batch.label)
 
     def validation_epoch_end(self, outputs):
-        return self._valid_test_epoch_end(outputs, name='val')
+        self.log(f'acc_val', self.val_metric_acc.compute(), on_epoch=True)
+        self.log(f'f1_val', self.val_metric_f1.compute(), on_epoch=True, prog_bar=True)
+        self.val_metric_acc.reset()
+        self.val_metric_f1.reset()
 
     def test_epoch_end(self, outputs):
-        return self._valid_test_epoch_end(outputs, name='test')
+        self.log(f'acc_test', self.test_metric_acc.compute(), on_epoch=True)
+        self.log(f'f1_test', self.test_metric_f1.compute(), on_epoch=True, prog_bar=True)
+        self.test_metric_acc.reset()
+        self.test_metric_f1.reset()
 
     def configure_optimizers(self):
         '''

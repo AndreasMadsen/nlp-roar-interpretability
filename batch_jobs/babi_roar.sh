@@ -2,8 +2,8 @@
 # jobs: 5 * 3 * 3 * (10 + 9) = 855
 
 declare -A time=( ["1 random"]="0:20:0" ["1 attention"]="0:20:0" ["1 gradient"]="0:20:0"
-                  ["2 random"]="0:40:0" ["2 attention"]="0:40:0" ["2 gradient"]="0:40:0"
-                  ["3 random"]="0:50:0" ["3 attention"]="0:50:0" ["3 gradient"]="0:50:0")
+                  ["2 random"]="0:25:0" ["2 attention"]="0:25:0" ["2 gradient"]="0:25:0"
+                  ["3 random"]="0:35:0" ["3 attention"]="0:40:0" ["3 gradient"]="0:40:0")
 
 for seed in {0..4}
 do

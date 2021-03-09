@@ -1,9 +1,12 @@
 #!/bin/bash
 # jobs: 5 * 3 * 2 * (10 + 9) = 570
 
+# Actual time:    ["1 random"]="0:08:0" ["1 attention"]="0:09:0" ["1 gradient"]="0:08:0"
+#                 ["2 random"]="0:11:0" ["2 attention"]="0:12:0" ["2 gradient"]="0:12:0"
+#                 ["3 random"]="0:25:0" ["3 attention"]="0:29:0" ["3 gradient"]="0:29:0")
 declare -A time=( ["1 random"]="0:20:0" ["1 attention"]="0:20:0" ["1 gradient"]="0:20:0"
-                  ["2 random"]="0:40:0" ["2 attention"]="0:40:0" ["2 gradient"]="0:40:0"
-                  ["3 random"]="0:50:0" ["3 attention"]="0:50:0" ["3 gradient"]="0:50:0")
+                  ["2 random"]="0:25:0" ["2 attention"]="0:25:0" ["2 gradient"]="0:25:0"
+                  ["3 random"]="0:35:0" ["3 attention"]="0:40:0" ["3 gradient"]="0:40:0")
 
 for seed in {0..4}
 do
@@ -34,6 +37,8 @@ do
                     fi
                 fi
             done
+
+            dependency=''
 
             for k in {10..90..10}
             do

@@ -1,3 +1,5 @@
+from ._dataset import SequenceBatch
+
 from .snli import SNLIDataset
 from .sst import SSTDataset
 from .roar import ROARDataset
