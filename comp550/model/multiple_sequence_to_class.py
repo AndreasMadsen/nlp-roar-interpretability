@@ -32,7 +32,7 @@ class _Encoder(nn.Module):
         self.rnn = nn.LSTM(embedding_size, hidden_size,
                            batch_first=True, bidirectional=True)
 
-    def forward(self, x, length, embedding_scale: Optional[float]=None):
+    def forward(self, x, length, embedding_scale: Optional[torch.Tensor]=None):
         h1 = self.embedding(x)
         if embedding_scale is not None:
             h1 = h1 * embedding_scale
@@ -106,7 +106,10 @@ class MultipleSequenceToClass(pl.LightningModule):
     def embedding_matrix(self):
         return self.encoder_premise.embedding.weight.data
 
-    def forward(self, batch: SequenceBatch, embedding_scale: Optional[float]=None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def flatten_parameters(self):
+        self.encoder_premise.rnn.flatten_parameters()
+
+    def forward(self, batch: SequenceBatch, embedding_scale: Optional[torch.Tensor]=None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         h1_premise, _, embedding = self.encoder_premise(
             batch.sentence, batch.length, embedding_scale)
         _, last_hidden_hypothesis, _ = self.encoder_hypothesis(

@@ -62,15 +62,13 @@ class GradientImportanceMeasureModule(ImportanceMeasureModule):
             return torch.norm(yc_wrt_x, p=2, dim=2)
 
 class IntegratedGradientImportanceMeasureModule(ImportanceMeasureModule):
-    riemann_samples: int
+    riemann_samples: torch.Tensor
 
     def __init__(self, *args, riemann_samples=20, **kwargs):
         super().__init__(*args, **kwargs)
-        self.riemann_samples = riemann_samples
+        self.riemann_samples = torch.tensor(riemann_samples)
 
     def forward(self, batch: SequenceBatch) -> torch.Tensor:
-        embedding_matrix_t = torch.transpose(self.model.embedding_matrix, 0, 1)
-
         # Prepear a compact embedding matrix for doing sum(x * dy/dz @ W.T) efficently.
         embedding_matrix_compact = torch.index_select(
             self.model.embedding_matrix, 0, batch.sentence.view(-1)
@@ -78,7 +76,7 @@ class IntegratedGradientImportanceMeasureModule(ImportanceMeasureModule):
 
         # Riemann approximation of the integral
         online_mean = torch.zeros_like(batch.sentence, dtype=self.model.embedding_matrix.dtype)
-        for i in range(1, self.riemann_samples + 1):
+        for i in torch.arange(1, self.riemann_samples + 1):
             embedding_scale = i / self.riemann_samples
             y, _, embedding = self.model(batch, embedding_scale=embedding_scale)
             yc = y[torch.arange(batch.label.numel()), batch.label]
@@ -281,8 +279,9 @@ class ROARDataset(Dataset):
                 base_dataset = self._base_dataset
 
             # Mask each dataset split according to the importance measure
-            if self._use_gpu:
-                self._model.cuda()
+            if self._use_gpu and self._importance_measure_calc is not None:
+                self._importance_measure_calc.cuda()
+            self._model.flatten_parameters()
 
             base_dataset.setup('fit')
             train = self._mask_dataset(base_dataset.train_dataloader, 'train')
