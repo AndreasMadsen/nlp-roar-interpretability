@@ -20,9 +20,9 @@ class _Encoder(nn.Module):
 
     def forward(self, x, length, embedding_scale: Optional[torch.Tensor]=None):
         h1 = self.embedding(x)
-        if embedding_scale is not None:
-            h1 = h1 * embedding_scale
-        h1_packed = nn.utils.rnn.pack_padded_sequence(h1, length.cpu(), batch_first=True, enforce_sorted=False)
+        h1.requires_grad_()
+        h1_scaled = h1 if embedding_scale is None else h1 * embedding_scale
+        h1_packed = nn.utils.rnn.pack_padded_sequence(h1_scaled, length.cpu(), batch_first=True, enforce_sorted=False)
         h2_packed, _ = self.rnn(h1_packed)
         h2_unpacked, _ = nn.utils.rnn.pad_packed_sequence(h2_packed, batch_first=True, padding_value=0.0)
         return h1, h2_unpacked

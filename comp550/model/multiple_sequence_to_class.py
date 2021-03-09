@@ -34,10 +34,10 @@ class _Encoder(nn.Module):
 
     def forward(self, x, length, embedding_scale: Optional[torch.Tensor]=None):
         h1 = self.embedding(x)
-        if embedding_scale is not None:
-            h1 = h1 * embedding_scale
+        h1.requires_grad_()
+        h1_scaled = h1 if embedding_scale is None else h1 * embedding_scale
         h1_packed = nn.utils.rnn.pack_padded_sequence(
-            h1, length.cpu(), batch_first=True, enforce_sorted=False)
+            h1_scaled, length.cpu(), batch_first=True, enforce_sorted=False)
 
         h2_packed, (h, c) = self.rnn(h1_packed)
         last_hidden = torch.cat([h[0], h[1]], dim=-1)

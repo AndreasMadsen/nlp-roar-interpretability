@@ -85,8 +85,8 @@ class IntegratedGradientImportanceMeasureModule(ImportanceMeasureModule):
             with torch.no_grad():
                 # NOTE: There is max difference of about 0.08 between, the gradient
                 # in normal PyTorch mode and the gradient in TorchScript mode.
-                yc_wrt_unscaled_embedding, = torch.autograd.grad([yc_batch], (embedding, )) # (B, T, Z)
-                if yc_wrt_unscaled_embedding is None:
+                yc_wrt_embedding, = torch.autograd.grad([yc_batch], (embedding, )) # (B, T, Z)
+                if yc_wrt_embedding is None:
                     raise ValueError('Could not compute gradient')
 
                 # This is a fast and memory-efficient version of sum(one_hot(x) * dy/dz @ W.T)
@@ -96,19 +96,12 @@ class IntegratedGradientImportanceMeasureModule(ImportanceMeasureModule):
                 # In this context, the sum comes from the 2-norm. The mean
                 # does not affect anything, as x remains the same for all
                 # # Riemann steps.
-                yc_wrt_x_unscaled_compact = torch.bmm(
-                    yc_wrt_unscaled_embedding.view(
+                yc_wrt_x_compact = torch.bmm(
+                    yc_wrt_embedding.view(
                         embedding_matrix_compact.shape[0], 1, embedding_matrix_compact.shape[1]
                     ), # (B * T, 1, Z)
                     embedding_matrix_compact, # (B * T, Z, 1)
                 ).view_as(batch.sentence) # (B*T, 1, 1) -> (B, T)
-
-                # Due to a PyTorch bug, differentating wrt. the actual embedding,
-                # does not work. Instead we differentat wrt. the scaled embedding.
-                # To correct this, rescale yc_wrt_x now. We could do this early,
-                # however, it is at this point yc_wrt_x has the least amount of
-                # values.
-                yc_wrt_x_compact = yc_wrt_x_unscaled_compact * embedding_scale
 
                 # Update the online mean (Knuth Algorithm), this is more memory
                 # efficient that storing x_yc_wrt_x for each Riemann step.
