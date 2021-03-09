@@ -120,6 +120,7 @@ if __name__ == "__main__":
             importance_measure=args.importance_measure,
             riemann_samples=args.riemann_samples,
             use_gpu=args.use_gpu,
+            build_batch_size=None if not args.use_gpu else 256,
             seed=args.seed,
             num_workers=args.num_workers,
         )

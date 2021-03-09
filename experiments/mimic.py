@@ -125,7 +125,7 @@ if __name__ == "__main__":
             importance_measure=args.importance_measure,
             riemann_samples=args.riemann_samples,
             use_gpu=args.use_gpu,
-            build_batch_size=8,
+            build_batch_size=8 if args.importance_measure == 'gradient' or not args.use_gpu else 64,
             seed=args.seed,
             num_workers=args.num_workers,
         )
