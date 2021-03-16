@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from comp550.dataset import SNLIDataset, SSTDataset, IMDBDataset, BabiDataset, MimicDataset
 from comp550.model import SingleSequenceToClass, MultipleSequenceToClass
-from comp550.util import generate_experiment_id
+from comp550.util import generate_experiment_id, optimal_roar_batch_size
 from comp550.explain import ImportanceMeasure
 
 thisdir = os.path.dirname(os.path.realpath(__file__))
@@ -83,6 +83,7 @@ if __name__ == "__main__":
         importance_measure = ImportanceMeasure(model, dataset, args.importance_measure,
                                                use_gpu=args.use_gpu,
                                                num_workers=args.num_workers,
+                                               batch_size=optimal_roar_batch_size(dataset.name, args.importance_measure, args.use_gpu),
                                                seed=args.seed)
 
         # Write to /tmp to avoid high IO on a HPC system

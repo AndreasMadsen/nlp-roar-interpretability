@@ -12,7 +12,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 
 from comp550.dataset import BabiDataset, ROARDataset
 from comp550.model import MultipleSequenceToClass
-from comp550.util import generate_experiment_id
+from comp550.util import generate_experiment_id, optimal_roar_batch_size
 
 # On compute canada the ulimit -n is reached, unless this strategy is used.
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -132,7 +132,7 @@ if __name__ == "__main__":
             importance_measure=args.importance_measure,
             riemann_samples=args.riemann_samples,
             use_gpu=args.use_gpu,
-            build_batch_size=None if not args.use_gpu else 256,
+            build_batch_size=optimal_roar_batch_size(base_dataset.name, args.importance_measure, args.use_gpu),
             seed=args.seed,
             num_workers=args.num_workers,
         )
