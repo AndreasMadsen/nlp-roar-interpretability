@@ -58,6 +58,7 @@ class ROARDataset(Dataset):
         self._recursive = recursive
         self._recursive_step_size = recursive_step_size
         self._importance_measure = importance_measure
+        self._riemann_samples = riemann_samples
         self._build_batch_size = build_batch_size
         self._use_gpu = use_gpu
         self._read_from_cache = _read_from_cache
@@ -127,6 +128,7 @@ class ROARDataset(Dataset):
                     recursive=self._recursive,
                     recursive_step_size=self._recursive_step_size,
                     importance_measure=self._importance_measure,
+                    riemann_samples=self._riemann_samples,
                     build_batch_size=self._build_batch_size,
                     seed=self._seed,
                     num_workers=self._num_workers,
@@ -136,6 +138,7 @@ class ROARDataset(Dataset):
                 base_dataset = self._base_dataset
 
             importance_measure = ImportanceMeasure(self._model, base_dataset, self._importance_measure,
+                                                   riemann_samples=self._riemann_samples,
                                                    use_gpu=self._use_gpu,
                                                    num_workers=min(self._num_workers, 1),
                                                    batch_size=self._build_batch_size,
