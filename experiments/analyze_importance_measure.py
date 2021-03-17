@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
         # Write to /tmp to avoid high IO on a HPC system
         with gzip.open(f'/tmp/results/attention/{csv_name}.csv.gz', 'wt', newline='') as fp:
-            writer = csv.DictWriter(fp, extrasaction='ignore', fieldnames=['split', 'observation', 'index', 'importance'])
+            writer = csv.DictWriter(fp, extrasaction='ignore', fieldnames=['split', 'observation', 'index', 'token', 'importance'])
             writer.writeheader()
 
             for split in ['train', 'val', 'test']:
@@ -113,7 +113,8 @@ if __name__ == "__main__":
                         'index': index,
                         'token': token_val,
                         'importance': importance_val
-                    } for index, (token_val, importance_val) in enumerate(zip(observation['sentence'], importance))])
+                    } for index, (token_val, importance_val)
+                      in enumerate(zip(observation['sentence'].tolist(), importance.tolist()))])
 
         shutil.move(f'/tmp/results/attention/{csv_name}.csv.gz',
                     f'{args.persistent_dir}/results/attention/{csv_name}.csv.gz')
