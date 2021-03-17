@@ -33,6 +33,11 @@ parser.add_argument("--importance-measure",
                     type=str,
                     choices=['random', 'attention', 'gradient', 'integrated-gradient'],
                     help="Use 'random', 'attention', 'gradient', or 'integrated-gradient' as the importance measure.")
+parser.add_argument("--riemann-samples",
+                    action="store",
+                    default=20,
+                    type=int,
+                    help="The number of samples used in the integrated-gradient method")
 parser.add_argument("--use-gpu",
                     action="store",
                     default=torch.cuda.is_available(),
@@ -81,11 +86,14 @@ if __name__ == "__main__":
                         embedding=dataset.embedding(),
                         num_of_classes=len(dataset.label_names))
 
-        importance_measure = ImportanceMeasure(model, dataset, args.importance_measure,
-                                               use_gpu=args.use_gpu,
-                                               num_workers=args.num_workers,
-                                               batch_size=optimal_roar_batch_size(dataset.name, args.importance_measure, args.use_gpu),
-                                               seed=args.seed)
+        importance_measure = ImportanceMeasure(
+            model, dataset, args.importance_measure,
+            riemann_samples=args.riemann_samples,
+            use_gpu=args.use_gpu,
+            num_workers=args.num_workers,
+            batch_size=optimal_roar_batch_size(dataset.name, args.importance_measure, args.use_gpu),
+            seed=args.seed
+        )
 
         # Write to /tmp to avoid high IO on a HPC system
         with gzip.open(f'/tmp/results/attention/{csv_name}.csv.gz', 'wt', newline='') as fp:
@@ -102,9 +110,10 @@ if __name__ == "__main__":
                     writer.writerows([{
                         'split': split,
                         'observation': observation_i,
-                        'index': val_i,
-                        'importance': val
-                    } for val_i, val in enumerate(importance)])
+                        'index': index,
+                        'token': token_val,
+                        'importance': importance_val
+                    } for index, (token_val, importance_val) in enumerate(zip(observation['sentence'], importance))])
 
         shutil.move(f'/tmp/results/attention/{csv_name}.csv.gz',
                     f'{args.persistent_dir}/results/attention/{csv_name}.csv.gz')
