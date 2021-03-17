@@ -14,7 +14,8 @@ setup_name = {
 class ImportanceMeasureModule(nn.Module):
     def __init__(self, model, use_gpu, rng):
         super().__init__()
-        self.model = model
+        self.model = model.cuda() if use_gpu else model
+        self.model.flatten_parameters()
         self.device = torch.device('cuda' if use_gpu else 'cpu')
         self.rng = rng
 
@@ -33,7 +34,7 @@ class GradientImportanceMeasure(ImportanceMeasureModule):
         # Compute model
         y, _, embedding = self.model(batch)
         # Select correct label, as we would like gradient of y[correct_label] w.r.t. x
-        yc = y[torch.arange(batch.label.numel()), batch.label]
+        yc = y[torch.arange(batch.label.numel(), device=self.device), batch.label]
 
         # autograd.grad must take a scalar, however we would like $d y_{i,c}/d x_i$
         # to be computed as a batch, meaning for each $i$. To work around this,
@@ -77,7 +78,7 @@ class IntegratedGradientImportanceMeasure(ImportanceMeasureModule):
         for i in torch.arange(1, self.riemann_samples + 1, device=self.device):
             embedding_scale = i / self.riemann_samples
             y, _, embedding = self.model(batch, embedding_scale=embedding_scale)
-            yc = y[torch.arange(batch.label.numel()), batch.label]
+            yc = y[torch.arange(batch.label.numel(), device=self.device), batch.label]
             yc_batch = yc.sum(dim=0)
 
             with torch.no_grad():
@@ -162,10 +163,6 @@ class ImportanceMeasure:
                                                     use_gpu=self._use_gpu, rng=self._np_rng))
         else:
             raise ValueError(f'{importance_measure} is not supported')
-
-        if self._use_gpu:
-            self._importance_measure_fn.cuda()
-        model.flatten_parameters()
 
     def evaluate(self, split):
         if split not in setup_name:
