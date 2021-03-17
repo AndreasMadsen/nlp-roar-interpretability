@@ -72,6 +72,7 @@ if __name__ == "__main__":
         dataset = dataset_cls(cachedir=f"{args.persistent_dir}/cache",
                                 num_workers=args.num_workers)
         dataset.prepare_data()
+        tqdm.write(f'Dataset: {dataset.name}')
 
         experiment_id = generate_experiment_id(dataset.name, args.seed)
         csv_name = f"{dataset.name}_s-{args.seed}_m-{args.importance_measure[0]}"
@@ -88,14 +89,14 @@ if __name__ == "__main__":
 
         # Write to /tmp to avoid high IO on a HPC system
         with gzip.open(f'/tmp/results/attention/{csv_name}.csv.gz', 'wt', newline='') as fp:
-            writer = csv.DictWriter(fp, fieldnames=['split', 'observation', 'index', 'importance'])
+            writer = csv.DictWriter(fp, extrasaction='ignore', fieldnames=['split', 'observation', 'index', 'importance'])
             writer.writeheader()
 
             for split in ['train', 'val', 'test']:
                 # Compute attention distribution for each dataset, seed, and split
                 for observation_i, (observation, importance) in enumerate(tqdm(
                     importance_measure.evaluate(split),
-                    desc='Explaining observations',
+                    desc=f'Explaining {split} observations',
                     leave=False
                 )):
                     writer.writerows([{
