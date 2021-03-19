@@ -21,7 +21,7 @@ class ImportanceMeasureModule(nn.Module):
 
 class RandomImportanceMeasure(ImportanceMeasureModule):
     def forward(self, batch: SequenceBatch) -> torch.Tensor:
-        return torch.tensor(self.rng.rand(*observation.sentence.shape))
+        return torch.tensor(self.rng.rand(*batch.sentence.shape))
 
 class AttentionImportanceMeasure(ImportanceMeasureModule):
     def forward(self, batch: SequenceBatch) -> torch.Tensor:
