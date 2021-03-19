@@ -72,7 +72,7 @@ if __name__ == "__main__":
     # Read CSV files into a dataframe and progressively aggregate the data
     df_partials = []
     df_partials_keys = []
-    for file in tqdm(sorted(glob.glob(f'{args.persistent_dir}/results/attention/*.csv.gz')), desc='Parsing and summarzing CSVs'):
+    for file in tqdm(sorted(glob.glob(f'{args.persistent_dir}/results/importance_measure/*.csv.gz')), desc='Parsing and summarzing CSVs'):
         filename = path.basename(file)
         dataset, seed, measure = re.match(r'([0-9A-Za-z-]+)_s-(\d+)_m-([a-z])', filename).groups()
 

@@ -71,8 +71,8 @@ if __name__ == "__main__":
             (partial(MimicDataset, subset='anemia', mimicdir=f'{args.persistent_dir}/mimic', batch_size=8), SingleSequenceToClass.load_from_checkpoint)
         ]
 
-    os.makedirs(f'/tmp/results/attention', exist_ok=True)
-    os.makedirs(f'{args.persistent_dir}/results/attention', exist_ok=True)
+    os.makedirs(f'/tmp/results/importance_measure', exist_ok=True)
+    os.makedirs(f'{args.persistent_dir}/results/importance_measure', exist_ok=True)
     for dataset_cls, model_cls in tqdm(experiments, desc="Analyzing models"):
         dataset = dataset_cls(cachedir=f"{args.persistent_dir}/cache",
                                 num_workers=args.num_workers)
@@ -96,7 +96,7 @@ if __name__ == "__main__":
         )
 
         # Write to /tmp to avoid high IO on a HPC system
-        with gzip.open(f'/tmp/results/attention/{csv_name}.csv.gz', 'wt', newline='') as fp:
+        with gzip.open(f'/tmp/results/importance_measure/{csv_name}.csv.gz', 'wt', newline='') as fp:
             writer = csv.DictWriter(fp, extrasaction='ignore', fieldnames=['split', 'observation', 'index', 'token', 'importance'])
             writer.writeheader()
 
@@ -116,5 +116,5 @@ if __name__ == "__main__":
                     } for index, (token_val, importance_val)
                       in enumerate(zip(observation['sentence'].tolist(), importance.tolist()))])
 
-        shutil.move(f'/tmp/results/attention/{csv_name}.csv.gz',
-                    f'{args.persistent_dir}/results/attention/{csv_name}.csv.gz')
+        shutil.move(f'/tmp/results/importance_measure/{csv_name}.csv.gz',
+                    f'{args.persistent_dir}/results/importance_measure/{csv_name}.csv.gz')
