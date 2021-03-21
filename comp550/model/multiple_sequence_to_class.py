@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 
+from ._total_ce_loss import TotalCrossEntropyLoss
 from ..dataset import SequenceBatch
 
 class _Decoder(nn.Module):
@@ -97,8 +98,11 @@ class MultipleSequenceToClass(pl.LightningModule):
 
         self.val_metric_acc = pl.metrics.Accuracy(compute_on_step=False)
         self.val_metric_f1 = pl.metrics.F1(num_classes=num_of_classes, average='micro', compute_on_step=False)
+        self.val_metric_ce = TotalCrossEntropyLoss()
+
         self.test_metric_acc = pl.metrics.Accuracy(compute_on_step=False)
         self.test_metric_f1 = pl.metrics.F1(num_classes=num_of_classes, average='micro', compute_on_step=False)
+        self.test_metric_ce = TotalCrossEntropyLoss()
 
     @property
     def embedding_matrix(self):
@@ -121,26 +125,34 @@ class MultipleSequenceToClass(pl.LightningModule):
         return train_loss
 
     def validation_step(self, batch: SequenceBatch, batch_nb):
-        predict = torch.argmax(self.forward(batch)[0], dim=1)
+        y, _, _ = self.forward(batch)
+        predict = torch.argmax(y, dim=1)
         self.val_metric_acc.update(predict, batch.label)
         self.val_metric_f1.update(predict, batch.label)
+        self.val_metric_ce.update(y, batch.label)
 
     def test_step(self, batch: SequenceBatch, batch_nb):
-        predict = torch.argmax(self.forward(batch)[0], dim=1)
+        y, _, _ = self.forward(batch)
+        predict = torch.argmax(y, dim=1)
         self.test_metric_acc.update(predict, batch.label)
         self.test_metric_f1.update(predict, batch.label)
+        self.test_metric_ce.update(y, batch.label)
 
     def validation_epoch_end(self, outputs):
-        self.log(f'acc_val', self.val_metric_acc.compute(), on_epoch=True)
-        self.log(f'f1_val', self.val_metric_f1.compute(), on_epoch=True, prog_bar=True)
+        self.log('acc_val', self.val_metric_acc.compute(), on_epoch=True)
+        self.log('f1_val', self.val_metric_f1.compute(), on_epoch=True, prog_bar=True)
+        self.log('ce_val', self.val_metric_ce.compute(), on_epoch=True, prog_bar=True)
         self.val_metric_acc.reset()
         self.val_metric_f1.reset()
+        self.val_metric_ce.reset()
 
     def test_epoch_end(self, outputs):
-        self.log(f'acc_test', self.test_metric_acc.compute(), on_epoch=True)
-        self.log(f'f1_test', self.test_metric_f1.compute(), on_epoch=True, prog_bar=True)
+        self.log('acc_test', self.test_metric_acc.compute(), on_epoch=True)
+        self.log('f1_test', self.test_metric_f1.compute(), on_epoch=True, prog_bar=True)
+        self.log('ce_test', self.test_metric_ce.compute(), on_epoch=True, prog_bar=True)
         self.test_metric_acc.reset()
         self.test_metric_f1.reset()
+        self.test_metric_ce.reset()
 
     def configure_optimizers(self):
         '''
