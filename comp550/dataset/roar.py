@@ -1,5 +1,3 @@
-from typing import TypeVar, Generic, Union
-
 import pickle
 import os
 import os.path as path
@@ -63,6 +61,57 @@ class GradientImportanceMeasureModule(ImportanceMeasureModule):
             # Normalize the vector-gradient per token into one scalar
             return torch.norm(yc_wrt_x, p=2, dim=2)
 
+class IntegratedGradientImportanceMeasureModule(ImportanceMeasureModule):
+    riemann_samples: torch.Tensor
+
+    def __init__(self, *args, riemann_samples=20, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.riemann_samples = torch.tensor(riemann_samples)
+
+    def forward(self, batch: SequenceBatch) -> torch.Tensor:
+        # Prepear a compact embedding matrix for doing sum(x * dy/dz @ W.T) efficently.
+        embedding_matrix_compact = torch.index_select(
+            self.model.embedding_matrix, 0, batch.sentence.view(-1)
+        ).unsqueeze(-1)
+
+        # Riemann approximation of the integral
+        online_mean = torch.zeros_like(batch.sentence, dtype=self.model.embedding_matrix.dtype)
+        for i in torch.arange(1, self.riemann_samples + 1):
+            embedding_scale = i / self.riemann_samples
+            y, _, embedding = self.model(batch, embedding_scale=embedding_scale)
+            yc = y[torch.arange(batch.label.numel()), batch.label]
+            yc_batch = yc.sum(dim=0)
+
+            with torch.no_grad():
+                # NOTE: There is max difference of about 0.08 between, the gradient
+                # in normal PyTorch mode and the gradient in TorchScript mode.
+                yc_wrt_embedding, = torch.autograd.grad([yc_batch], (embedding, )) # (B, T, Z)
+                if yc_wrt_embedding is None:
+                    raise ValueError('Could not compute gradient')
+
+                # This is a fast and memory-efficient version of sum(one_hot(x) * dy/dz @ W.T)
+                # We can do this because x is one_hot, hence there is no need to
+                # compute all the dy/dx = dy/dz @ W.T elements, where x = 0,
+                # because they will anyway go away after sum.
+                # In this context, the sum comes from the 2-norm. The mean
+                # does not affect anything, as x remains the same for all
+                # # Riemann steps.
+                yc_wrt_x_compact = torch.bmm(
+                    yc_wrt_embedding.view(
+                        embedding_matrix_compact.shape[0], 1, embedding_matrix_compact.shape[1]
+                    ), # (B * T, 1, Z)
+                    embedding_matrix_compact, # (B * T, Z, 1)
+                ).view_as(batch.sentence) # (B*T, 1, 1) -> (B, T)
+
+                # Update the online mean (Knuth Algorithm), this is more memory
+                # efficient that storing x_yc_wrt_x for each Riemann step.
+                online_mean += (yc_wrt_x_compact - online_mean)/i
+
+        # Abs is equivalent to 2-norm, because the naive sum is essentially
+        # sqrt(0^2 + ... + 0^2 + y_wrt_x^2 + 0^2 + ... + 0^2) = abs(y_wrt_x)
+        return torch.abs(online_mean)
+
+
 class ROARDataset(Dataset):
     """Loads a dataset with masking for ROAR."""
 
@@ -70,6 +119,7 @@ class ROARDataset(Dataset):
                  k=1, strategy='count',
                  recursive=False, recursive_step_size=1,
                  importance_measure='attention',
+                 riemann_samples=20,
                  build_batch_size=None, use_gpu=False,
                  seed=0, _read_from_cache=False, **kwargs):
         """
@@ -82,7 +132,7 @@ class ROARDataset(Dataset):
                 If recursive is used, the model should be trained for k-1
                 and the base_dataset should be for k=0.
             importance_measure (str): Which importance measure to use. Supported values
-                are: "random", "attention", and "gradient2.
+                are: "random", "attention", "gradient" and "integrated-gradient".
         """
         super().__init__(cachedir, base_dataset.name,
                          base_dataset.tokenizer, batch_size=base_dataset.batch_size,
@@ -117,6 +167,10 @@ class ROARDataset(Dataset):
         elif importance_measure == 'gradient':
             self._importance_measure_calc = torch.jit.script(GradientImportanceMeasureModule(self._model))
             self._importance_measure_fn = self._importance_measure_gradient
+        elif importance_measure == 'integrated-gradient':
+            self._importance_measure_calc = torch.jit.script(
+                IntegratedGradientImportanceMeasureModule(self._model, riemann_samples=riemann_samples))
+            self._importance_measure_fn = self._importance_measure_integrated_gradient
         else:
             raise ValueError(f'{importance_measure} is not supported')
 
@@ -145,6 +199,9 @@ class ROARDataset(Dataset):
         return self._importance_measure_calc(batch.cuda() if self._use_gpu else batch)
 
     def _importance_measure_gradient(self, batch):
+        return self._importance_measure_calc(batch.cuda() if self._use_gpu else batch)
+
+    def _importance_measure_integrated_gradient(self, batch):
         return self._importance_measure_calc(batch.cuda() if self._use_gpu else batch)
 
     def _mask_batch(self, batch):
@@ -215,8 +272,9 @@ class ROARDataset(Dataset):
                 base_dataset = self._base_dataset
 
             # Mask each dataset split according to the importance measure
-            if self._use_gpu:
-                self._model.cuda()
+            if self._use_gpu and self._importance_measure_calc is not None:
+                self._importance_measure_calc.cuda()
+            self._model.flatten_parameters()
 
             base_dataset.setup('fit')
             train = self._mask_dataset(base_dataset.train_dataloader, 'train')

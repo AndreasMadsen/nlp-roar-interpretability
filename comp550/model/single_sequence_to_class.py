@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Optional
 
 import numpy as np
 import torch
@@ -18,9 +18,11 @@ class _Encoder(nn.Module):
                                       padding_idx=0, _weight=torch.Tensor(embedding))
         self.rnn = nn.LSTM(embedding_size, output_size // 2, batch_first=True, bidirectional=True)
 
-    def forward(self, x, length):
+    def forward(self, x, length, embedding_scale: Optional[torch.Tensor]=None):
         h1 = self.embedding(x)
-        h1_packed = nn.utils.rnn.pack_padded_sequence(h1, length.cpu(), batch_first=True, enforce_sorted=False)
+        h1.requires_grad_()
+        h1_scaled = h1 if embedding_scale is None else h1 * embedding_scale
+        h1_packed = nn.utils.rnn.pack_padded_sequence(h1_scaled, length.cpu(), batch_first=True, enforce_sorted=False)
         h2_packed, _ = self.rnn(h1_packed)
         h2_unpacked, _ = nn.utils.rnn.pad_packed_sequence(h2_packed, batch_first=True, padding_value=0.0)
         return h1, h2_unpacked
@@ -99,9 +101,12 @@ class SingleSequenceToClass(pl.LightningModule):
     def embedding_matrix(self):
         return self.encoder.embedding.weight.data
 
-    def forward(self, batch: SequenceBatch) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def flatten_parameters(self):
+        self.encoder.rnn.flatten_parameters()
+
+    def forward(self, batch: SequenceBatch, embedding_scale: Optional[torch.Tensor]=None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Mask = True, indicates to use. Mask = False, indicates should be ignored.
-        embedding, h1 = self.encoder(batch.sentence, batch.length)
+        embedding, h1 = self.encoder(batch.sentence, batch.length, embedding_scale)
         h2, alpha = self.attention(h1, batch.mask)
         h3 = self.decoder(h2)
         return h3, alpha, embedding

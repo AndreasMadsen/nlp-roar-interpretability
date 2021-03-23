@@ -54,6 +54,11 @@ parser.add_argument("--importance-measure",
                     type=str,
                     choices=['random', 'attention', 'gradient', 'integrated-gradient'],
                     help="Use 'random', 'attention', 'gradient', or 'integrated-gradient' as the importance measure.")
+parser.add_argument("--riemann-samples",
+                    action="store",
+                    default=20,
+                    type=int,
+                    help="The number of samples used in the integrated-gradient method")
 parser.add_argument("--seed", action="store", default=0, type=int, help="Random seed")
 parser.add_argument("--num-workers",
                     action="store",
@@ -118,8 +123,9 @@ if __name__ == "__main__":
             recursive=args.recursive,
             recursive_step_size=args.recursive_step_size,
             importance_measure=args.importance_measure,
+            riemann_samples=args.riemann_samples,
             use_gpu=args.use_gpu,
-            build_batch_size=8,
+            build_batch_size=8 if args.importance_measure == 'gradient' or not args.use_gpu else 64,
             seed=args.seed,
             num_workers=args.num_workers,
         )

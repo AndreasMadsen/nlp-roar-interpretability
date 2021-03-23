@@ -9,7 +9,7 @@ do
     do
         if [ ! -f $SCRATCH"/comp550/results/mimic-${subset::1}_s-${seed}.json" ]; then
             echo mimic-${subset::1}_s-${seed}
-            sbatch --time=${time[$subset]} --mem=16G \
+            sbatch --time=${time[$subset]} --mem=8G \
                 -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                 -J mimic-${subset::1}_s-${seed} ./python_job.sh \
                 experiments/mimic.py \
