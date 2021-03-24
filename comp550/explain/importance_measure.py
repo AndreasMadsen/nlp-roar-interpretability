@@ -82,8 +82,6 @@ class IntegratedGradientImportanceMeasure(ImportanceMeasureModule):
             yc_batch = yc.sum(dim=0)
 
             with torch.no_grad():
-                # NOTE: There is max difference of about 0.08 between, the gradient
-                # in normal PyTorch mode and the gradient in TorchScript mode.
                 yc_wrt_embedding, = torch.autograd.grad([yc_batch], (embedding, )) # (B, T, Z)
                 if yc_wrt_embedding is None:
                     raise ValueError('Could not compute gradient')
