@@ -6,7 +6,7 @@ for seed in {0..4}
 do
     for type in 1 2 3
     do
-        if [ ! -f $SCRATCH"/comp550/results/babi-${type}_s-${seed}.json" ]; then
+        if [ ! -f $SCRATCH"/comp550/results/roar/babi-${type}_s-${seed}.json" ]; then
             echo babi-${type}_s-${seed}
             sbatch --time=${time[$type]} --mem=6G \
                 -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
