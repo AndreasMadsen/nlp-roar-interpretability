@@ -83,3 +83,9 @@ class Dataset(pl.LightningDataModule):
                           batch_size=batch_size or self.batch_size, collate_fn=self.collate,
                           num_workers=self._num_workers if num_workers is None else num_workers,
                           shuffle=shuffle, pin_memory=True)
+
+    def dataloader(self, split, *args, **kwargs):
+        return getattr(self, f'{split}_dataloader')(*args, **kwargs)
+
+    def num_of_observations(self, split):
+        return len(getattr(self, f'_{split}'))

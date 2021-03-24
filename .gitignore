@@ -5,6 +5,7 @@ checkpoints/
 tensorboard/
 plots/
 mimic/
+tables/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

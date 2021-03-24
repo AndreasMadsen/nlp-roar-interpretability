@@ -7,8 +7,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from ._dataset import Dataset
 from ..util import generate_experiment_id
-from ._dataset import Dataset, SequenceBatch
+from ..explain import ImportanceMeasure
 
 lookup_dtype = {
     'sentence': torch.int64,
@@ -20,97 +21,6 @@ lookup_dtype = {
     'label': torch.int64,
     'index': torch.int64
 }
-
-class ImportanceMeasureModule(nn.Module):
-    def __init__(self, model):
-        super().__init__()
-        self.model = model
-
-class AttentionImportanceMeasureModule(ImportanceMeasureModule):
-    def forward(self, batch: SequenceBatch) -> torch.Tensor:
-        with torch.no_grad():
-            _, alpha, _ = self.model(batch)
-        return alpha
-
-class GradientImportanceMeasureModule(ImportanceMeasureModule):
-    def forward(self, batch: SequenceBatch) -> torch.Tensor:
-        # Compute model
-        y, _, embedding = self.model(batch)
-        # Select correct label, as we would like gradient of y[correct_label] w.r.t. x
-        yc = y[torch.arange(batch.label.numel()), batch.label]
-
-        # autograd.grad must take a scalar, however we would like $d y_{i,c}/d x_i$
-        # to be computed as a batch, meaning for each $i$. To work around this,
-        # use that for $g(x) = \sum_i f(x_i)$, we have $d g(x)/d x_{x_i} = d f(x_i)/d x_{x_i}$.
-        # The gradient of the sum, is therefore equivalent to the batch_gradient.
-        yc_batch = torch.sum(yc, dim=0)
-
-        with torch.no_grad():
-            yc_wrt_embedding, = torch.autograd.grad([yc_batch], (embedding, ))
-            if yc_wrt_embedding is None:
-                raise ValueError('Could not compute gradient')
-
-            # We need the gradient wrt. x. However, to compute that directly with .grad would
-            # require the model input to be a one_hot encoding. Creating a one_hot encoding
-            # is very memory inefficient. To avoid that, manually compute the gradient wrt. x
-            # based on the gradient yc_wrt_embedding.
-            # yc_wrt_x = yc_wrt_emb @ emb_wrt_x = yc_wrt_emb @ emb_matix.T
-            embedding_matrix_t = torch.transpose(self.model.embedding_matrix, 0, 1)
-            yc_wrt_x = torch.matmul(yc_wrt_embedding, embedding_matrix_t)
-
-            # Normalize the vector-gradient per token into one scalar
-            return torch.norm(yc_wrt_x, p=2, dim=2)
-
-class IntegratedGradientImportanceMeasureModule(ImportanceMeasureModule):
-    riemann_samples: torch.Tensor
-
-    def __init__(self, *args, riemann_samples=20, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.riemann_samples = torch.tensor(riemann_samples)
-
-    def forward(self, batch: SequenceBatch) -> torch.Tensor:
-        # Prepear a compact embedding matrix for doing sum(x * dy/dz @ W.T) efficently.
-        embedding_matrix_compact = torch.index_select(
-            self.model.embedding_matrix, 0, batch.sentence.view(-1)
-        ).unsqueeze(-1)
-
-        # Riemann approximation of the integral
-        online_mean = torch.zeros_like(batch.sentence, dtype=self.model.embedding_matrix.dtype)
-        for i in torch.arange(1, self.riemann_samples + 1):
-            embedding_scale = i / self.riemann_samples
-            y, _, embedding = self.model(batch, embedding_scale=embedding_scale)
-            yc = y[torch.arange(batch.label.numel()), batch.label]
-            yc_batch = yc.sum(dim=0)
-
-            with torch.no_grad():
-                # NOTE: There is max difference of about 0.08 between, the gradient
-                # in normal PyTorch mode and the gradient in TorchScript mode.
-                yc_wrt_embedding, = torch.autograd.grad([yc_batch], (embedding, )) # (B, T, Z)
-                if yc_wrt_embedding is None:
-                    raise ValueError('Could not compute gradient')
-
-                # This is a fast and memory-efficient version of sum(one_hot(x) * dy/dz @ W.T)
-                # We can do this because x is one_hot, hence there is no need to
-                # compute all the dy/dx = dy/dz @ W.T elements, where x = 0,
-                # because they will anyway go away after sum.
-                # In this context, the sum comes from the 2-norm. The mean
-                # does not affect anything, as x remains the same for all
-                # # Riemann steps.
-                yc_wrt_x_compact = torch.bmm(
-                    yc_wrt_embedding.view(
-                        embedding_matrix_compact.shape[0], 1, embedding_matrix_compact.shape[1]
-                    ), # (B * T, 1, Z)
-                    embedding_matrix_compact, # (B * T, Z, 1)
-                ).view_as(batch.sentence) # (B*T, 1, 1) -> (B, T)
-
-                # Update the online mean (Knuth Algorithm), this is more memory
-                # efficient that storing x_yc_wrt_x for each Riemann step.
-                online_mean += (yc_wrt_x_compact - online_mean)/i
-
-        # Abs is equivalent to 2-norm, because the naive sum is essentially
-        # sqrt(0^2 + ... + 0^2 + y_wrt_x^2 + 0^2 + ... + 0^2) = abs(y_wrt_x)
-        return torch.abs(online_mean)
-
 
 class ROARDataset(Dataset):
     """Loads a dataset with masking for ROAR."""
@@ -148,6 +58,7 @@ class ROARDataset(Dataset):
         self._recursive = recursive
         self._recursive_step_size = recursive_step_size
         self._importance_measure = importance_measure
+        self._riemann_samples = riemann_samples
         self._build_batch_size = build_batch_size
         self._use_gpu = use_gpu
         self._read_from_cache = _read_from_cache
@@ -157,22 +68,6 @@ class ROARDataset(Dataset):
                                                 strategy=strategy,
                                                 importance_measure=importance_measure,
                                                 recursive=recursive)
-
-        if importance_measure == 'random':
-            self._importance_measure_calc = None
-            self._importance_measure_fn = self._importance_measure_random
-        elif importance_measure == 'attention':
-            self._importance_measure_calc = torch.jit.script(AttentionImportanceMeasureModule(self._model))
-            self._importance_measure_fn = self._importance_measure_attention
-        elif importance_measure == 'gradient':
-            self._importance_measure_calc = torch.jit.script(GradientImportanceMeasureModule(self._model))
-            self._importance_measure_fn = self._importance_measure_gradient
-        elif importance_measure == 'integrated-gradient':
-            self._importance_measure_calc = torch.jit.script(
-                IntegratedGradientImportanceMeasureModule(self._model, riemann_samples=riemann_samples))
-            self._importance_measure_fn = self._importance_measure_integrated_gradient
-        else:
-            raise ValueError(f'{importance_measure} is not supported')
 
         if _read_from_cache:
             if not path.exists(f'{self._cachedir}/encoded-roar/{self._basename}.pkl'):
@@ -192,29 +87,10 @@ class ROARDataset(Dataset):
     def uncollate(self, observations):
         return self._base_dataset.uncollate(observations)
 
-    def _importance_measure_random(self, observation):
-        return torch.tensor(self._np_rng.rand(*observation.sentence.shape))
-
-    def _importance_measure_attention(self, batch):
-        return self._importance_measure_calc(batch.cuda() if self._use_gpu else batch)
-
-    def _importance_measure_gradient(self, batch):
-        return self._importance_measure_calc(batch.cuda() if self._use_gpu else batch)
-
-    def _importance_measure_integrated_gradient(self, batch):
-        return self._importance_measure_calc(batch.cuda() if self._use_gpu else batch)
-
-    def _mask_batch(self, batch):
-        batch_importance = self._importance_measure_fn(batch)
-        if self._use_gpu:
-            batch_importance = batch_importance.cpu()
-
-        masked_batch = []
-        with torch.no_grad():
-            for importance, observation in zip(batch_importance, self.uncollate(batch)):
-                # Trim importance to the observation length
-                importance = importance[0:observation['length']]
-
+    def _mask_dataset(self, importance_measure, split):
+        for observation, importance in tqdm(importance_measure.evaluate(split),
+                                            desc=f'Building {split} dataset', leave=False):
+            with torch.no_grad():
                 # Prevent masked tokens from being "removed"
                 importance[torch.logical_not(observation['mask'])] = -np.inf
 
@@ -234,18 +110,7 @@ class ROARDataset(Dataset):
                 _, remove_indices = torch.topk(importance, k=k, sorted=False)
                 observation['sentence'][remove_indices] = self.tokenizer.mask_token_id
 
-                masked_batch.append({ key: val.tolist() for key, val in observation.items() })
-
-        return masked_batch
-
-    def _mask_dataset(self, dataloader, name):
-        outputs = []
-        for batch in tqdm(dataloader(batch_size=self._build_batch_size,
-                                     num_workers=min(self._num_workers, 1),
-                                     shuffle=False),
-                          desc=f'Building {name} dataset', leave=False):
-            outputs += self._mask_batch(batch)
-        return outputs
+                yield { key: val.tolist() for key, val in observation.items() }
 
     def prepare_data(self):
         # Encode data
@@ -263,6 +128,7 @@ class ROARDataset(Dataset):
                     recursive=self._recursive,
                     recursive_step_size=self._recursive_step_size,
                     importance_measure=self._importance_measure,
+                    riemann_samples=self._riemann_samples,
                     build_batch_size=self._build_batch_size,
                     seed=self._seed,
                     num_workers=self._num_workers,
@@ -271,27 +137,23 @@ class ROARDataset(Dataset):
             else:
                 base_dataset = self._base_dataset
 
-            # Mask each dataset split according to the importance measure
-            if self._use_gpu and self._importance_measure_calc is not None:
-                self._importance_measure_calc.cuda()
-            self._model.flatten_parameters()
-
-            base_dataset.setup('fit')
-            train = self._mask_dataset(base_dataset.train_dataloader, 'train')
-            val = self._mask_dataset(base_dataset.val_dataloader, 'val')
-            base_dataset.clean('fit')
-
-            base_dataset.setup('test')
-            test = self._mask_dataset(base_dataset.test_dataloader, 'test')
-            base_dataset.clean('test')
+            importance_measure = ImportanceMeasure(self._model, base_dataset, self._importance_measure,
+                                                   riemann_samples=self._riemann_samples,
+                                                   use_gpu=self._use_gpu,
+                                                   num_workers=min(self._num_workers, 1),
+                                                   batch_size=self._build_batch_size,
+                                                   seed=self._seed)
 
             # save data
             with open(f'{self._cachedir}/encoded-roar/{self._basename}.pkl', 'wb') as fp:
-                pickle.dump({'train': train, 'val': val, 'test': test}, fp)
+                pickle.dump({
+                    'train': list(self._mask_dataset(importance_measure, 'train')),
+                    'val': list(self._mask_dataset(importance_measure, 'val')),
+                    'test': list(self._mask_dataset(importance_measure, 'test'))
+                }, fp)
 
             # Free the refcount to the model, as it is not required anymore
             del self._model
-            del self._importance_measure_calc
 
             # Because the self._model ref no longer exists, the dataset can't be rebuild
             self._read_from_cache = True
