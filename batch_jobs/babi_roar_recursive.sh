@@ -1,5 +1,6 @@
 #!/bin/bash
 # jobs: 5 * 3 * 3 * (10 + 9) = 855
+source "batch_jobs/_job_script.sh"
 
 # Actual time:    ["1 random"]="0:08:0" ["1 attention"]="0:09:0" ["1 gradient"]="0:08:0" ["1 integrated-gradient"]="0:08:0"
 #                 ["2 random"]="0:11:0" ["2 attention"]="0:12:0" ["2 gradient"]="0:12:0" ["2 integrated-gradient"]="0:13:0"
@@ -23,7 +24,7 @@ do
                     if last_jobid=$(
                         sbatch --time=${time[$type $importance_measure]} --mem=6G --parsable ${dependency} \
                             -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
-                            -J babi-${type}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1 ./python_job.sh \
+                            -J babi-${type}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1 $(job_script gpu) \
                             experiments/babi.py --recursive \
                             --seed ${seed} --k ${k} --recursive-step-size 1 \
                             --roar-strategy count --importance-measure ${importance_measure} \
@@ -47,7 +48,7 @@ do
                     if last_jobid=$(
                         sbatch --time=${time[$type $importance_measure]} --mem=6G --parsable ${dependency} \
                             -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
-                            -J babi-${type}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1 ./python_job.sh \
+                            -J babi-${type}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1 $(job_script gpu) \
                             experiments/babi.py --recursive \
                             --seed ${seed} --k ${k} --recursive-step-size 10 \
                             --roar-strategy quantile --importance-measure ${importance_measure} \
