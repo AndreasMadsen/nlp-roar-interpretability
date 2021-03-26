@@ -141,7 +141,7 @@ class MultipleSequenceToClass(pl.LightningModule):
     def validation_epoch_end(self, outputs):
         self.log('acc_val', self.val_metric_acc.compute(), on_epoch=True)
         self.log('f1_val', self.val_metric_f1.compute(), on_epoch=True, prog_bar=True)
-        self.log('ce_val', self.val_metric_ce.compute(), on_epoch=True, prog_bar=True)
+        self.log('ce_val', self.val_metric_ce.compute(), on_epoch=True)
         self.val_metric_acc.reset()
         self.val_metric_f1.reset()
         self.val_metric_ce.reset()
@@ -149,7 +149,7 @@ class MultipleSequenceToClass(pl.LightningModule):
     def test_epoch_end(self, outputs):
         self.log('acc_test', self.test_metric_acc.compute(), on_epoch=True)
         self.log('f1_test', self.test_metric_f1.compute(), on_epoch=True, prog_bar=True)
-        self.log('ce_test', self.test_metric_ce.compute(), on_epoch=True, prog_bar=True)
+        self.log('ce_test', self.test_metric_ce.compute(), on_epoch=True)
         self.test_metric_acc.reset()
         self.test_metric_f1.reset()
         self.test_metric_ce.reset()
