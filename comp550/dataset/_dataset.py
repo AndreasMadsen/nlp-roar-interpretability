@@ -57,6 +57,14 @@ class Dataset(pl.LightningDataModule):
         else:
             raise ValueError(f'unexpected setup stage: {stage}')
 
+    def is_setup(self, stage):
+        if stage == 'fit':
+            return hasattr(self, '_train') and hasattr(self, '_val')
+        elif stage == 'test':
+            del hasattr(self, '_test')
+        else:
+            raise ValueError(f'unexpected setup stage: {stage}')
+
     def clean(self, stage=None):
         if stage == 'fit':
             del self._train

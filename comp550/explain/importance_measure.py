@@ -1,4 +1,7 @@
 
+import os.path as path
+import pickle
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -109,39 +112,81 @@ class IntegratedGradientImportanceMeasure(ImportanceMeasureModule):
         return torch.abs(online_mean)
 
 class ImportanceMeasureEvaluator:
-    def __init__(self, importance_measure_fn, dataset, use_gpu, split, **kwargs):
+    def __init__(self, importance_measure_fn, dataset, use_gpu, cache_path, split, **kwargs):
         self._importance_measure_fn = importance_measure_fn
         self._dataset = dataset
         self._use_gpu = use_gpu
+        self._cache_path = cache_path
         self._split = split
         self._kwargs = kwargs
 
-        self._dataset.setup(setup_name[self._split])
+        self._was_setup = self._dataset.is_setup(setup_name[self._split])
+        if not self._was_setup:
+            self._dataset.setup(setup_name[self._split])
 
+        self._length = self._dataset.num_of_observations(self._split)
+
+    def _finalize(self):
+        if not self._was_setup:
+            self._dataset.clean(setup_name[self._split])
+
+    def __iter__(self):
+        raise NotADirectoryError
+
+    def __len__(self):
+        return self._length
+
+class ImportanceMeasureEvaluatorNoCache(ImportanceMeasureEvaluator):
     def __iter__(self):
         for batch in self._dataset.dataloader(self._split, **self._kwargs):
             batch_importance = self._importance_measure_fn(batch.cuda() if self._use_gpu else batch)
             batch_importance = batch_importance.cpu() if self._use_gpu else batch_importance
 
             yield from (
-                (observation, importance[0:observation['length']])
+                (observation, importance[0:observation['length'].tolist()])
                 for observation, importance
                 in zip(self._dataset.uncollate(batch), batch_importance)
             )
 
-        self._dataset.clean(setup_name[self._split])
+        self._finalize()
 
-    def __len__(self):
-        return self._dataset.num_of_observations(self._split)
+class ImportanceMeasureEvaluatorBuildCache(ImportanceMeasureEvaluatorNoCache):
+    def __iter__(self):
+        cache = dict()
+
+        for observation, importance in super()__iter__():
+            cache[observation['index'].tolist()] = importance.tolist()
+            yield (observation, importance)
+
+        with open(self._cache_path, 'wb') as fp:
+            pickle.dump(cache, fp)
+
+class ImportanceMeasureEvaluatorUseCache(ImportanceMeasureEvaluator):
+    def __iter__(self):
+        with open(self._cache_path, 'rb') as fp:
+            cache = pickle.load(fp)
+
+        for batch in self._dataset.dataloader(self._split, **self._kwargs):
+            yield from (
+                (observation, torch.tensor(cache[observation['index'].tolist()], dtype=torch.float32))
+                for observation, importance
+                in zip(self._dataset.uncollate(batch), batch_importance)
+            )
+
+        self._finalize()
 
 class ImportanceMeasure:
     def __init__(self, model, dataset, importance_measure,
-                 riemann_samples=20, use_gpu=False, num_workers=4, batch_size=None, seed=0):
+                 riemann_samples=20, use_gpu=False, num_workers=4, batch_size=None, seed=0,
+                 cachedir=None, caching=None, cachename=None):
         self._dataset = dataset
         self._np_rng = np.random.RandomState(seed)
 
         self._num_workers = num_workers
         self._batch_size = batch_size
+        self._caching = caching
+        self._cachedir = cachedir
+        self._cachename = cachename
 
         if importance_measure == 'random':
             self._use_gpu = False
@@ -166,6 +211,18 @@ class ImportanceMeasure:
         if split not in setup_name:
             raise ValueError(f'split "{split}" is not supported')
 
-        return ImportanceMeasureEvaluator(self._importance_measure_fn, self._dataset, self._use_gpu, split,
-                                          batch_size=self._batch_size, num_workers=self._num_workers,
-                                          shuffle=False)
+        if self._caching is None:
+            ImportanceMeasureIterable = ImportanceMeasureEvaluatorNoCache
+        elif self._caching is 'build':
+            ImportanceMeasureIterable = ImportanceMeasureEvaluatorBuildCache
+        elif self._caching is 'use':
+            ImportanceMeasureIterable = ImportanceMeasureEvaluatorUseCache
+
+        cache_path = None
+        if self._caching is not None:
+            cache_path = f'{self._cachedir}/importance-measure/{self._cachename}.{split}.pkl'
+            os.makedirs(f'{self._cachedir}/importance-measure', exist_ok=True)
+
+        return ImportanceMeasureIterable(
+            self._importance_measure_fn, self._dataset, self._use_gpu, cache_path, split,
+            batch_size=self._batch_size, num_workers=self._num_workers, shuffle=False)

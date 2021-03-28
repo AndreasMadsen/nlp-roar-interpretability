@@ -137,12 +137,24 @@ class ROARDataset(Dataset):
             else:
                 base_dataset = self._base_dataset
 
-            importance_measure = ImportanceMeasure(self._model, base_dataset, self._importance_measure,
-                                                   riemann_samples=self._riemann_samples,
-                                                   use_gpu=self._use_gpu,
-                                                   num_workers=min(self._num_workers, 1),
-                                                   batch_size=self._build_batch_size,
-                                                   seed=self._seed)
+
+            importance_measure = ImportanceMeasure(
+                self._model, base_dataset, self._importance_measure,
+                riemann_samples=self._riemann_samples,
+                use_gpu=self._use_gpu,
+                num_workers=min(self._num_workers, 1),
+                batch_size=self._build_batch_size,
+                seed=self._seed,
+                caching=None if self._recursive else 'use',
+                cachedir=self._cachedir,
+                cachename=generate_experiment_id(
+                    base_dataset.name, self._seed,
+                    k=self._k - self._recursive_step_size if recursive else 0,
+                    strategy=self._strategy,
+                    importance_measure=self._importance_measure,
+                    recursive=self._recursive
+                )
+            )
 
             # save data
             with open(f'{self._cachedir}/encoded-roar/{self._basename}.pkl', 'wb') as fp:
