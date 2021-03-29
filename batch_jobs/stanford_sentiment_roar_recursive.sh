@@ -13,12 +13,12 @@ do
 
         for k in {1..10}
         do
-            if [ ! -f $SCRATCH"/comp550/results/roar/sst_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1.json" ]; then
-                echo sst_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1
+            if [ ! -f $SCRATCH"/comp550/results/roar/sst_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-50.json" ]; then
+                echo sst_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-50
                 if last_jobid=$(
                     sbatch --time=${time[$importance_measure]} --mem=6G --parsable ${dependency} \
                     -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
-                    -J sst_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1 $(job_script gpu) \
+                    -J sst_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-50 $(job_script gpu) \
                     experiments/stanford_sentiment.py --recursive \
                     --seed ${seed} --k ${k} --recursive-step-size 1 \
                     --roar-strategy count --importance-measure ${importance_measure}
@@ -36,12 +36,12 @@ do
 
         for k in {10..90..10}
         do
-            if [ ! -f $SCRATCH"/comp550/results/roar/sst_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1.json" ]; then
-                echo sst_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1
+            if [ ! -f $SCRATCH"/comp550/results/roar/sst_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-50.json" ]; then
+                echo sst_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-50
                 if last_jobid=$(
                     sbatch --time=${time[$importance_measure]} --mem=6G --parsable ${dependency} \
                     -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
-                    -J sst_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1 $(job_script gpu) \
+                    -J sst_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-50 $(job_script gpu) \
                     experiments/stanford_sentiment.py --recursive \
                     --seed ${seed} --k ${k} --recursive-step-size 10 \
                     --roar-strategy quantile --importance-measure ${importance_measure}
