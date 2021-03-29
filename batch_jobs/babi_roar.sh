@@ -12,11 +12,26 @@ do
     do
         for importance_measure in 'random' 'attention' 'gradient' 'integrated-gradient'
         do
+            if precompute_jobid=$(
+                sbatch --time=2:00:0 --mem=6G --parsable \
+                    -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
+                    -J "importance_s-${seed}_m-${importance_measure::1}" ./python_job.sh \
+                    experiments/compute_importance_measure.py \
+                    --seed ${seed} \
+                    --dataset "babi-${type}" \
+                    --importance-measure ${importance_measure}
+            );  then
+                echo "Submitted precompute batch job ${precompute_jobid}"
+            else
+                echo "Could not submit precompute batch job, skipping"
+                break
+            fi
+
             for k in {1..10}
             do
                 if [ ! -f $SCRATCH"/comp550/results/roar/babi-${type}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-0.json" ]; then
                     echo babi-${type}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-0
-                    sbatch --time=${time[$type $importance_measure]} --mem=6G \
+                    sbatch --time=${time[$type $importance_measure]} --mem=6G --dependency=afterok:${precompute_jobid} \
                         -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                         -J babi-${type}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-0 $(job_script gpu) \
                         experiments/babi.py \
@@ -30,7 +45,7 @@ do
             do
                 if [ ! -f $SCRATCH"/comp550/results/roar/babi-${type}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0.json" ]; then
                     echo babi-${type}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0
-                    sbatch --time=${time[$type $importance_measure]} --mem=6G \
+                    sbatch --time=${time[$type $importance_measure]} --mem=6G --dependency=afterok:${precompute_jobid} \
                         -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                         -J babi-${type}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0 $(job_script gpu) \
                         experiments/babi.py \
