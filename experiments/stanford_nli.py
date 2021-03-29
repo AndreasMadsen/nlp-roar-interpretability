@@ -51,7 +51,7 @@ parser.add_argument("--importance-measure",
                     help="Use 'random', 'attention', 'gradient', or 'integrated-gradient' as the importance measure.")
 parser.add_argument("--riemann-samples",
                     action="store",
-                    default=20,
+                    default=50,
                     type=int,
                     help="The number of samples used in the integrated-gradient method")
 parser.add_argument("--seed", action="store", default=0, type=int, help="Random seed")

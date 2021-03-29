@@ -41,7 +41,7 @@ parser.add_argument("--dataset",
                     help="Specify which dataset to compute.")
 parser.add_argument("--riemann-samples",
                     action="store",
-                    default=20,
+                    default=50,
                     type=int,
                     help="The number of samples used in the integrated-gradient method")
 parser.add_argument("--use-gpu",
