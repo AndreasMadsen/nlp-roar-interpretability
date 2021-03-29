@@ -18,7 +18,8 @@ do
                     experiments/compute_importance_measure.py \
                     --seed ${seed} \
                     --dataset "mimic-${subset::1}" \
-                    --importance-measure ${importance_measure}
+                    --importance-measure ${importance_measure} \
+                    --importance-caching build
             );  then
                 echo "Submitted precompute batch job ${precompute_jobid}"
             else
@@ -36,6 +37,7 @@ do
                         experiments/mimic.py \
                         --seed ${seed} --k ${k} --recursive-step-size 1 \
                         --roar-strategy count --importance-measure ${importance_measure} \
+                        --importance-caching use \
                         --subset ${subset}
                 fi
             done
@@ -50,6 +52,7 @@ do
                         experiments/mimic.py \
                         --seed ${seed} --k ${k} --recursive-step-size 10 \
                         --roar-strategy quantile --importance-measure ${importance_measure} \
+                        --importance-caching use \
                         --subset ${subset}
                 fi
             done

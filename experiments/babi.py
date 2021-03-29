@@ -71,6 +71,12 @@ parser.add_argument('--max-epochs',
                     default=100,
                     type=int,
                     help='The max number of epochs to use')
+parser.add_argument("--importance-caching",
+                    action="store",
+                    default=None,
+                    type=str,
+                    choices=['use', 'build'],
+                    help="How should the cache be used for the importance measure, default is no cache involvement.")
 parser.add_argument('--use-gpu',
                     action='store',
                     default=torch.cuda.is_available(),
@@ -133,6 +139,7 @@ if __name__ == "__main__":
             riemann_samples=args.riemann_samples,
             use_gpu=args.use_gpu,
             build_batch_size=optimal_roar_batch_size(base_dataset.name, args.importance_measure, args.use_gpu),
+            importance_caching=args.importance_caching,
             seed=args.seed,
             num_workers=args.num_workers,
         )

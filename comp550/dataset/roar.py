@@ -30,7 +30,8 @@ class ROARDataset(Dataset):
                  recursive=False, recursive_step_size=1,
                  importance_measure='attention',
                  riemann_samples=20,
-                 build_batch_size=None, use_gpu=False,
+                 build_batch_size=None, importance_caching=None,
+                 use_gpu=False,
                  seed=0, _read_from_cache=False, **kwargs):
         """
         Args:
@@ -60,6 +61,7 @@ class ROARDataset(Dataset):
         self._importance_measure = importance_measure
         self._riemann_samples = riemann_samples
         self._build_batch_size = build_batch_size
+        self._importance_caching = importance_caching
         self._use_gpu = use_gpu
         self._read_from_cache = _read_from_cache
 
@@ -145,7 +147,7 @@ class ROARDataset(Dataset):
                 num_workers=min(self._num_workers, 1),
                 batch_size=self._build_batch_size,
                 seed=self._seed,
-                caching=None if self._recursive else 'use',
+                caching=self._importance_caching,
                 cachedir=self._cachedir,
                 cachename=generate_experiment_id(
                     base_dataset.name, self._seed,

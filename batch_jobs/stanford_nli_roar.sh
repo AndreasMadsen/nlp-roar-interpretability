@@ -33,7 +33,8 @@ do
                     -J snli_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-0 $(job_script gpu) \
                     experiments/stanford_nli.py \
                     --seed ${seed} --k ${k} --recursive-step-size 1 \
-                    --roar-strategy count --importance-measure ${importance_measure}
+                    --roar-strategy count --importance-measure ${importance_measure} \
+                    --importance-caching use
             fi
         done
 
@@ -46,7 +47,8 @@ do
                     -J snli_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0 $(job_script gpu) \
                     experiments/stanford_nli.py \
                     --seed ${seed} --k ${k} --recursive-step-size 10 \
-                    --roar-strategy quantile --importance-measure ${importance_measure}
+                    --roar-strategy quantile --importance-measure ${importance_measure} \
+                    --importance-caching use
             fi
         done
     done

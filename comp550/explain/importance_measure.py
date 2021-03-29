@@ -131,7 +131,7 @@ class ImportanceMeasureEvaluator:
             self._dataset.clean(setup_name[self._split])
 
     def __iter__(self):
-        raise NotADirectoryError
+        raise NotImplementedError
 
     def __len__(self):
         return self._length
@@ -178,7 +178,10 @@ class ImportanceMeasureEvaluatorUseCache(ImportanceMeasureEvaluator):
 class ImportanceMeasure:
     def __init__(self, model, dataset, importance_measure,
                  riemann_samples=20, use_gpu=False, num_workers=4, batch_size=None, seed=0,
-                 cachedir=None, caching=None, cachename=None):
+                 caching=None, cachedir=None, cachename=None):
+        if caching not in [None, 'use', 'build']:
+            raise ValueError('caching argument must be either None, "use" or "build"')
+
         self._dataset = dataset
         self._np_rng = np.random.RandomState(seed)
 

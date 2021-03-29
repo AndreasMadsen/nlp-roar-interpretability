@@ -70,6 +70,12 @@ parser.add_argument('--max-epochs',
                     default=8,
                     type=int,
                     help='The max number of epochs to use')
+parser.add_argument("--importance-caching",
+                    action="store",
+                    default=None,
+                    type=str,
+                    choices=['use', 'build'],
+                    help="How should the cache be used for the importance measure, default is no cache involvement.")
 parser.add_argument('--use-gpu',
                     action='store',
                     default=torch.cuda.is_available(),

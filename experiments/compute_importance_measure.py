@@ -44,6 +44,12 @@ parser.add_argument("--riemann-samples",
                     default=50,
                     type=int,
                     help="The number of samples used in the integrated-gradient method")
+parser.add_argument("--importance-caching",
+                    action="store",
+                    default=None,
+                    type=str,
+                    choices=['use', 'build'],
+                    help="How should the cache be used for the importance measure, default is no cache involvement.")
 parser.add_argument("--use-gpu",
                     action="store",
                     default=torch.cuda.is_available(),
@@ -94,13 +100,13 @@ if __name__ == "__main__":
         num_workers=args.num_workers,
         batch_size=optimal_roar_batch_size(dataset.name, args.importance_measure, args.use_gpu),
         seed=args.seed,
-        caching=None if args.recursive else 'build',
+        caching=args.importance_caching,
         cachedir=f'{args.persistent_dir}/cache',
         cachename=generate_experiment_id(dataset.name, args.seed,
-                                            k=0,
-                                            strategy='count',
-                                            importance_measure=args.importance_measure,
-                                            recursive=False)
+                                         k=0,
+                                         strategy='count',
+                                         importance_measure=args.importance_measure,
+                                         recursive=False)
     )
 
     # Write to /tmp to avoid high IO on a HPC system
