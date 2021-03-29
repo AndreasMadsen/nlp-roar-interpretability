@@ -61,7 +61,7 @@ class Dataset(pl.LightningDataModule):
         if stage == 'fit':
             return hasattr(self, '_train') and hasattr(self, '_val')
         elif stage == 'test':
-            del hasattr(self, '_test')
+            return hasattr(self, '_test')
         else:
             raise ValueError(f'unexpected setup stage: {stage}')
 

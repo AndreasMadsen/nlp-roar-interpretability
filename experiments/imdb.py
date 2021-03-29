@@ -90,7 +90,8 @@ if __name__ == '__main__':
                                            k=args.k,
                                            strategy=args.roar_strategy,
                                            importance_measure=args.importance_measure,
-                                           recursive=args.recursive)
+                                           recursive=args.recursive,
+                                           riemann_samples=args.riemann_samples)
 
     print('Running IMDB-ROAR experiment:')
     print(f' - k: {args.k}')
@@ -114,7 +115,8 @@ if __name__ == '__main__':
                                                     k=args.k-args.recursive_step_size if args.recursive else 0,
                                                     strategy=args.roar_strategy,
                                                     importance_measure=args.importance_measure,
-                                                    recursive=args.recursive)
+                                                    recursive=args.recursive,
+                                                    riemann_samples=args.riemann_samples)
         main_dataset = ROARDataset(
             cachedir=f'{args.persistent_dir}/cache',
             model=SingleSequenceToClass.load_from_checkpoint(
@@ -130,6 +132,7 @@ if __name__ == '__main__':
             riemann_samples=args.riemann_samples,
             use_gpu=args.use_gpu,
             build_batch_size=optimal_roar_batch_size(base_dataset.name, args.importance_measure, args.use_gpu),
+            importance_caching=args.importance_caching,
             seed=args.seed,
             num_workers=args.num_workers,
         )

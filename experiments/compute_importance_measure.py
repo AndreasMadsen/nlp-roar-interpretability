@@ -76,7 +76,7 @@ if __name__ == "__main__":
         'imdb': (IMDBDataset, SingleSequenceToClass.load_from_checkpoint),
         'babi-1': (partial(BabiDataset, task=1), partial(MultipleSequenceToClass.load_from_checkpoint, hidden_size=32)),
         'babi-2': (partial(BabiDataset, task=2), partial(MultipleSequenceToClass.load_from_checkpoint, hidden_size=32)),
-        'babi-3': (partial(BabiDataset, task=3), partial(MultipleSequenceToClass.load_from_checkpoint, hidden_size=32))
+        'babi-3': (partial(BabiDataset, task=3), partial(MultipleSequenceToClass.load_from_checkpoint, hidden_size=32)),
         'mimic-d': (partial(MimicDataset, subset='diabetes', mimicdir=f'{args.persistent_dir}/mimic', batch_size=8), SingleSequenceToClass.load_from_checkpoint),
         'mimic-a': (partial(MimicDataset, subset='anemia', mimicdir=f'{args.persistent_dir}/mimic', batch_size=8), SingleSequenceToClass.load_from_checkpoint)
     })[args.dataset]
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     dataset.prepare_data()
 
     # Load model
-    experiment_id = generate_experiment_id(dataset.name, args.seed)
+    experiment_id = generate_experiment_id(dataset.name, args.seed, k=0)
     model = model_cls(checkpoint_path=f'{args.persistent_dir}/checkpoints/{experiment_id}/checkpoint.ckpt',
                     embedding=dataset.embedding(),
                     num_of_classes=len(dataset.label_names))
@@ -101,18 +101,13 @@ if __name__ == "__main__":
         batch_size=optimal_roar_batch_size(dataset.name, args.importance_measure, args.use_gpu),
         seed=args.seed,
         caching=args.importance_caching,
-        cachedir=f'{args.persistent_dir}/cache',
-        cachename=generate_experiment_id(dataset.name, args.seed,
-                                         k=0,
-                                         strategy='count',
-                                         importance_measure=args.importance_measure,
-                                         recursive=False)
+        cachedir=f'{args.persistent_dir}/cache'
     )
 
     # Write to /tmp to avoid high IO on a HPC system
     os.makedirs(f'/tmp/results/importance_measure', exist_ok=True)
     os.makedirs(f'{args.persistent_dir}/results/importance_measure', exist_ok=True)
-    csv_name = f"{dataset.name}_s-{args.seed}_m-{args.importance_measure[0]}"
+    csv_name = generate_experiment_id(dataset.name, args.seed, importance_measure=args.importance_measure)
     with gzip.open(f'/tmp/results/importance_measure/{csv_name}.csv.gz', 'wt', newline='') as fp:
         writer = csv.DictWriter(fp, extrasaction='ignore', fieldnames=['split', 'observation', 'index', 'token', 'importance'])
         writer.writeheader()

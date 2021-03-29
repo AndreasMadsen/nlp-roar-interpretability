@@ -29,7 +29,7 @@ class ROARDataset(Dataset):
                  k=1, strategy='count',
                  recursive=False, recursive_step_size=1,
                  importance_measure='attention',
-                 riemann_samples=20,
+                 riemann_samples=50,
                  build_batch_size=None, importance_caching=None,
                  use_gpu=False,
                  seed=0, _read_from_cache=False, **kwargs):
@@ -69,7 +69,8 @@ class ROARDataset(Dataset):
                                                 k=k,
                                                 strategy=strategy,
                                                 importance_measure=importance_measure,
-                                                recursive=recursive)
+                                                recursive=recursive,
+                                                riemann_samples=riemann_samples)
 
         if _read_from_cache:
             if not path.exists(f'{self._cachedir}/encoded-roar/{self._basename}.pkl'):
@@ -148,14 +149,7 @@ class ROARDataset(Dataset):
                 batch_size=self._build_batch_size,
                 seed=self._seed,
                 caching=self._importance_caching,
-                cachedir=self._cachedir,
-                cachename=generate_experiment_id(
-                    base_dataset.name, self._seed,
-                    k=self._k - self._recursive_step_size if recursive else 0,
-                    strategy=self._strategy,
-                    importance_measure=self._importance_measure,
-                    recursive=self._recursive
-                )
+                cachedir=self._cachedir
             )
 
             # save data

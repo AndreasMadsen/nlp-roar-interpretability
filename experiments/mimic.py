@@ -91,7 +91,8 @@ if __name__ == "__main__":
                                            k=args.k,
                                            strategy=args.roar_strategy,
                                            importance_measure=args.importance_measure,
-                                           recursive=args.recursive)
+                                           recursive=args.recursive,
+                                           riemann_samples=args.riemann_samples)
 
     print('Running MIMIC experiment:')
     print(f' - k: {args.k}')
@@ -116,7 +117,8 @@ if __name__ == "__main__":
                                                     k=args.k-args.recursive_step_size if args.recursive else 0,
                                                     strategy=args.roar_strategy,
                                                     importance_measure=args.importance_measure,
-                                                    recursive=args.recursive)
+                                                    recursive=args.recursive,
+                                                    riemann_samples=args.riemann_samples)
         main_dataset = ROARDataset(
             cachedir=f'{args.persistent_dir}/cache',
             model=SingleSequenceToClass.load_from_checkpoint(

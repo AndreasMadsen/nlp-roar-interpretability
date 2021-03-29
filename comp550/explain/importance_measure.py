@@ -1,4 +1,5 @@
 
+import os
 import os.path as path
 import pickle
 
@@ -7,6 +8,7 @@ import torch
 import torch.nn as nn
 
 from ..dataset import SequenceBatch
+from ..util import generate_experiment_id
 
 setup_name = {
     'train': 'fit',
@@ -154,7 +156,7 @@ class ImportanceMeasureEvaluatorBuildCache(ImportanceMeasureEvaluatorNoCache):
     def __iter__(self):
         cache = dict()
 
-        for observation, importance in super()__iter__():
+        for observation, importance in super().__iter__():
             cache[observation['index'].tolist()] = importance.tolist()
             yield (observation, importance)
 
@@ -169,16 +171,16 @@ class ImportanceMeasureEvaluatorUseCache(ImportanceMeasureEvaluator):
         for batch in self._dataset.dataloader(self._split, **self._kwargs):
             yield from (
                 (observation, torch.tensor(cache[observation['index'].tolist()], dtype=torch.float32))
-                for observation, importance
-                in zip(self._dataset.uncollate(batch), batch_importance)
+                for observation
+                in self._dataset.uncollate(batch)
             )
 
         self._finalize()
 
 class ImportanceMeasure:
     def __init__(self, model, dataset, importance_measure,
-                 riemann_samples=20, use_gpu=False, num_workers=4, batch_size=None, seed=0,
-                 caching=None, cachedir=None, cachename=None):
+                 riemann_samples=50, use_gpu=False, num_workers=4, batch_size=None, seed=0,
+                 caching=None, cachedir=None):
         if caching not in [None, 'use', 'build']:
             raise ValueError('caching argument must be either None, "use" or "build"')
 
@@ -189,7 +191,9 @@ class ImportanceMeasure:
         self._batch_size = batch_size
         self._caching = caching
         self._cachedir = cachedir
-        self._cachename = cachename
+        self._cachename = generate_experiment_id(dataset.name, seed,
+                                                 importance_measure=importance_measure,
+                                                 riemann_samples=riemann_samples)
 
         if importance_measure == 'random':
             self._use_gpu = False
@@ -216,9 +220,9 @@ class ImportanceMeasure:
 
         if self._caching is None:
             ImportanceMeasureIterable = ImportanceMeasureEvaluatorNoCache
-        elif self._caching is 'build':
+        elif self._caching == 'build':
             ImportanceMeasureIterable = ImportanceMeasureEvaluatorBuildCache
-        elif self._caching is 'use':
+        elif self._caching == 'use':
             ImportanceMeasureIterable = ImportanceMeasureEvaluatorUseCache
 
         cache_path = None
