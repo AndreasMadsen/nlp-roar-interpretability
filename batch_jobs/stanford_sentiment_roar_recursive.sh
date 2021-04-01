@@ -1,5 +1,6 @@
 #!/bin/bash
 # jobs: 5 * 1 * 3 * (10 + 9) = 285
+source "batch_jobs/_job_script.sh"
 
 # Actual time:    ["random"]="0:02:0" ["attention"]="0:02:0" ["gradient"]="0:02:0" ["integrated-gradient"]="0:03:0"
 declare -A time=( ["random"]="0:15:0" ["attention"]="0:15:0" ["gradient"]="0:15:0" ["integrated-gradient"]="0:15:0" )
@@ -17,7 +18,7 @@ do
                 if last_jobid=$(
                     sbatch --time=${time[$importance_measure]} --mem=6G --parsable ${dependency} \
                     -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
-                    -J sst_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1 ./python_job.sh \
+                    -J sst_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1 $(job_script gpu) \
                     experiments/stanford_sentiment.py --recursive \
                     --seed ${seed} --k ${k} --recursive-step-size 1 \
                     --roar-strategy count --importance-measure ${importance_measure}
@@ -40,7 +41,7 @@ do
                 if last_jobid=$(
                     sbatch --time=${time[$importance_measure]} --mem=6G --parsable ${dependency} \
                     -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
-                    -J sst_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1 ./python_job.sh \
+                    -J sst_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1 $(job_script gpu) \
                     experiments/stanford_sentiment.py --recursive \
                     --seed ${seed} --k ${k} --recursive-step-size 10 \
                     --roar-strategy quantile --importance-measure ${importance_measure}

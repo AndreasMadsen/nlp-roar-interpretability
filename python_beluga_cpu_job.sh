@@ -1,7 +1,6 @@
 #!/bin/bash
 #SBATCH --account=rrg-bengioy-ad
-#SBATCH --cpus-per-task=4
-#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=1
 #SBATCH --mem=24G
 #SBATCH --time=2:00:00
 
@@ -19,6 +18,12 @@ pip3 install --no-index --find-links $HOME/python_wheels \
     'scikit-learn>=0.23.0' 'nltk>=3.5' 'gensim>=3.8.0' 'pandas>=1.1.0'
 
 # Install comp550
-cd $HOME/workspace/comp550
+# Copy the module files to localscratch to avoid conflicts when building the .egg-link
+mkdir $SLURM_TMPDIR/comp550
+cp -r -t $SLURM_TMPDIR/comp550 $HOME/workspace/comp550/setup.py $HOME/workspace/comp550/comp550
+cd $SLURM_TMPDIR/comp550
 pip3 install --no-index --no-deps -e .
-python3 -u -X faulthandler "$@" --use-gpu True --num-workers 4 --persistent-dir $SCRATCH/comp550
+
+# Run code
+cd $SLURM_TMPDIR
+python3 -u -X faulthandler "$@" --use-gpu False --num-workers 1 --persistent-dir $SCRATCH/comp550
