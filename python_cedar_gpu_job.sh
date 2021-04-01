@@ -6,24 +6,19 @@
 #SBATCH --time=2:00:00
 
 # Load modules
-module load python/3.6
-module load StdEnv/2020
-module load scipy-stack/2020b
+module load python/3.8.2
 
-virtualenv --system-site-packages --no-download $SLURM_TMPDIR/env
+virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
-
-pip3 install --no-index --find-links $HOME/python_wheels \
-    'numpy>=1.19.0' 'tqdm>=4.53.0' 'torch>=1.7.0' 'pytorch-lightning>=1.2.0' \
-    'spacy>=2.2.0' $HOME/python_wheels/en_core_web_sm-2.2.0.tar.gz 'torchtext>=0.6.0' \
-    'scikit-learn>=0.23.0' 'nltk>=3.5' 'gensim>=3.8.0' 'pandas>=1.1.0'
+pip3 install --no-index --no-deps $HOME/python_wheels/en_core_web_sm-2.2.0.tar.gz
+pip3 install --no-index 'chardet<4.0,>=2.0'
 
 # Install comp550
 # Copy the module files to localscratch to avoid conflicts when building the .egg-link
 mkdir $SLURM_TMPDIR/comp550
 cp -r -t $SLURM_TMPDIR/comp550 $HOME/workspace/comp550/setup.py $HOME/workspace/comp550/comp550
 cd $SLURM_TMPDIR/comp550
-pip3 install --no-index --no-deps -e .
+pip3 install --no-index --find-links $HOME/python_wheels -e .
 
 # Run code
 cd $SLURM_TMPDIR
