@@ -119,7 +119,7 @@ if __name__ == "__main__":
 
     # Read JSON files into dataframe
     results = []
-    for file in glob.glob(f'{args.persistent_dir}/results/*.json'):
+    for file in glob.glob(f'{args.persistent_dir}/results/roar/*.json'):
         with open(file, 'r') as fp:
             try:
                 results.append(json.load(fp))

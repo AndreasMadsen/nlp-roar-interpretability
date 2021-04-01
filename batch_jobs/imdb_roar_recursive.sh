@@ -12,7 +12,7 @@ do
 
         for k in {1..10}
         do
-            if [ ! -f $SCRATCH"/comp550/results/imdb_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1.json" ]; then
+            if [ ! -f $SCRATCH"/comp550/results/roar/imdb_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1.json" ]; then
                 echo imdb_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1
                 if last_jobid=$(
                         sbatch --time=${time[$importance_measure]} --mem=6G --parsable ${dependency} \
@@ -35,7 +35,7 @@ do
 
         for k in {10..90..10}
         do
-            if [ ! -f $SCRATCH"/comp550/results/imdb_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1.json" ]; then
+            if [ ! -f $SCRATCH"/comp550/results/roar/imdb_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1.json" ]; then
                 echo imdb_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1
                 if last_jobid=$(
                         sbatch --time=${time[$importance_measure]} --mem=6G --parsable ${dependency} \

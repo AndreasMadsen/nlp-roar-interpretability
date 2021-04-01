@@ -161,8 +161,8 @@ if __name__ == "__main__":
     )[0]
     print(results)
 
-    os.makedirs(f'{args.persistent_dir}/results', exist_ok=True)
-    with open(f'{args.persistent_dir}/results/{experiment_id}.json', "w") as f:
+    os.makedirs(f'{args.persistent_dir}/results/roar', exist_ok=True)
+    with open(f'{args.persistent_dir}/results/roar/{experiment_id}.json', "w") as f:
         json.dump({"seed": args.seed, "dataset": "sst", "strategy": args.roar_strategy,
                    "k": args.k, "recursive": args.recursive, "importance_measure": args.importance_measure,
                    **results}, f)
