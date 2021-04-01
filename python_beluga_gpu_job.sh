@@ -27,4 +27,4 @@ pip3 install --no-index --no-deps -e .
 
 # Run code
 cd $SLURM_TMPDIR
-python3 -u -X faulthandler "$@" --use-gpu True --num-workers 4 --persistent-dir $SCRATCH/comp550
+python3 -u -X faulthandler "$HOME/workspace/comp550/$1" "${@:2}" --use-gpu True --num-workers 4 --persistent-dir $SCRATCH/comp550
