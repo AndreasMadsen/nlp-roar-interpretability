@@ -52,7 +52,7 @@ class _Attention(nn.Module):
         # Compute masked attention weights, given the score values.
         # alpha_t.shape = (batch_size, max_length)
         # Mask = False, indicates that data should be ignored
-        score_t.masked_fill_(torch.logical_not(mask), -np.inf)
+        score_t = torch.where(mask, score_t, torch.tensor(-np.inf, dtype=score_t.dtype, device=score_t.device))
         alpha_t = self.softmax(score_t)
 
         # Compute context vector
