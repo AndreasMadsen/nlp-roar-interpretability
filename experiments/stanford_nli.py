@@ -51,7 +51,7 @@ parser.add_argument("--importance-measure",
                     help="Use 'random', 'attention', 'gradient', or 'integrated-gradient' as the importance measure.")
 parser.add_argument("--riemann-samples",
                     action="store",
-                    default=20,
+                    default=50,
                     type=int,
                     help="The number of samples used in the integrated-gradient method")
 parser.add_argument("--seed", action="store", default=0, type=int, help="Random seed")
@@ -66,6 +66,12 @@ parser.add_argument("--max-epochs",
                     default=25,
                     type=int,
                     help="The max number of epochs to use")
+parser.add_argument("--importance-caching",
+                    action="store",
+                    default=None,
+                    type=str,
+                    choices=['use', 'build'],
+                    help="How should the cache be used for the importance measure, default is no cache involvement.")
 parser.add_argument("--use-gpu",
                     action="store",
                     default=torch.cuda.is_available(),
@@ -80,7 +86,8 @@ if __name__ == "__main__":
                                            k=args.k,
                                            strategy=args.roar_strategy,
                                            importance_measure=args.importance_measure,
-                                           recursive=args.recursive)
+                                           recursive=args.recursive,
+                                           riemann_samples=args.riemann_samples)
 
     print('Running SNLI-ROAR experiment:')
     print(f' - k: {args.k}')
@@ -104,7 +111,8 @@ if __name__ == "__main__":
                                                     k=args.k-args.recursive_step_size if args.recursive else 0,
                                                     strategy=args.roar_strategy,
                                                     importance_measure=args.importance_measure,
-                                                    recursive=args.recursive)
+                                                    recursive=args.recursive,
+                                                    riemann_samples=args.riemann_samples)
         main_dataset = ROARDataset(
             cachedir=f'{args.persistent_dir}/cache',
             model=MultipleSequenceToClass.load_from_checkpoint(
@@ -120,6 +128,7 @@ if __name__ == "__main__":
             riemann_samples=args.riemann_samples,
             use_gpu=args.use_gpu,
             build_batch_size=optimal_roar_batch_size(base_dataset.name, args.importance_measure, args.use_gpu),
+            importance_caching=args.importance_caching,
             seed=args.seed,
             num_workers=args.num_workers,
         )

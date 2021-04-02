@@ -29,8 +29,9 @@ class ROARDataset(Dataset):
                  k=1, strategy='count',
                  recursive=False, recursive_step_size=1,
                  importance_measure='attention',
-                 riemann_samples=20,
-                 build_batch_size=None, use_gpu=False,
+                 riemann_samples=50,
+                 build_batch_size=None, importance_caching=None,
+                 use_gpu=False,
                  seed=0, _read_from_cache=False, **kwargs):
         """
         Args:
@@ -60,6 +61,7 @@ class ROARDataset(Dataset):
         self._importance_measure = importance_measure
         self._riemann_samples = riemann_samples
         self._build_batch_size = build_batch_size
+        self._importance_caching = importance_caching
         self._use_gpu = use_gpu
         self._read_from_cache = _read_from_cache
 
@@ -67,7 +69,8 @@ class ROARDataset(Dataset):
                                                 k=k,
                                                 strategy=strategy,
                                                 importance_measure=importance_measure,
-                                                recursive=recursive)
+                                                recursive=recursive,
+                                                riemann_samples=riemann_samples)
 
         if _read_from_cache:
             if not path.exists(f'{self._cachedir}/encoded-roar/{self._basename}.pkl'):
@@ -137,12 +140,17 @@ class ROARDataset(Dataset):
             else:
                 base_dataset = self._base_dataset
 
-            importance_measure = ImportanceMeasure(self._model, base_dataset, self._importance_measure,
-                                                   riemann_samples=self._riemann_samples,
-                                                   use_gpu=self._use_gpu,
-                                                   num_workers=min(self._num_workers, 1),
-                                                   batch_size=self._build_batch_size,
-                                                   seed=self._seed)
+
+            importance_measure = ImportanceMeasure(
+                self._model, base_dataset, self._importance_measure,
+                riemann_samples=self._riemann_samples,
+                use_gpu=self._use_gpu,
+                num_workers=min(self._num_workers, 1),
+                batch_size=self._build_batch_size,
+                seed=self._seed,
+                caching=self._importance_caching,
+                cachedir=self._cachedir
+            )
 
             # save data
             with open(f'{self._cachedir}/encoded-roar/{self._basename}.pkl', 'wb') as fp:
