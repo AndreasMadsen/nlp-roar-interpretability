@@ -13,16 +13,17 @@ do
     do
         for importance_measure in 'attention' 'gradient' 'integrated-gradient'
         do
+            riemann_samples=$(( $importance_measure == integrated-gradient ? 50 : 0 ))
             dependency=''
 
             for k in {1..10}
             do
-                if [ ! -f $SCRATCH"/comp550/results/roar/mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-50.json" ]; then
-                    echo mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-50
+                if [ ! -f $SCRATCH"/comp550/results/roar/mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" ]; then
+                    echo mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-${riemann_samples}
                     if last_jobid=$(
                         sbatch --time=${time[$subset $importance_measure]} --mem=8G --parsable ${dependency} \
                             -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
-                            -J mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-50 $(job_script gpu) \
+                            -J mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-${riemann_samples} $(job_script gpu) \
                             experiments/mimic.py --recursive \
                             --seed ${seed} --k ${k} --recursive-step-size 1 \
                             --roar-strategy count --importance-measure ${importance_measure} \
@@ -41,12 +42,12 @@ do
 
             for k in {10..90..10}
             do
-                if [ ! -f $SCRATCH"/comp550/results/roar/mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-50.json" ]; then
-                    echo mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-50
+                if [ ! -f $SCRATCH"/comp550/results/roar/mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" ]; then
+                    echo mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-${riemann_samples}
                     if last_jobid=$(
                         sbatch --time=${time[$subset $importance_measure]} --mem=8G --parsable ${dependency} \
                             -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
-                            -J mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-50 $(job_script gpu) \
+                            -J mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-${riemann_samples} $(job_script gpu) \
                             experiments/mimic.py --recursive \
                             --seed ${seed} --k ${k} --recursive-step-size 10 \
                             --roar-strategy quantile --importance-measure ${importance_measure} \

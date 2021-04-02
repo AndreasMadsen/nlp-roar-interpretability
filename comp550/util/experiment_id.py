@@ -14,6 +14,7 @@ def generate_experiment_id(name, seed,
     if isinstance(recursive, bool):
         experiment_id += f"_r-{int(recursive)}"
     if isinstance(riemann_samples, int):
+        riemann_samples = riemann_samples if importance_measure == 'integrated-gradient' else 0
         experiment_id += f"_rs-{riemann_samples}"
 
     return experiment_id
