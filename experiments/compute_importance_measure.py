@@ -6,6 +6,7 @@ import csv
 import json
 import gzip
 import shutil
+import time
 
 import torch
 from tqdm import tqdm
@@ -111,24 +112,32 @@ if __name__ == "__main__":
                                       importance_measure=args.importance_measure,
                                       riemann_samples=args.riemann_samples)
     with gzip.open(f'/tmp/results/importance_measure/{csv_name}.csv.gz', 'wt', newline='') as fp:
-        writer = csv.DictWriter(fp, extrasaction='ignore', fieldnames=['split', 'observation', 'index', 'token', 'importance'])
+        writer = csv.DictWriter(fp, extrasaction='ignore', fieldnames=['split', 'observation', 'index', 'token', 'importance', 'walltime'])
         writer.writeheader()
 
         for split in ['train', 'val', 'test']:
+            start_time = time.time()
+
             # Compute attention distribution for each dataset, seed, and split
             for observation, importance in tqdm(
                 importance_measure.evaluate(split),
                 desc=f'Explaining {split} observations',
                 leave=False
             ):
+                # Get walltime for each batch of computation
+                walltime = time.time() - start_time
+
                 writer.writerows([{
                     'split': split,
                     'observation': observation['index'].tolist(),
                     'index': index,
                     'token': token_val,
-                    'importance': importance_val
+                    'importance': importance_val,
+                    'walltime': walltime
                 } for index, (token_val, importance_val)
                     in enumerate(zip(observation['sentence'].tolist(), importance.tolist()))])
+
+                start_time = time.time()
 
     shutil.move(f'/tmp/results/importance_measure/{csv_name}.csv.gz',
                 f'{args.persistent_dir}/results/importance_measure/{csv_name}.csv.gz')
