@@ -116,14 +116,14 @@ if __name__ == "__main__":
 
         for split in ['train', 'val', 'test']:
             # Compute attention distribution for each dataset, seed, and split
-            for observation_i, (observation, importance) in enumerate(tqdm(
+            for observation, importance in tqdm(
                 importance_measure.evaluate(split),
                 desc=f'Explaining {split} observations',
                 leave=False
-            )):
+            ):
                 writer.writerows([{
                     'split': split,
-                    'observation': observation_i,
+                    'observation': observation['index'].tolist(),
                     'index': index,
                     'token': token_val,
                     'importance': importance_val
