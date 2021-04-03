@@ -37,13 +37,8 @@ do
 
             for k in {1..10}
             do
-<<<<<<< HEAD
-                if [ ! -f $SCRATCH"/comp550/results/roar/mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-0_rs-50.json" ]; then
-                    echo mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-0_rs-50
-=======
                 if [ ! -f $SCRATCH"/comp550/results/roar/mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" ]; then
                     echo mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-0_rs-${riemann_samples}
->>>>>>> 53430b6... set rs-0 for non integrated-gradient measures
                     sbatch --time=${roar_time[$subset]} --mem=8G --dependency=afterok:${precompute_jobid} \
                         -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                         -J mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-0_rs-${riemann_samples} $(job_script gpu) \
@@ -57,13 +52,8 @@ do
 
             for k in {10..90..10}
             do
-<<<<<<< HEAD
-                if [ ! -f $SCRATCH"/comp550/results/roar/mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-50.json" ]; then
-                    echo mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-50
-=======
                 if [ ! -f $SCRATCH"/comp550/results/roar/mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" ]; then
                     echo mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-${riemann_samples}
->>>>>>> 53430b6... set rs-0 for non integrated-gradient measures
                     sbatch --time=${roar_time[$subset]} --mem=8G --dependency=afterok:${precompute_jobid} \
                         -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
                         -J mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-${riemann_samples} $(job_script gpu) \
