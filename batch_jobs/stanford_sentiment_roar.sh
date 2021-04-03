@@ -14,7 +14,7 @@ do
     riemann_samples=$(( $importance_measure == integrated-gradient ? 50 : 0 ))
 
     if precompute_jobid=$(
-        submit_seeds ${pre_time[$importance_measure]} "$seeds" "importance-measure/sst-pre_s-%s_m-${importance_measure::1}_r-0_rs-${riemann_samples}.csv.gz" \
+        submit_seeds ${pre_time[$importance_measure]} "$seeds" "importance-measure/sst-pre_s-%s_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
             --mem=6G --parsable \
             $(job_script gpu) \
             experiments/compute_importance_measure.py \
