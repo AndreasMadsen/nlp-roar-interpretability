@@ -11,15 +11,14 @@ source $TMP_ENV/bin/activate
 rm -rf $HOME/python_wheels
 mkdir -p $HOME/python_wheels
 cd $HOME/python_wheels
-pip3 download --no-deps descartes mizani
-pip3 download --no-deps 'en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.2.0/en_core_web_sm-2.2.0.tar.gz'
+python -m pip download --no-deps 'en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0-py3-none-any.whl'
 
 # Install dependencies
-pip3 install --no-index --no-deps $HOME/python_wheels/en_core_web_sm-2.2.0.tar.gz
-pip3 install --no-index 'chardet<4.0,>=2.0'
+python -m pip install --no-deps $HOME/python_wheels/en_core_web_sm-3.0.0-py3-none-any.whl
+python -m pip install --no-index 'chardet<4.0,>=2.0'
 
 cd $HOME/workspace/comp550
-pip3 install --no-index --find-links $HOME/python_wheels -e .
+python -m pip install --no-index -e .
 
 # Fetch dataset
-python3 experiments/download_datasets.py --persistent-dir $SCRATCH/comp550
+python experiments/download_datasets.py --persistent-dir $SCRATCH/comp550

@@ -19,7 +19,7 @@ class _Normalizer(Tokenizer):
     def __init__(self):
         super().__init__()
         self._tokenizer = spacy.load('en_core_web_sm',
-                                     disable=['parser', 'tagger', 'ner'])
+                                     disable=['parser', 'tagger', 'ner', 'lemmatizer'])
 
     def normalize(self, sentence):
         sentence = re.sub(r'\[\s*\*\s*\*(.*?)\*\s*\*\s*\]', ' <DE> ', sentence)

@@ -23,7 +23,7 @@ class SNLITokenizer(Tokenizer):
         # https://github.com/successar/AttentionExplanation/blob/master/preprocess/SNLI/SNLI.ipynb
         super().__init__(min_df=3)
         self._tokenizer = spacy.load('en_core_web_sm',
-                                     disable=['parser', 'tagger', 'ner'])
+                                     disable=['parser', 'tagger', 'ner', 'lemmatizer'])
 
     def tokenize(self, sentence):
         sentence = re.sub(r"\s+", " ", sentence.strip())
