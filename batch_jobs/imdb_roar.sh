@@ -19,10 +19,10 @@ do
             $(job_script gpu) \
             experiments/compute_importance_measure.py \
             --dataset imdb \
-            --importance-measure ${importance_measure} \
+            --importance-measure "$importance_measure" \
             --importance-caching build
     );  then
-        echo "Submitted precompute batch job ${precompute_jobid}"
+        echo "Submitted precompute batch job $precompute_jobid"
     else
         echo "Could not submit precompute batch job, skipping"
         break
@@ -31,22 +31,22 @@ do
     for k in {1..10}
     do
         submit_seeds ${roar_time} "$seeds" "roar/imdb_s-%s_k-${k}_y-c_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" \
-            --mem=6G --dependency=afterok:${precompute_jobid} \
+            --mem=6G --dependency=afterok:"$precompute_jobid" \
             $(job_script gpu) \
             experiments/imdb.py \
-            --k ${k} --recursive-step-size 1 \
-            --roar-strategy count --importance-measure ${importance_measure} \
+            --k "$k" --recursive-step-size 1 \
+            --roar-strategy count --importance-measure "$importance_measure" \
             --importance-caching use
     done
 
     for k in {10..90..10}
     do
         submit_seeds ${roar_time} "$seeds" "roar/imdb_s-%s_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" \
-            --mem=6G --dependency=afterok:${precompute_jobid} \
+            --mem=6G --dependency=afterok:"$precompute_jobid" \
             $(job_script gpu) \
             experiments/imdb.py \
-            --k ${k} --recursive-step-size 10 \
-            --roar-strategy quantile --importance-measure ${importance_measure} \
+            --k "$k" --recursive-step-size 10 \
+            --roar-strategy quantile --importance-measure "$importance_measure" \
             --importance-caching use
     done
 done

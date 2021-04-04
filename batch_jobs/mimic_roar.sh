@@ -12,7 +12,7 @@ declare -A pre_time=( ["anemia random"]="0:15:0"   ["anemia attention"]="0:15:0"
 declare -A roar_time=( ["anemia"]="0:20:0"   ["diabetes"]="0:30:0" )
 
 
-for seed in $(echo $seeds)
+for seed in $(echo "$seeds")
 do
     for subset in 'anemia' 'diabetes'
     do
@@ -26,10 +26,10 @@ do
                     $(job_script gpu) \
                     experiments/compute_importance_measure.py \
                     --dataset "mimic-${subset::1}" \
-                    --importance-measure ${importance_measure} \
+                    --importance-measure "$importance_measure" \
                     --importance-caching build
             );  then
-                echo "Submitted precompute batch job ${precompute_jobid}"
+                echo "Submitted precompute batch job $precompute_jobid"
             else
                 echo "Could not submit precompute batch job, skipping"
                 break
@@ -38,25 +38,25 @@ do
             for k in {1..10}
             do
                 submit_seeds ${roar_time[$subset]} "$seed" "roar/mimic-${subset::1}_s-%s_k-${k}_y-c_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json"\
-                        --mem=8G --dependency=afterok:${precompute_jobid} \
+                        --mem=8G --dependency=afterok:"$precompute_jobid" \
                     -J mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-0_rs-${riemann_samples} $(job_script gpu) \
                     experiments/mimic.py \
-                    --k ${k} --recursive-step-size 1 \
-                    --roar-strategy count --importance-measure ${importance_measure} \
+                    --k "$k" --recursive-step-size 1 \
+                    --roar-strategy count --importance-measure "$importance_measure" \
                     --importance-caching use \
-                    --subset ${subset}
+                    --subset "$subset"
             done
 
             for k in {10..90..10}
             do
                 submit_seeds ${roar_time[$subset]} "$seed"  "roar/mimic-${subset::1}_s-%s_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" \
-                    --mem=8G --dependency=afterok:${precompute_jobid} \
+                    --mem=8G --dependency=afterok:"$precompute_jobid" \
                     $(job_script gpu) \
                     experiments/mimic.py \
-                    --k ${k} --recursive-step-size 10 \
-                    --roar-strategy quantile --importance-measure ${importance_measure} \
+                    --k "$k" --recursive-step-size 10 \
+                    --roar-strategy quantile --importance-measure "$importance_measure" \
                     --importance-caching use \
-                    --subset ${subset}
+                    --subset "$subset"
             done
         done
     done

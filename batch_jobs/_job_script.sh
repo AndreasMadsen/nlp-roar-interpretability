@@ -25,16 +25,16 @@ submit_seeds () {
 
     local run_seeds=()
     local filename
-    for seed in $(echo $seeds)
+    for seed in $(echo "$seeds")
     do
-        filename=$(printf $SCRATCH"/comp550/results/$name" $seed)
-        if [ ! -f $filename ]; then
+        filename=$(printf $SCRATCH"/comp550/results/$name" "$seed")
+        if [ ! -f "$filename" ]; then
             run_seeds+=($seed)
-            echo scheduling $filename 1>&2
+            echo "scheduling $filename" 1>&2
         fi
     done
 
-    if [ ! ${#run_seeds[@]} -eq 0 ]; then
+    if [ ! "${#run_seeds[@]}" -eq 0 ]; then
         local walltime_times_nb_seeds=$(python3 -c \
         "from datetime import datetime; \
          t = (datetime.strptime('$walltime', '%H:%M:%S') - datetime.strptime('0:0:0', '%H:%M:%S')) * ${#run_seeds[@]}; \
@@ -42,14 +42,14 @@ submit_seeds () {
         ")
 
         local concat_seeds=$(join_by '' "${run_seeds[@]}")
-        local jobname=$(basename $name)
+        local jobname=$(basename "$name")
         jobname=${jobname%.*}
         jobname=${jobname%.*}
         jobname=$(printf "$jobname" "$concat_seeds")
         sbatch --time="$walltime_times_nb_seeds" \
                --export=RUN_SEEDS="$(join_by ' ' "${run_seeds[@]}")" \
                -J "$jobname" \
-               -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
+               -o "$SCRATCH"/comp550/logs/%x.%j.out -e "$SCRATCH"/comp550/logs/%x.%j.err \
                "${@:4}"
     fi
 }

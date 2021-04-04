@@ -8,7 +8,7 @@ seeds="0 1 2 3 4"
 declare -A time=( ["anemia random"]="0:25:0"   ["anemia attention"]="0:25:0"   ["anemia gradient"]="0:30:0" ["anemia integrated-gradient"]="1:05:0"
                   ["diabetes random"]="0:40:0" ["diabetes attention"]="0:40:0" ["diabetes gradient"]="0:50:0" ["diabetes integrated-gradient"]="2:05:0" )
 
-for seed in $(echo $seeds)
+for seed in $(echo "$seeds")
 do
     for subset in 'anemia' 'diabetes'
     do
@@ -20,16 +20,16 @@ do
             for k in {1..10}
             do
                 if last_jobid=$(
-                    submit_seeds ${time[$subset $importance_measure]} "$seed" "roar/mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" \
-                        --mem=8G --parsable ${dependency} \
+                    submit_seeds "${time[$subset $importance_measure]}" "$seed" "roar/mimic-${subset::1}_s-${seed}_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" \
+                        --mem=8G --parsable $dependency \
                         $(job_script gpu) \
                         experiments/mimic.py --recursive \
-                        --k ${k} --recursive-step-size 1 \
-                        --roar-strategy count --importance-measure ${importance_measure} \
-                        --subset ${subset}
+                        --k "$k" --recursive-step-size 1 \
+                        --roar-strategy count --importance-measure "$importance_measure" \
+                        --subset "$subset"
                 ); then
-                    echo "Submitted batch job ${last_jobid}"
-                    dependency="--dependency=afterok:${last_jobid}"
+                    echo "Submitted batch job $last_jobid"
+                    dependency="--dependency=afterok:$last_jobid"
                 else
                     echo "Could not submit batch job, skipping"
                     break
@@ -41,16 +41,16 @@ do
             for k in {10..90..10}
             do
                 if last_jobid=$(
-                    submit_seeds ${time[$subset $importance_measure]} "$seed" "roar/mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" \
-                        --mem=8G --parsable ${dependency} \
+                    submit_seeds "${time[$subset $importance_measure]}" "$seed" "roar/mimic-${subset::1}_s-${seed}_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" \
+                        --mem=8G --parsable $dependency \
                         $(job_script gpu) \
                         experiments/mimic.py --recursive \
-                        --k ${k} --recursive-step-size 10 \
-                        --roar-strategy quantile --importance-measure ${importance_measure} \
-                        --subset ${subset}
+                        --k "$k" --recursive-step-size 10 \
+                        --roar-strategy quantile --importance-measure "$importance_measure" \
+                        --subset "$subset"
                 ); then
-                    echo "Submitted batch job ${last_jobid}"
-                    dependency="--dependency=afterok:${last_jobid}"
+                    echo "Submitted batch job $last_jobid"
+                    dependency="--dependency=afterok:$last_jobid"
                 else
                     echo "Could not submit batch job, skipping"
                     break
