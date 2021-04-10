@@ -18,7 +18,7 @@ class SSTTokenizer(Tokenizer):
     def __init__(self):
         super().__init__()
         self._tokenizer = spacy.load('en_core_web_sm',
-                                     disable=['parser', 'tagger', 'ner'])
+                                     disable=['parser', 'tagger', 'ner', 'lemmatizer'])
 
     def tokenize(self, sentence):
         sentence = sentence.strip()
@@ -77,8 +77,9 @@ class SSTDataset(SingleSequenceDataset):
             not path.exists(f'{self._cachedir}/encoded/sst.pkl')):
             with warnings.catch_warnings():
                 warnings.filterwarnings('ignore', category=UserWarning)
-                train, val, test = torchtext.datasets.SST.splits(
-                    torchtext.data.Field(), torchtext.data.Field(sequential=False),
+                # SST has not been migrated to the new torchtext.datasets yet
+                train, val, test = torchtext.legacy.datasets.SST.splits(
+                    torchtext.legacy.data.Field(), torchtext.legacy.data.Field(sequential=False),
                     filter_pred=lambda ex: len(ex.text) > 5 and ex.label != 'neutral',
                     root=f'{self._cachedir}/datasets')
 

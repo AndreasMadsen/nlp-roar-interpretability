@@ -7,18 +7,21 @@
 # Load modules
 module load python/3.8.2
 
+# Create environment
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
-pip3 install --no-index --no-deps $HOME/python_wheels/en_core_web_sm-2.2.0.tar.gz
-pip3 install --no-index 'chardet<4.0,>=2.0'
+
+# Install dependencies
+python -m pip install --no-index --no-deps $HOME/python_wheels/en_core_web_sm-3.0.0-py3-none-any.whl
+python -m pip install --no-index 'chardet<4.0,>=2.0'
 
 # Install comp550
 # Copy the module files to localscratch to avoid conflicts when building the .egg-link
 mkdir $SLURM_TMPDIR/comp550
 cp -r -t $SLURM_TMPDIR/comp550 $HOME/workspace/comp550/setup.py $HOME/workspace/comp550/comp550
 cd $SLURM_TMPDIR/comp550
-pip3 install --no-index --find-links $HOME/python_wheels -e .
+python -m pip install --no-index -e .
 
 # Run code
 cd $SLURM_TMPDIR
-python3 -u -X faulthandler "$HOME/workspace/comp550/$1" "${@:2}" --use-gpu False --num-workers 1 --persistent-dir $SCRATCH/comp550
+python -u -X faulthandler "$HOME/workspace/comp550/$1" "${@:2}" --use-gpu False --num-workers 1 --persistent-dir $SCRATCH/comp550
