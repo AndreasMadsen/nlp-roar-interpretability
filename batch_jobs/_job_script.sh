@@ -47,7 +47,7 @@ submit_seeds () {
         jobname=${jobname%.*}
         jobname=$(printf "$jobname" "$concat_seeds")
         sbatch --time="$walltime_times_nb_seeds" \
-               --export=RUN_SEEDS="$(join_by ' ' "${run_seeds[@]}")" \
+               --export=ALL,RUN_SEEDS="$(join_by ' ' "${run_seeds[@]}")" \
                -J "$jobname" \
                -o "$SCRATCH"/comp550/logs/%x.%j.out -e "$SCRATCH"/comp550/logs/%x.%j.err \
                "${@:4}"
