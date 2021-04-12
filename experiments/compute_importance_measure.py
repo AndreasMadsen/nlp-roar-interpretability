@@ -108,7 +108,7 @@ if __name__ == "__main__":
     # Write to /tmp to avoid high IO on a HPC system
     os.makedirs(f'/tmp/results/importance_measure', exist_ok=True)
     os.makedirs(f'{args.persistent_dir}/results/importance_measure', exist_ok=True)
-    csv_name = generate_experiment_id(dataset.name, args.seed,
+    csv_name = generate_experiment_id(f'{dataset.name}-pre', args.seed,
                                       importance_measure=args.importance_measure,
                                       riemann_samples=args.riemann_samples)
     with gzip.open(f'/tmp/results/importance_measure/{csv_name}.csv.gz', 'wt', newline='') as fp:

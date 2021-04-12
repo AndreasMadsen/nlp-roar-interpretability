@@ -1,14 +1,12 @@
 #!/bin/bash
 source "batch_jobs/_job_script.sh"
+seeds="0 1 2 3 4"
 
 # Actual time: "0:44:0"
-for seed in {0..4}
+for seed in $(echo "$seeds")
 do
-    if [ ! -f $SCRATCH"/comp550/results/roar/snli_s-${seed}.json" ]; then
-        echo snli_s-${seed}
-        sbatch --time=1:10:0 --mem=24G -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
-            -J snli_s-${seed} $(job_script gpu) \
-            experiments/stanford_nli.py \
-            --seed ${seed}
-    fi
+    submit_seeds "1:10:0" "$seed" "roar/snli_s-%s.json" \
+        --mem=24G \
+        $(job_script gpu) \
+        experiments/stanford_nli.py
 done

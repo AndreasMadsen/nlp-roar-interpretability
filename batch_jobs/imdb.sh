@@ -1,15 +1,10 @@
 #!/bin/bash
 source "batch_jobs/_job_script.sh"
+seeds="0 1 2 3 4"
 
 # Actual time: "0:04:0"
-for seed in {0..4}
-do
-    if [ ! -f $SCRATCH"/comp550/results/roar/imdb_s-${seed}.json" ]; then
-        echo imdb_s-${seed}
-        sbatch --time=0:15:0 --mem=6G \
-            -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
-            -J imdb_s-${seed} $(job_script gpu) \
-            experiments/imdb.py \
-            --seed ${seed}
-    fi
-done
+
+submit_seeds "0:15:0" "$seeds" "roar/imdb_s-%s.json" \
+    --mem=6G \
+    $(job_script gpu) \
+    experiments/imdb.py

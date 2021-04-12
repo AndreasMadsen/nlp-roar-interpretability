@@ -1,16 +1,10 @@
 #!/bin/bash
 source "batch_jobs/_job_script.sh"
+seeds="0 1 2 3 4"
 
 # Actual time: "0:01:30"
 
-for seed in {0..4}
-do
-    if [ ! -f $SCRATCH"/comp550/results/roar/sst_s-${seed}.json" ]; then
-        echo sst_s-${seed}
-        sbatch --time=0:10:0 --mem=6G \
-            -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
-            -J sst_s-${seed} $(job_script gpu) \
-            experiments/stanford_sentiment.py \
-            --seed ${seed}
-    fi
-done
+submit_seeds "0:10:0" "$seeds" "roar/sst_s-%s.json" \
+    --mem=6G \
+    $(job_script gpu) \
+    experiments/stanford_sentiment.py
