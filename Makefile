@@ -25,6 +25,13 @@ download-beluga-results:
 	rsync --info=progress2 -urltv --delete \
 		-e ssh cc-beluga:~/scratch/comp550/results/ ./results
 
+schedule-base:
+	bash batch_jobs/babi.sh
+	bash batch_jobs/imdb.sh
+	bash batch_jobs/mimic.sh
+	bash batch_jobs/stanford_nli.sh
+	bash batch_jobs/stanford_sentiment.sh
+
 schedule-roar:
 	bash batch_jobs/babi_roar.sh
 	bash batch_jobs/imdb_roar.sh
