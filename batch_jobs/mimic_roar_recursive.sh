@@ -28,8 +28,10 @@ do
                         --roar-strategy count --importance-measure "$importance_measure" \
                         --subset "$subset"
                 ); then
-                    echo "Submitted batch job $last_jobid"
-                    dependency="--dependency=afterok:$last_jobid"
+                    if [ ! "$last_jobid" == "skipping" ]; then
+                        echo "Submitted batch job $last_jobid"
+                        dependency="--dependency=afterok:$last_jobid"
+                    fi
                 else
                     echo "Could not submit batch job, skipping"
                     break
@@ -49,8 +51,10 @@ do
                         --roar-strategy quantile --importance-measure "$importance_measure" \
                         --subset "$subset"
                 ); then
-                    echo "Submitted batch job $last_jobid"
-                    dependency="--dependency=afterok:$last_jobid"
+                    if [ ! "$last_jobid" == "skipping" ]; then
+                        echo "Submitted batch job $last_jobid"
+                        dependency="--dependency=afterok:$last_jobid"
+                    fi
                 else
                     echo "Could not submit batch job, skipping"
                     break

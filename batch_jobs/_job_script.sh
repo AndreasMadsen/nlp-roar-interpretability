@@ -51,5 +51,7 @@ submit_seeds () {
                -J "$jobname" \
                -o "$SCRATCH"/comp550/logs/%x.%j.out -e "$SCRATCH"/comp550/logs/%x.%j.err \
                "${@:4}"
+    else
+        echo "skipping"
     fi
 }

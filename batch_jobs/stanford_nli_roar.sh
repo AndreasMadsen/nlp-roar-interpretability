@@ -14,6 +14,7 @@ do
     for importance_measure in 'random' 'attention' 'gradient' 'integrated-gradient'
     do
         riemann_samples=$([ "$importance_measure" == integrated-gradient ] && echo 50 || echo 0)
+        dependency=''
 
         if precompute_jobid=$(
             submit_seeds ${pre_time[$importance_measure]} "$seed" "importance-measure/snli-pre_s-%s_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
@@ -24,7 +25,10 @@ do
                 --importance-measure "$importance_measure" \
                 --importance-caching build
         );  then
-            echo "Submitted precompute batch job $precompute_jobid"
+            if [ ! "$precompute_jobid" == "skipping" ]; then
+                echo "Submitted precompute batch job $precompute_jobid"
+                dependency="--dependency=afterok:$precompute_jobid"
+            fi
         else
             echo "Could not submit precompute batch job, skipping"
             break
@@ -33,7 +37,7 @@ do
         for k in {1..10}
         do
             submit_seeds ${roar_time} "$seed" "roar/snli_s-%s_k-${k}_y-c_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" \
-                --mem=24G --dependency=afterok:"$precompute_jobid" \
+                --mem=24G $dependency \
                 $(job_script gpu) \
                 experiments/stanford_nli.py \
                 --k "$k" --recursive-step-size 1 \
@@ -44,7 +48,7 @@ do
         for k in {10..90..10}
         do
             submit_seeds ${roar_time} "$seed" "roar/snli_s-%s_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" \
-                --mem=24G --dependency=afterok:"$precompute_jobid" \
+                --mem=24G $dependency \
                 $(job_script gpu) \
                 experiments/stanford_nli.py \
                 --k "$k" --recursive-step-size 10 \

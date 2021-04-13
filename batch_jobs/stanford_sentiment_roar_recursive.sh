@@ -21,8 +21,10 @@ do
             --k "$k" --recursive-step-size 1 \
             --roar-strategy count --importance-measure "$importance_measure"
         ); then
-            echo "Submitted batch job $last_jobid"
-            dependency="--dependency=afterok:$last_jobid"
+            if [ ! "$last_jobid" == "skipping" ]; then
+                echo "Submitted batch job $last_jobid"
+                dependency="--dependency=afterok:$last_jobid"
+            fi
         else
             echo "Could not submit batch job, skipping"
             break
@@ -41,8 +43,10 @@ do
             --k "$k" --recursive-step-size 10 \
             --roar-strategy quantile --importance-measure "$importance_measure"
         ); then
-            echo "Submitted batch job $last_jobid"
-            dependency="--dependency=afterok:$last_jobid"
+            if [ ! "$last_jobid" == "skipping" ]; then
+                echo "Submitted batch job $last_jobid"
+                dependency="--dependency=afterok:$last_jobid"
+            fi
         else
             echo "Could not submit batch job, skipping"
             break
