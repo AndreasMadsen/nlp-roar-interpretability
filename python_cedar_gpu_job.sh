@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --account=rrg-bengioy-ad
+#SBATCH --account=def-bengioy
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:v100l:1
 #SBATCH --mem=24G
