@@ -8,7 +8,7 @@ declare -A time=( ["random"]="0:15:0" ["attention"]="0:15:0" ["gradient"]="0:15:
 
 for importance_measure in 'attention' 'gradient' 'integrated-gradient'
 do
-    riemann_samples=$(( $importance_measure == integrated-gradient ? 50 : 0 ))
+    riemann_samples=$([ "$importance_measure" == integrated-gradient ] && echo 50 || echo 0)
     dependency=''
 
     for k in {1..10}

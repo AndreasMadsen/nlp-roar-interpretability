@@ -14,7 +14,7 @@ for type in 1 2 3
 do
     for importance_measure in 'attention' 'gradient' 'integrated-gradient'
     do
-        riemann_samples=$(( $importance_measure == integrated-gradient ? 50 : 0 ))
+        riemann_samples=$([ "$importance_measure" == integrated-gradient ] && echo 50 || echo 0)
         dependency=''
 
         for k in {1..10}

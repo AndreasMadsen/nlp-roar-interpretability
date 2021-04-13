@@ -11,7 +11,7 @@ declare -r roar_time="0:20:0"
 
 for importance_measure in 'random' 'attention' 'gradient' 'integrated-gradient'
 do
-    riemann_samples=$(( $importance_measure == integrated-gradient ? 50 : 0 ))
+    riemann_samples=$([ "$importance_measure" == integrated-gradient ] && echo 50 || echo 0)
 
     if precompute_jobid=$(
         submit_seeds ${pre_time[$importance_measure]} "$seeds" "importance-measure/imdb-pre_s-%s_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
