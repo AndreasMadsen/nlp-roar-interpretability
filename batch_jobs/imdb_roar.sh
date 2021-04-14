@@ -15,7 +15,7 @@ do
     dependency=''
 
     if precompute_jobid=$(
-        submit_seeds ${pre_time[$importance_measure]} "$seeds" "importance-measure/imdb-pre_s-%s_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
+        submit_seeds ${pre_time[$importance_measure]} "$seeds" "importance_measure/imdb-pre_s-%s_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
             --mem=6G --parsable \
             $(job_script gpu) \
             experiments/compute_importance_measure.py \

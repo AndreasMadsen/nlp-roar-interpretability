@@ -22,7 +22,7 @@ do
             dependency=''
 
             if precompute_jobid=$(
-                submit_seeds ${pre_time[$subset $importance_measure]} "$seed" "importance-measure/mimic-${subset::1}-pre_s-${seed}_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
+                submit_seeds ${pre_time[$subset $importance_measure]} "$seed" "importance_measure/mimic-${subset::1}-pre_s-${seed}_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
                     --mem=8G --parsable \
                     $(job_script gpu) \
                     experiments/compute_importance_measure.py \
