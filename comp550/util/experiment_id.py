@@ -1,7 +1,11 @@
 
-def generate_experiment_id(name, seed,
-                           k=None, strategy=None, importance_measure=None, recursive=None, riemann_samples=None):
-    experiment_id = f"{name}_s-{seed}"
+def generate_experiment_id(name,
+                           seed=None, k=None, strategy=None, importance_measure=None,
+                           recursive=None, riemann_samples=None):
+    experiment_id = f"{name}"
+    if isinstance(seed, int):
+        experiment_id += f"_s-{seed}"
+
     if k == 0:
         return experiment_id
 
