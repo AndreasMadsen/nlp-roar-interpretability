@@ -1,18 +1,34 @@
 #!/bin/bash
-# Actual time:    ["2"]="0:21:0"   ["5"]="0:31:0" ["10"]="0:45:0" ["20"]="1:23:0"
-#                 ["30"]="1:54:0" ["40"]="2:26:0" ["50"]="3:13:0" ["60"]="3:35:0"
-#                 ["70"]="4:06:0" ["80"]="4:38:0" ["90"]="5:13:0" ["100"]="5:46:0"
-declare -A time=( ["2"]="0:40:0"   ["5"]="0:50:0" ["10"]="1:00:0" ["20"]="1:50:0"
-                  ["30"]="2:20:0" ["40"]="2:50:0" ["50"]="3:40:0" ["60"]="4:00:0"
-                  ["70"]="4:30:0" ["80"]="5:00:0" ["90"]="5:40:0" ["100"]="6:10:0" )
+source "batch_jobs/_job_script.sh"
+seeds="0"
 
-for k in 2 5 {10..100..10}
+declare -A pre_time=(
+    ["2 sst"]="0:15:0"   ["2 snli"]="0:40:0"   ["2 imdb"]="0:30:0"   ["2 babi-1"]="0:15:0"   ["2 babi-2"]="0:15:0"   ["2 babi-3"]="0:20:0"   ["2 mimic-a"]="0:55:0"   ["2 mimic-d"]="1:50:0"
+    ["5 sst"]="0:15:0"   ["5 snli"]="0:40:0"   ["5 imdb"]="0:30:0"   ["5 babi-1"]="0:15:0"   ["5 babi-2"]="0:15:0"   ["5 babi-3"]="0:20:0"   ["5 mimic-a"]="0:55:0"   ["5 mimic-d"]="1:50:0"
+    ["10 sst"]="0:15:0"  ["10 snli"]="0:40:0"  ["10 imdb"]="0:30:0"  ["10 babi-1"]="0:15:0"  ["10 babi-2"]="0:15:0"  ["10 babi-3"]="0:20:0"  ["10 mimic-a"]="0:55:0"  ["10 mimic-d"]="1:50:0"
+    ["20 sst"]="0:15:0"  ["20 snli"]="0:40:0"  ["20 imdb"]="0:30:0"  ["20 babi-1"]="0:15:0"  ["20 babi-2"]="0:15:0"  ["20 babi-3"]="0:20:0"  ["20 mimic-a"]="0:55:0"  ["20 mimic-d"]="1:50:0"
+    ["30 sst"]="0:15:0"  ["30 snli"]="0:40:0"  ["30 imdb"]="0:30:0"  ["30 babi-1"]="0:15:0"  ["30 babi-2"]="0:15:0"  ["30 babi-3"]="0:20:0"  ["30 mimic-a"]="0:55:0"  ["30 mimic-d"]="1:50:0"
+    ["40 sst"]="0:15:0"  ["40 snli"]="0:40:0"  ["40 imdb"]="0:30:0"  ["40 babi-1"]="0:15:0"  ["40 babi-2"]="0:15:0"  ["40 babi-3"]="0:20:0"  ["40 mimic-a"]="0:55:0"  ["40 mimic-d"]="1:50:0"
+    ["50 sst"]="0:15:0"  ["50 snli"]="0:40:0"  ["50 imdb"]="0:30:0"  ["50 babi-1"]="0:15:0"  ["50 babi-2"]="0:15:0"  ["50 babi-3"]="0:20:0"  ["50 mimic-a"]="0:55:0"  ["50 mimic-d"]="1:50:0"
+    ["60 sst"]="0:30:0"  ["60 snli"]="1:20:0"  ["60 imdb"]="1:00:0"  ["60 babi-1"]="0:30:0"  ["60 babi-2"]="0:30:0"  ["60 babi-3"]="0:40:0"  ["60 mimic-a"]="1:50:0"  ["60 mimic-d"]="3:40:0"
+    ["70 sst"]="0:30:0"  ["70 snli"]="1:20:0"  ["70 imdb"]="1:00:0"  ["70 babi-1"]="0:30:0"  ["70 babi-2"]="0:30:0"  ["70 babi-3"]="0:40:0"  ["70 mimic-a"]="1:50:0"  ["70 mimic-d"]="3:40:0"
+    ["80 sst"]="0:30:0"  ["80 snli"]="1:20:0"  ["80 imdb"]="1:00:0"  ["80 babi-1"]="0:30:0"  ["80 babi-2"]="0:30:0"  ["80 babi-3"]="0:40:0"  ["80 mimic-a"]="1:50:0"  ["80 mimic-d"]="3:40:0"
+    ["90 sst"]="0:30:0"  ["90 snli"]="1:20:0"  ["90 imdb"]="1:00:0"  ["90 babi-1"]="0:30:0"  ["90 babi-2"]="0:30:0"  ["90 babi-3"]="0:40:0"  ["90 mimic-a"]="1:50:0"  ["90 mimic-d"]="3:40:0"
+    ["100 sst"]="0:30:0" ["100 snli"]="1:20:0" ["100 imdb"]="1:00:0" ["100 babi-1"]="0:30:0" ["100 babi-2"]="0:30:0" ["100 babi-3"]="0:40:0" ["100 mimic-a"]="1:50:0" ["100 mimic-d"]="3:40:0"
+)
+
+for seed in $(echo "$seeds")
 do
-    sbatch --time=${time[$k]} --mem=16G \
-        -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
-        -J "importance_s-0_m-i_rs-${k}" ./python_job.sh \
-        experiments/analyze_importance_measure.py \
-        --seed 0 \
-        --importance-measure integrated-gradient \
-        --riemann-samples ${k}
+    for dataset in 'sst' 'snli' 'imdb' 'babi-1' 'babi-2' 'babi-3' 'mimic-a' 'mimic-d'
+    do
+        for riemann_samples in 2 5 {10..100..10}
+        do
+            submit_seeds ${pre_time[$riemann_samples $dataset]} "$seed" "importance_measure/${dataset}-pre_s-%s_m-i_rs-${riemann_samples}.csv.gz" \
+                --mem=6G --parsable \
+                $(job_script gpu) \
+                experiments/compute_importance_measure.py \
+                --dataset "$dataset" \
+                --importance-measure integrated-gradient
+        done
+    done
 done
