@@ -93,7 +93,7 @@ if __name__ == "__main__":
                 'importance': np.float32
             })
 
-            silver_csv_files[(dataset, seed)] = (
+            silver_csv_files[(dataset[:-4], seed)] = (
                 silver_df
                 .groupby(['split', 'observation'], observed=True)
                 .progress_apply(_precompute_rank)
@@ -118,11 +118,11 @@ if __name__ == "__main__":
 
             df_partials.append(
                 df_partial
-                .merge(silver_csv_files[(dataset, seed)], on=["split", "observation", "index"])
+                .merge(silver_csv_files[(dataset[:-4], seed)], on=["split", "observation", "index"])
                 .groupby(['split', 'observation'], observed=True)
                 .progress_apply(_aggregate_importance)
             )
-            df_partials_keys.append((dataset, int(seed), int(riemann_samples)))
+            df_partials_keys.append((dataset[:-4], int(seed), int(riemann_samples)))
 
         df = pd.concat(df_partials, keys=df_partials_keys, names=['dataset', 'seed', 'riemann_samples'])
 
