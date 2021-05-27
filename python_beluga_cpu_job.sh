@@ -13,7 +13,7 @@ source $SLURM_TMPDIR/env/bin/activate
 
 # Install dependencies
 python -m pip install --no-index --no-deps $HOME/python_wheels/en_core_web_sm-3.0.0-py3-none-any.whl
-python -m pip install --no-index 'chardet<4.0,>=2.0'
+python -m pip install --no-index 'chardet<4.0,>=2.0' 'click<7.2.0,>=7.1.1'
 
 # Install comp550
 # Copy the module files to localscratch to avoid conflicts when building the .egg-link
