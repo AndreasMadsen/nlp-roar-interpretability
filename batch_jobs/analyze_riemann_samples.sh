@@ -28,7 +28,7 @@ do
         for riemann_samples in 2 5 {10..100..10}
         do
             submit_seeds ${pre_time[$riemann_samples $dataset]} "$seed" "importance_measure/${dataset}-pre_s-%s_m-i_rs-${riemann_samples}.csv.gz" \
-                --mem=${pre_memory[$dataset]} --parsable \
+                --mem=${pre_memory[$dataset]} \
                 $(job_script gpu) \
                 experiments/compute_importance_measure.py \
                 --dataset "$dataset" \
