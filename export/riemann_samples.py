@@ -77,9 +77,9 @@ if __name__ == "__main__":
     ])
 
     if args.stage in ['both', 'preprocess']:
-        # Read silver CSV files
+        # Read silver CSV files. We only use seed 0.
         silver_csv_files = {}
-        for file in tqdm(sorted(glob.glob(f'{args.persistent_dir}/results/importance_measure/*_rs-100.csv.gz')), desc='Parsing and precomputing gold CSVs'):
+        for file in tqdm(sorted(glob.glob(f'{args.persistent_dir}/results/importance_measure/*_s-0_m-i_rs-100.csv.gz')), desc='Parsing and precomputing gold CSVs'):
             filename = path.basename(file)
             dataset, seed, _ = re.match(r'([0-9A-Za-z-]+)_s-(\d+)_m-i_rs-(\d+)', filename).groups()
 
@@ -102,8 +102,9 @@ if __name__ == "__main__":
         # Read CSV files into a dataframe and progressively aggregate the data
         df_partials = []
         df_partials_keys = []
-        for file in tqdm(sorted(glob.glob(f'{args.persistent_dir}/results/importance_measure/*.csv.gz')), desc='Parsing and summarzing CSVs'):
+        for file in tqdm(sorted(glob.glob(f'{args.persistent_dir}/results/importance_measure/*_s-0_m-i_rs-*.csv.gz')), desc='Parsing and summarzing CSVs'):
             filename = path.basename(file)
+            print(filename)
             dataset, seed, riemann_samples = re.match(r'([0-9A-Za-z-]+)_s-(\d+)_m-i_rs-(\d+)', filename).groups()
 
             df_partial = _read_csv_tqdm(file, desc=f'Reading {filename}', leave=False, dtype={
