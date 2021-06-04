@@ -24,8 +24,13 @@ python -m pip install --no-index -e .
 
 # Run code
 cd $SLURM_TMPDIR
-for seed in $(echo $RUN_SEEDS)
-do
-    echo Running $seed
-    python -u -X faulthandler "$HOME/workspace/comp550/$1" "${@:2}" --seed "$seed" --use-gpu False --num-workers 1 --persistent-dir $SCRATCH/comp550
-done
+# Export scripts have no seed
+if [ -z "${RUN_SEEDS}" ]; then
+    python -u -X faulthandler "$HOME/workspace/comp550/$1" "${@:2}" --persistent-dir $SCRATCH/comp550
+else
+    for seed in $(echo $RUN_SEEDS)
+    do
+        echo Running $seed
+        python -u -X faulthandler "$HOME/workspace/comp550/$1" "${@:2}" --seed "$seed" --use-gpu False --num-workers 1 --persistent-dir $SCRATCH/comp550
+    done
+fi
