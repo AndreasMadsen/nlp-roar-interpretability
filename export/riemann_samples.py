@@ -40,7 +40,7 @@ def _compute_stats_and_format(col, percentage=False):
     ci = np.abs(scipy.stats.t.ppf(0.025, df=col.size, scale=scipy.stats.sem(col)))
 
     if percentage:
-        return f"${mean:.2%} \\pm {ci:.2%}$"
+        return f"${mean:.2%} \\pm {ci:.2%}$".replace('%', '\\%')
     else:
         return f"${mean:.2f} \\pm {ci:.2f}$"
 
