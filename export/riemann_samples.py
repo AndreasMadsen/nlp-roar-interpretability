@@ -128,9 +128,9 @@ if __name__ == "__main__":
 
     if args.stage in ['preprocess']:
         os.makedirs(f'{args.persistent_dir}/pandas', exist_ok=True)
-        df.to_pickle(f'{args.persistent_dir}/pandas/sparsity.pd.pkl.xz')
+        df.to_pickle(f'{args.persistent_dir}/pandas/riemann.pd.pkl.xz')
     if args.stage in ['plot']:
-        df = pd.read_pickle(f'{args.persistent_dir}/pandas/sparsity.pd.pkl.xz')
+        df = pd.read_pickle(f'{args.persistent_dir}/pandas/riemann.pd.pkl.xz')
 
     if args.stage in ['both', 'plot']:
         df_latex = (
