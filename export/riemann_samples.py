@@ -9,6 +9,7 @@ from functools import partial
 import scipy.stats
 import numpy as np
 import pandas as pd
+import plotnine as p9
 from tqdm import tqdm
 
 thisdir = os.path.dirname(os.path.realpath(__file__))
@@ -32,7 +33,7 @@ def _precompute_rank(df):
         'index': df['index'],
         'token_gold': df['token'],
         'importance_gold': df['importance'],
-        'importance_rank_gold':  np.argsort(df['importance'])
+        'importance_rank_gold':  np.argsort(df['importance'].to_numpy())[::-1]
     })
 
 def _compute_stats_and_format(col, percentage=False):
@@ -45,12 +46,15 @@ def _compute_stats_and_format(col, percentage=False):
         return f"${mean:.2f} \\pm {ci:.2f}$"
 
 def _aggregate_importance(df):
-    abs_error = np.abs(df["importance"] - df["importance_rank_gold"])
-    rank_error = (np.argsort(df["importance"]) != df["importance_rank_gold"])[::-1]
+    abs_error = np.abs(df["importance"] - df["importance_gold"])
+    rank_error = np.argsort(df["importance"].to_numpy())[::-1] != df["importance_rank_gold"]
+    size = len(rank_error)
 
     return pd.Series({
         'abs_error': np.mean(abs_error),
-        'q-10_rank_error': np.mean(rank_error[:int(len(rank_error)*0.1)+1]),
+        'q-10_rank_error': np.mean(rank_error[:max(1, int(size*0.1))]),
+        'q-90_rank_error': np.mean(rank_error[:max(1, int(size*0.9))]),
+        'c-1_rank_error': rank_error.iat[0],
         'c-10_rank_error': np.mean(rank_error[:10]),
         'all_rank_error': np.mean(rank_error),
         'walltime': df["walltime"].iat[0]
@@ -129,27 +133,34 @@ if __name__ == "__main__":
     if args.stage in ['preprocess']:
         os.makedirs(f'{args.persistent_dir}/pandas', exist_ok=True)
         df.to_pickle(f'{args.persistent_dir}/pandas/riemann.pd.pkl.xz')
+        print(df)
     if args.stage in ['plot']:
         df = pd.read_pickle(f'{args.persistent_dir}/pandas/riemann.pd.pkl.xz')
 
     if args.stage in ['both', 'plot']:
-        df_latex = (
+        print(df.head())
+
+        df = (
             df
             .groupby(['dataset', 'seed', 'riemann_samples'])
             .agg({
                 "walltime": "sum",
                 "abs_error": "mean",
                 "q-10_rank_error": "mean",
+                "q-90_rank_error": "mean",
+                "c-1_rank_error": "mean",
                 "c-10_rank_error": "mean",
                 "all_rank_error": "mean"
             })
             .groupby(["dataset", "riemann_samples"])
             .agg({
-                "walltime": partial(_compute_stats_and_format, percentage=False),
-                "abs_error": partial(_compute_stats_and_format, percentage=False),
-                "q-10_rank_error": partial(_compute_stats_and_format, percentage=True),
-                "c-10_rank_error": partial(_compute_stats_and_format, percentage=True),
-                "all_rank_error": partial(_compute_stats_and_format, percentage=True)
+                "walltime": 'mean',
+                "abs_error": 'mean',
+                "q-10_rank_error": 'mean',
+                "q-90_rank_error": 'mean',
+                "c-1_rank_error": 'mean',
+                "c-10_rank_error":'mean',
+                "all_rank_error": 'mean'
             })
             .reset_index()
             .merge(dataset_mapping, on="dataset")
@@ -160,11 +171,17 @@ if __name__ == "__main__":
             })
             .rename(columns={
                 "q-10_rank_error": "q-10",
+                "q-90_rank_error": "q-90",
+                "c-1_rank_error": "c-1",
                 "c-10_rank_error": "c-10",
                 "all_rank_error": "all"
             })
+        )
+
+        df_latex = (
+            df
             .melt(id_vars=["dataset", "samples", "walltime", 'abs_error'],
-                value_vars=['q-10', 'c-10', 'all'],
+                value_vars=['q-10', 'q-90', 'c-1', 'c-10', 'all'],
                 var_name='ranks',
                 value_name='rank-error')
             .pivot(
@@ -173,6 +190,44 @@ if __name__ == "__main__":
             )
         )
 
-        print(df_latex)
+        #print(df_latex)
         os.makedirs(f"{args.persistent_dir}/tables", exist_ok=True)
         df_latex.to_latex(f'{args.persistent_dir}/tables/riemann_samples.tex', escape=False, multirow=True)
+
+        # Generate plot
+        df_error = df.melt(id_vars=["dataset", "samples", "walltime", 'abs_error'],
+                value_vars=['q-10', 'q-90', 'c-1', 'c-10', 'all'],
+                var_name='ranks',
+                value_name='rank-error')
+
+        p = (p9.ggplot(df_error.reset_index(), p9.aes(x='samples'))
+            + p9.geom_line(p9.aes(y='rank-error', color='ranks'))
+            + p9.geom_point(p9.aes(y='rank-error', color='ranks'))
+            + p9.facet_grid('dataset ~ .')
+            + p9.labs(y='', colour='')
+            + p9.scale_y_continuous(labels = lambda ticks: [f'{tick:.0%}' for tick in ticks])
+            + p9.scale_x_continuous(name='samples', breaks=range(0, 101, 20))
+            + p9.guides(fill=False)
+            + p9.theme(plot_margin=0,
+                    legend_box = "vertical", legend_position="bottom",
+                    text=p9.element_text(size=12))
+        )
+
+        p.save(f'{args.persistent_dir}/plots/riemann-error.pdf', width=3.03209, height=7, units='in')
+        p.save(f'{args.persistent_dir}/plots/riemann-error.png', width=3.03209, height=7, units='in')
+
+        p = (p9.ggplot(df.reset_index(), p9.aes(x='samples'))
+            + p9.geom_line(p9.aes(y='walltime'))
+            + p9.geom_point(p9.aes(y='walltime'))
+            + p9.facet_grid('dataset ~ .')
+            + p9.labs(y='', colour='')
+            + p9.scale_y_continuous()
+            + p9.scale_x_continuous(name='samples', breaks=range(0, 101, 20))
+            + p9.guides(fill=False)
+            + p9.theme(plot_margin=0,
+                    legend_box = "vertical", legend_position="bottom",
+                    text=p9.element_text(size=12))
+        )
+
+        p.save(f'{args.persistent_dir}/plots/riemann-walltime.pdf', width=3.03209, height=7, units='in')
+        p.save(f'{args.persistent_dir}/plots/riemann-walltime.png', width=3.03209, height=7, units='in')
