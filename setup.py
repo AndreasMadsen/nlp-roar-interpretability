@@ -17,6 +17,7 @@ setup(name='comp550',
           'plotnine>=0.7.1',
           'pandas>=1.1.3',
           'scipy>=1.5.4',
+          'numba>=0.49.1,<1.0.0',
           'nltk>=3.5',
           'gensim>=3.8.1,<4.0.0'
       ],

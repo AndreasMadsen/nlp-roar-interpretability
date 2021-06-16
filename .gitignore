@@ -6,6 +6,7 @@ tensorboard/
 plots/
 mimic/
 tables/
+pandas/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -30,7 +30,7 @@ parser.add_argument("--k",
                     help="The proportion of tokens to mask.")
 parser.add_argument("--roar-strategy",
                     action="store",
-                    default='absolute',
+                    default='count',
                     type=str,
                     choices=['count', 'quantile'],
                     help="The meaning of k in terms of how to mask tokens.")
@@ -175,6 +175,6 @@ if __name__ == '__main__':
 
     os.makedirs(f'{args.persistent_dir}/results/roar', exist_ok=True)
     with open(f'{args.persistent_dir}/results/roar/{experiment_id}.json', "w") as f:
-        json.dump({"seed": args.seed, "dataset": f"imdb", "strategy": args.roar_strategy,
+        json.dump({"seed": args.seed, "dataset": main_dataset.name, "strategy": args.roar_strategy,
                    "k": args.k, "recursive": args.recursive, "importance_measure": args.importance_measure,
                    **results}, f)

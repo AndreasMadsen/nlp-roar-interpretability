@@ -6,13 +6,13 @@ import os
 import os.path as path
 from functools import partial
 
+from tqdm import tqdm
 import pandas as pd
 import numpy as np
 import scipy
 import plotnine as p9
 
-import os.path as path
-from comp550.dataset import StanfordSentimentDataset, SNLIDataModule, IMDBDataModule, MimicDataset, BabiDataModule
+from comp550.dataset import SNLIDataset, SSTDataset, IMDBDataset, BabiDataset, MimicDataset
 
 def ratio_confint(partial_df):
     """Implementes a ratio-confidence interval
@@ -45,8 +45,7 @@ def ratio_confint(partial_df):
         'n': len(x)
     })
 
-def dataset_stats(partial_df, cachedir='./'):
-    Loader = partial_df.loc[:, 'loader'].iat[0]
+def dataset_stats(Loader, cachedir, avg_length='by-class'):
     dataset = Loader(cachedir=cachedir, num_workers=0)
     dataset.prepare_data()
     dataset.setup('fit')
@@ -61,14 +60,14 @@ def dataset_stats(partial_df, cachedir='./'):
     for split_name, split_iter in dataloaders:
         lengths = []
         observations = [0] * len(dataset.label_names)
-        for batch in split_iter:
-            lengths += list(batch['length'])
-            for value, count in zip(*np.unique(batch['label'], return_counts=True)):
+        for batch in tqdm(split_iter, desc=f'Summarizing {split_name} split', leave=False):
+            lengths += batch.length.tolist()
+            for value, count in zip(*np.unique(batch.label, return_counts=True)):
                 observations[value] += count
 
-        # Hack for bAbI-x
-        if len(observations) > 3:
-            observations = [sum(observations)]
+        if avg_length == 'in-total':
+            if len(observations) > 3:
+                observations = [sum(observations)]
 
         summaries[split_name] = {
             'length': np.mean(lengths),
@@ -77,13 +76,15 @@ def dataset_stats(partial_df, cachedir='./'):
         }
 
     return pd.Series({
-       'vocab_size': len(dataset.vocabulary),
-       'avg_length': np.average(
-           [summary['length'] for summary in summaries.values()],
-           weights=[summary['count'] for summary in summaries.values()]),
-       'train_size': '/'.join(map(str, summaries['train']['observations'])),
-       'val_size': '/'.join(map(str, summaries['val']['observations'])),
-       'test_size': '/'.join(map(str, summaries['test']['observations']))
+        'dataset': dataset.name,
+        'vocab_size': len(dataset.vocabulary),
+        'avg_length': np.average(
+            [summary['length'] for summary in summaries.values()],
+            weights=[summary['count'] for summary in summaries.values()]
+        ),
+        'train_size': '/'.join(map(str, summaries['train']['observations'])),
+        'val_size': '/'.join(map(str, summaries['val']['observations'])),
+        'test_size': '/'.join(map(str, summaries['test']['observations']))
     })
 
 thisdir = path.dirname(path.realpath(__file__))
@@ -93,50 +94,72 @@ parser.add_argument('--persistent-dir',
                     default=path.realpath(path.join(thisdir, '..')),
                     type=str,
                     help='Directory where all persistent data will be stored')
+parser.add_argument('--stage',
+                    action='store',
+                    default='both',
+                    type=str,
+                    choices=['preprocess', 'plot', 'both'],
+                    help='Which export stage should be performed. Mostly just useful for debugging.')
 
 if __name__ == "__main__":
-    print('Starting ...')
-    args = parser.parse_args()
+    pd.set_option('display.max_rows', None)
+    args, unknown = parser.parse_known_args()
 
     dataset_mapping = pd.DataFrame([
-        {'dataset': 'sst', 'print_name': 'SST', 'test_metric': 'f1_test',
-         'loader': StanfordSentimentDataset},
-        {'dataset': 'snli', 'print_name': 'SNLI', 'test_metric': 'f1_test',
-         'loader': SNLIDataModule},
-        {'dataset': 'imdb', 'print_name': 'IMDB', 'test_metric': 'f1_test',
-         'loader': IMDBDataModule},
-        {'dataset': 'mimic-anemia', 'print_name': 'Anemia', 'test_metric': 'f1_test',
-         'loader': partial(MimicDataset, mimicdir=args.persistent_dir + '/mimic', subset='anemia')},
-        {'dataset': 'mimic-diabetes', 'print_name': 'Diabetes', 'test_metric': 'f1_test',
-         'loader': partial(MimicDataset, mimicdir=args.persistent_dir + '/mimic', subset='diabetes')},
-        {'dataset': 'babi_t-1', 'print_name': 'bAbI-1', 'test_metric': 'acc_test',
-         'loader': partial(BabiDataModule, task_idx=1)},
-        {'dataset': 'babi_t-2', 'print_name': 'bAbI-2', 'test_metric': 'acc_test',
-         'loader': partial(BabiDataModule, task_idx=2)},
-        {'dataset': 'babi_t-3', 'print_name': 'bAbI-3', 'test_metric': 'acc_test',
-         'loader': partial(BabiDataModule, task_idx=3)},
+        {'dataset': 'sst', 'dataset_pretty': 'SST', 'test_metric': 'f1_test'},
+        {'dataset': 'snli', 'dataset_pretty': 'SNLI', 'test_metric': 'f1_test'},
+        {'dataset': 'imdb', 'dataset_pretty': 'IMDB', 'test_metric': 'f1_test'},
+        {'dataset': 'mimic-a', 'dataset_pretty': 'Anemia', 'test_metric': 'f1_test'},
+        {'dataset': 'mimic-d', 'dataset_pretty': 'Diabetes', 'test_metric': 'f1_test'},
+        {'dataset': 'babi-1', 'dataset_pretty': 'bAbI-1', 'test_metric': 'acc_test'},
+        {'dataset': 'babi-2', 'dataset_pretty': 'bAbI-2', 'test_metric': 'acc_test'},
+        {'dataset': 'babi-3', 'dataset_pretty': 'bAbI-3', 'test_metric': 'acc_test'}
     ])
 
-    # Read JSON files into dataframe
-    results = []
-    for file in glob.glob(f'{args.persistent_dir}/results/roar/*.json'):
-        with open(file, 'r') as fp:
-            try:
-                results.append(json.load(fp))
-            except json.decoder.JSONDecodeError:
-                print(f'{file} has a format error')
-    df = pd.DataFrame(results)
-    df = df.loc[df['roar'] == False]
-    df = df.merge(dataset_mapping, on='dataset')
+    datasets = {
+        'sst': (SSTDataset, 'by-class'),
+        'snli': (SNLIDataset, 'by-class'),
+        'imdb': (IMDBDataset, 'by-class'),
+        'babi-1': (partial(BabiDataset, task=1), 'in-total'),
+        'babi-2': (partial(BabiDataset, task=2), 'in-total'),
+        'babi-3': (partial(BabiDataset, task=3), 'in-total'),
+        'mimic-d': (partial(MimicDataset, subset='diabetes', mimicdir=f'{args.persistent_dir}/mimic'), 'by-class'),
+        'mimic-a': (partial(MimicDataset, subset='anemia', mimicdir=f'{args.persistent_dir}/mimic'), 'by-class')
+    }
 
-    performance_df = df.groupby(['print_name'], sort=False).apply(ratio_confint)
-    dataset_df = df.groupby(['print_name'], sort=False).apply(
-        partial(dataset_stats, cachedir=args.persistent_dir + '/cache')
-    )
+    if args.stage in ['both', 'preprocess']:
+        # Read JSON files into dataframe
+        results = []
+        for file in tqdm(glob.glob(f'{args.persistent_dir}/results/roar/*_s-[0-9].json'),
+                        desc='Loading .json files'):
+            with open(file, 'r') as fp:
+                try:
+                    results.append(json.load(fp))
+                except json.decoder.JSONDecodeError:
+                    print(f'{file} has a format error')
+        results_df = pd.DataFrame(results)
 
+        # Summarize each dataset
+        summaries = []
+        for dataset_loader, avg_length in tqdm(datasets.values(), desc='Summarizing datasets'):
+            summaries.append(
+                dataset_stats(dataset_loader, cachedir=args.persistent_dir + '/cache', avg_length=avg_length)
+            )
+        summaries_df = pd.DataFrame(summaries)
 
-    summary_df = performance_df.merge(dataset_df, on='print_name')
-    pd.set_option('display.max_rows', 500)
-    pd.set_option('display.max_columns', 500)
-    pd.set_option('display.width', 1000)
-    print(summary_df)
+        # Hack for bAbI-x
+        df = (
+            results_df
+            .merge(dataset_mapping, on='dataset')
+            .groupby(['dataset', 'dataset_pretty'], sort=False, as_index=False).apply(ratio_confint)
+            .merge(summaries_df, on='dataset')
+        )
+
+    if args.stage in ['preprocess']:
+        os.makedirs(f'{args.persistent_dir}/pandas', exist_ok=True)
+        df.to_pickle(f'{args.persistent_dir}/pandas/dataset.pd.pkl.xz')
+    if args.stage in ['plot']:
+        df = pd.read_pickle(f'{args.persistent_dir}/pandas/dataset.pd.pkl.xz')
+
+    if args.stage in ['both', 'plot']:
+        print(df)
