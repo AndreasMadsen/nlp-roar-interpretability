@@ -90,44 +90,25 @@ if __name__ == "__main__":
         rank = np.argsort([importance for word, importance in observation])[::-1]
 
         # Build tikz graphics
-        tikz = '\\begin{tikzpicture}[node distance=1pt]\n'
-        for percentage_i, percentage in enumerate([0, 20, 40, 60, 80]):
-            tikz += (
-                    f'\\node ['
-                        f'inner sep=1pt, align=right, text width=3em'
-                    f'] (p{percentage}t0) at (0, {-percentage_i}) {{\\strut {percentage}\\%}};\n'
-                )
-
+        latex = '\\begin{tabular}{p{0.2cm}p{7.8cm}}\n'
+        for percentage_i, percentage in enumerate([0, 20, 40]):
+            latex += f'{percentage}\\%&'
             indices_masked = rank[0:int(len(observation)*percentage/100)]
 
             for word_i, (word, importance) in enumerate(observation):
                 r,g,b,a = colormap(importance)
 
                 if word_i in indices_masked:
-                    tikz += (
-                        f'\\node ['
-                            f'inner sep=1pt,'
-                            f'right=of p{percentage}t{word_i}'
-                        f'] (p{percentage}t{word_i+1}) {{\\strut [MASK]}};\n'
-                    )
+                    latex += f'\colorbox{{rgb,255:red,255; green,255; blue,255}}{{\strut [MASK]}}\\allowbreak'
                 elif percentage > 0:
-                    tikz += (
-                        f'\\node ['
-                            f'inner sep=1pt,'
-                            f'right=of p{percentage}t{word_i}'
-                        f'] (p{percentage}t{word_i+1}) {{\\strut {word}}};\n'
-                    )
+                    latex += f'\colorbox{{rgb,255:red,255; green,255; blue,255}}{{\strut {word}}}\\allowbreak'
                 else:
-                    tikz += (
-                        f'\\node ['
-                            f'fill={{rgb,255:red,{r*255:.0f}; green,{g*255:.0f}; blue,{b*255:.0f}}},'
-                            f'inner sep=1pt,'
-                            f'right=of p{percentage}t{word_i}'
-                        f'] (p{percentage}t{word_i+1}) {{\\strut {word}}};\n'
-                    )
+                    latex += f'\colorbox{{rgb,255:red,{r*255:.0f}; green,{g*255:.0f}; blue,{b*255:.0f}}}{{\strut {word}}}\\allowbreak'
 
-        tikz += '\\end{tikzpicture}\n'
+            latex += f'\\\\\n'
+
+        latex += '\\end{tabular}\n'
 
         with open(f'{args.persistent_dir}/plots/example.tex', 'w') as fp:
-            fp.write(tikz)
+            fp.write(latex)
 
