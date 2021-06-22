@@ -64,7 +64,7 @@ class Tokenizer:
 
     def decode(self, token_ids):
         return ' '.join([
-            self.ids_to_token.get(token_id)
+            self.ids_to_token[token_id]
             for token_id in token_ids
         ])
 
