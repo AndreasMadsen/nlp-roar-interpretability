@@ -13,7 +13,28 @@ import plotnine as p9
 
 from comp550.util import generate_experiment_id
 
-def ratio_confint(partial_df):
+def select_test_metric(partial_df):
+    column_name = partial_df.loc[:, 'test_metric'].iat[0]
+    return pd.Series({
+        'metric': partial_df.loc[:, column_name].iat[0]
+    })
+
+def area_between(partial_df):
+    partial_df = partial_df.sort_index(level='k').reset_index()
+    k = partial_df.loc[:,'k'].to_numpy() / 100
+    measure = partial_df.loc[:,'metric'].to_numpy()
+    baseline = partial_df.loc[:,'random'].to_numpy()
+
+    y_diff = baseline - measure
+    x_diff = np.diff(k)
+    areas = (y_diff[1:] + y_diff[0:-1]) * 0.5 * x_diff
+    total = np.sum(areas)
+
+    return pd.Series({
+        'area': total
+    })
+
+def ratio_confint(column_name):
     """Implementes a ratio-confidence interval
 
     The idea is to project to logits space, then assume a normal distribution,
@@ -21,27 +42,29 @@ def ratio_confint(partial_df):
 
     Method proposed here: https://stats.stackexchange.com/questions/263516
     """
-    column_name = partial_df.loc[:, 'test_metric'].iat[0]
-    x = partial_df[column_name]
-    logits = scipy.special.logit(x)
-    mean = np.mean(logits)
-    sem = scipy.stats.sem(logits)
-    lower, upper = scipy.stats.t.interval(0.95, len(x) - 1,
-                                          loc=mean,
-                                          scale=sem)
+    def agg(partial_df):
+        x = partial_df.loc[:, column_name]
+        logits = scipy.special.logit(x)
+        mean = np.mean(logits)
+        sem = scipy.stats.sem(logits)
+        lower, upper = scipy.stats.t.interval(0.95, len(x) - 1,
+                                            loc=mean,
+                                            scale=sem)
 
-    lower = scipy.special.expit(lower)
-    mean = scipy.special.expit(mean)
-    upper = scipy.special.expit(upper)
-    if np.isnan(sem):
-        lower, upper = mean, mean
+        lower = scipy.special.expit(lower)
+        mean = scipy.special.expit(mean)
+        upper = scipy.special.expit(upper)
+        if np.isnan(sem):
+            lower, upper = mean, mean
 
-    return pd.Series({
-        'lower': lower,
-        'mean': mean,
-        'upper': upper,
-        'n': len(x)
-    })
+        return pd.Series({
+            'lower': lower,
+            'mean': mean,
+            'upper': upper,
+            'n': len(x)
+        })
+
+    return agg
 
 thisdir = path.dirname(path.realpath(__file__))
 parser = argparse.ArgumentParser()
@@ -123,7 +146,7 @@ if __name__ == "__main__":
         df = df.merge(dataset_mapping, on='dataset').drop(['dataset'], axis=1)
         df = df.merge(recursive_mapping, on='recursive').drop(['recursive'], axis=1)
         df = df.merge(importance_measure_mapping, on='importance_measure').drop(['importance_measure'], axis=1)
-        df = df.groupby(['dataset_pretty', 'strategy', 'k', 'recursive_pretty', 'importance_measure_pretty']).apply(ratio_confint)
+        df = df.groupby(['seed', 'dataset_pretty', 'strategy', 'k', 'recursive_pretty', 'importance_measure_pretty']).apply(select_test_metric)
 
     if args.stage in ['preprocess']:
         os.makedirs(f'{args.persistent_dir}/pandas', exist_ok=True)
@@ -132,12 +155,35 @@ if __name__ == "__main__":
         df = pd.read_pickle(f'{args.persistent_dir}/pandas/roar.pd.pkl.xz')
 
     if args.stage in ['both', 'plot']:
-        # Generate result table
+        # Generate summary table
+        df_latex = (df
+            .merge(
+                df.loc[pd.IndexSlice[:, :, :, :, :, 'Random']].rename(columns={'metric': 'random'}),
+                left_index=True, right_index=True)
+            .loc[pd.IndexSlice[:, :, 'quantile', :, :, ['Attention', 'Gradient', 'Integrated Gradient']]]
+            .groupby(['seed', 'dataset_pretty', 'recursive_pretty', 'importance_measure_pretty']).apply(area_between)
+            .apply(lambda col: (col + 1) / 2)
+            .groupby(['dataset_pretty', 'recursive_pretty', 'importance_measure_pretty']).apply(ratio_confint('area'))
+            .apply(lambda col: (col * 2) - 1)
+            .loc[pd.IndexSlice[:, 'Recursive', :]]
+            .assign(faithfulness=lambda x: [
+                f'${mean:.1%}^{{+{upper-mean:.1%}}}_{{-{mean-lower:.1%}}}$'.replace('%', '\\%')
+                for mean, lower, upper
+                in zip(x['mean'], x['lower'], x['upper'])
+            ])
+            .drop(['mean', 'lower', 'upper', 'n'], axis=1)
+        )
+
+        os.makedirs(f"{args.persistent_dir}/tables", exist_ok=True)
+        df_latex.to_latex(f'{args.persistent_dir}/tables/roar_summary.tex', escape=False, multirow=True)
+
+        # Generate result plots
+        df_plot = df.groupby(['dataset_pretty', 'strategy', 'k', 'recursive_pretty', 'importance_measure_pretty']).apply(ratio_confint('metric'))
         for strategy in ['count', 'quantile']:
             experiment_id = generate_experiment_id('roar', strategy=strategy)
 
             # Generate plot
-            p = (p9.ggplot(df.loc[pd.IndexSlice[:, strategy, :, :, :]].reset_index(), p9.aes(x='k'))
+            p = (p9.ggplot(df_plot.loc[pd.IndexSlice[:, strategy, :, :, :]].reset_index(), p9.aes(x='k'))
                 + p9.geom_ribbon(p9.aes(ymin='lower', ymax='upper', fill='importance_measure_pretty'), alpha=0.35)
                 + p9.geom_line(p9.aes(y='mean', color='importance_measure_pretty'))
                 + p9.geom_point(p9.aes(y='mean', color='importance_measure_pretty'))
