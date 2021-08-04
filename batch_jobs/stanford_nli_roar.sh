@@ -3,15 +3,15 @@
 source "batch_jobs/_job_script.sh"
 seeds="0 1 2 3 4"
 
-# Actual   pre_time=( ["random"]="0:04:0" ["attention"]="0:05:0" ["gradient"]="0:05:0" ["integrated-gradient"]="0:27:0" )
-declare -A pre_time=( ["random"]="0:15:0" ["attention"]="0:15:0" ["gradient"]="0:15:0" ["integrated-gradient"]="0:40:0" )
+# Actual   pre_time=( ["random"]="0:04:0" ["mutual-information"]="0:??:0" ["attention"]="0:05:0" ["gradient"]="0:05:0" ["integrated-gradient"]="0:27:0" )
+declare -A pre_time=( ["random"]="0:15:0" ["mutual-information"]="0:15:0" ["attention"]="0:15:0" ["gradient"]="0:15:0" ["integrated-gradient"]="0:40:0" )
 
 # Actual   roar_time="0:49:0"
 declare -r roar_time="1:10:0"
 
 for seed in $(echo "$seeds")
 do
-    for importance_measure in 'random' 'attention' 'gradient' 'integrated-gradient'
+    for importance_measure in 'random' 'mutual-information' 'attention' 'gradient' 'integrated-gradient'
     do
         riemann_samples=$([ "$importance_measure" == integrated-gradient ] && echo 50 || echo 0)
         dependency=''
