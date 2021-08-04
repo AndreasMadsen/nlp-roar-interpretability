@@ -85,6 +85,13 @@ class MutualInformationImportanceMeasure(ImportanceMeasureModule):
             )
         )
 
+        # Zero is the smallet value possible with MI. Hard-code [PAD], [CLR], and [EOS] to have zero
+        # mutual information. Note, the ROAR masking already deals appropiately with these special tokens,
+        # this is just to avoid potentional nan issues.
+        self.mutual_information[self.dataset.tokenizer.pad_token_id, :] = 0
+        self.mutual_information[self.dataset.tokenizer.start_token_id, :] = 0
+        self.mutual_information[self.dataset.tokenizer.end_token_id, :] = 0
+
     def forward(self, batch: SequenceBatch) -> torch.Tensor:
         importances = []
         for observation_i in range(batch.sentence.size(0)):
