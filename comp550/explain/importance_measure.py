@@ -41,10 +41,12 @@ class MutualInformationImportanceMeasure(ImportanceMeasureModule):
             self.dataset.setup('fit')
 
         # Count number (word, label) pairs. Note that the same word appearing multiple times
-        # in one sentences, is just counted as one word.
-        N_docs = torch.tensor(self.dataset.num_of_observations('train'), dtype=torch.int32)
-        N_docs_label_1 = torch.zeros(1, len(self.dataset.label_names), dtype=torch.int32)
-        N_word_1_label_1 = torch.zeros(len(self.dataset.vocabulary), len(self.dataset.label_names), dtype=torch.int32)
+        #   in one sentences, is just counted as one word.
+        # Start counters, with "1" to indicate there is a fake document with all words for each class.
+        #   This is to avoid divide-by-zero issues, which is a limitation of KL-divergence / Mutual Information.
+        N_docs = torch.tensor(self.dataset.num_of_observations('train') + len(self.dataset.label_names), dtype=torch.int32)
+        N_docs_label_1 = torch.ones(1, len(self.dataset.label_names), dtype=torch.int32)
+        N_word_1_label_1 = torch.ones(len(self.dataset.vocabulary), len(self.dataset.label_names), dtype=torch.int32)
 
         for batch in self.dataset.dataloader('train', *args, **kwargs):
             for observation in self.dataset.uncollate(batch):
