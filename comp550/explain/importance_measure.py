@@ -71,17 +71,17 @@ class MutualInformationImportanceMeasure(ImportanceMeasureModule):
 
         # Compute the mutual information
         self.mutual_information = (
-            (N_word_1_label_1 / N_docs) * torch.log2(
-                (N_docs * N_word_1_label_1) / (N_word_1 * N_label_1)
+            (N_word_1_label_1 / N_docs) * (
+                (torch.log2(N_docs) + torch.log2(N_word_1_label_1)) - (torch.log2(N_word_1) + torch.log2(N_label_1))
             ) +
-            (N_word_1_label_0 / N_docs) * torch.log2(
-                (N_docs * N_word_1_label_0) / (N_word_1 * N_label_0)
+            (N_word_1_label_0 / N_docs) * (
+                (torch.log2(N_docs) + torch.log2(N_word_1_label_0)) - (torch.log2(N_word_1) + torch.log2(N_label_0))
             ) +
-            (N_word_0_label_1 / N_docs) * torch.log2(
-                (N_docs * N_word_0_label_1) / (N_word_0 * N_label_1)
+            (N_word_0_label_1 / N_docs) * (
+                (torch.log2(N_docs) + torch.log2(N_word_0_label_1)) - (torch.log2(N_word_0) + torch.log2(N_label_1))
             ) +
-            (N_word_0_label_0 / N_docs) * torch.log2(
-                (N_docs * N_word_0_label_0) / (N_word_0 * N_label_0)
+            (N_word_0_label_0 / N_docs) * (
+                (torch.log2(N_docs) + torch.log2(N_word_0_label_0)) - (torch.log2(N_word_0) + torch.log2(N_label_0))
             )
         )
 
