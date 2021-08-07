@@ -32,13 +32,17 @@ class RandomImportanceMeasure(ImportanceMeasureModule):
 class MutualInformationImportanceMeasure(ImportanceMeasureModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.mutual_information = torch.zeros(len(self.dataset.vocabulary), len(self.dataset.label_names))
+        self.mutual_information = nn.Parameter(
+            torch.zeros(len(self.dataset.vocabulary), len(self.dataset.label_names), device=self.device),
+            requires_grad=False)
 
     def precompute(self, *args, **kwargs):
         # Prepare dataset
         was_setup = self.dataset.is_setup('fit')
         if not was_setup:
             self.dataset.setup('fit')
+
+        # Note the following computation happens on the CPU, regardless of use_gpu Flags
 
         # Count number (word, label) pairs. Note that the same word appearing multiple times
         #   in one sentences, is just counted as one word.
@@ -70,7 +74,7 @@ class MutualInformationImportanceMeasure(ImportanceMeasureModule):
         N_word_0 = N_word_0_label_1 + N_word_0_label_0
 
         # Compute the mutual information
-        self.mutual_information = (
+        mutual_information = (
             (N_word_1_label_1 / N_docs) * (
                 (torch.log2(N_docs) + torch.log2(N_word_1_label_1)) - (torch.log2(N_word_1) + torch.log2(N_label_1))
             ) +
@@ -88,9 +92,12 @@ class MutualInformationImportanceMeasure(ImportanceMeasureModule):
         # Zero is the smallet value possible with MI. Hard-code [PAD], [CLR], and [EOS] to have zero
         # mutual information. Note, the ROAR masking already deals appropiately with these special tokens,
         # this is just to avoid potentional nan issues.
-        self.mutual_information[self.dataset.tokenizer.pad_token_id, :] = 0
-        self.mutual_information[self.dataset.tokenizer.start_token_id, :] = 0
-        self.mutual_information[self.dataset.tokenizer.end_token_id, :] = 0
+        mutual_information[self.dataset.tokenizer.pad_token_id, :] = 0
+        mutual_information[self.dataset.tokenizer.start_token_id, :] = 0
+        mutual_information[self.dataset.tokenizer.end_token_id, :] = 0
+
+        # Assign mutual_information to the class parameter.
+        self.mutual_information += mutual_information.to(self.device)
 
     def forward(self, batch: SequenceBatch) -> torch.Tensor:
         importances = []
