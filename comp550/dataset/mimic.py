@@ -136,7 +136,7 @@ class MimicDataset(SingleSequenceDataset):
                 df_merged = pd.read_csv(f'{self._cachedir}/mimic-dataset/merged.csv.gz', compression='gzip')
 
             embedding = Word2Vec(map(lambda x: x.split(' '), df_merged['TEXT']),
-                            size=300, window=10, min_count=2,
+                            vector_size=300, window=10, min_count=2,
                             workers=max(1, self._num_workers))
             embedding.wv.save(f'{self._cachedir}/embeddings/mimic.wv')
 
