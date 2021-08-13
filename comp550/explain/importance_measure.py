@@ -32,9 +32,10 @@ class RandomImportanceMeasure(ImportanceMeasureModule):
 class MutualInformationImportanceMeasure(ImportanceMeasureModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.mutual_information = nn.Parameter(
-            torch.zeros(len(self.dataset.vocabulary), len(self.dataset.label_names), device=self.device),
-            requires_grad=False)
+        self.mutual_information = torch.zeros(
+            len(self.dataset.vocabulary), len(self.dataset.label_names),
+            device=self.device
+        )
 
     def precompute(self, *args, **kwargs):
         # Prepare dataset
