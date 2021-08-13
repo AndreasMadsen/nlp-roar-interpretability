@@ -116,7 +116,8 @@ if __name__ == "__main__":
         {'importance_measure': 'attention', 'importance_measure_pretty': 'Attention'},
         {'importance_measure': 'gradient', 'importance_measure_pretty': 'Gradient'},
         {'importance_measure': 'integrated-gradient', 'importance_measure_pretty': 'Integrated Gradient'},
-        {'importance_measure': 'random', 'importance_measure_pretty': 'Random'}
+        {'importance_measure': 'random', 'importance_measure_pretty': 'Random'},
+        {'importance_measure': 'mutual-information', 'importance_measure_pretty': 'Mutual Information'}
     ])
 
     if args.stage in ['both', 'preprocess']:
@@ -132,8 +133,8 @@ if __name__ == "__main__":
 
         # Duplicate k=0 for 'random' to 'attention', 'gradient', 'integrated-gradient'
         df_k0 = df.loc[df['k'] == 0]
-        df_k0_duplicates = []
-        for importance_measure in ['random', 'attention', 'gradient', 'integrated-gradient']:
+        df_k0_dublicates = []
+        for importance_measure in ['random', 'attention', 'gradient', 'integrated-gradient', 'mutual-information']:
             for recursive in [True, False]:
                 for strategy in ['count', 'quantile']:
                     df_k0_duplicates.append(
