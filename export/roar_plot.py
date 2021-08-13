@@ -118,7 +118,7 @@ if __name__ == "__main__":
                     print(f'{file} has a format error')
         df = pd.DataFrame(results)
 
-        # Dublicate k=0 for 'random', 'attention', 'gradient', 'integrated-gradient'
+        # Dublicate k=0 for 'random' to 'attention', 'gradient', 'integrated-gradient'
         df_k0 = df.loc[df['k'] == 0]
         df_k0_dublicates = []
         for importance_measure in ['random', 'attention', 'gradient', 'integrated-gradient']:
@@ -132,6 +132,20 @@ if __name__ == "__main__":
                         )
                     )
         df = pd.concat([df.loc[df['k'] != 0], *df_k0_dublicates])
+
+        # Dublicate k=100 for 'random' to 'attention', 'gradient', 'integrated-gradient'
+        df_k100 = df.loc[(df['k'] == 100) & (df['strategy'] == 'quantile')]
+        df_k100_dublicates = []
+        for importance_measure in ['random', 'attention', 'gradient', 'integrated-gradient']:
+            for recursive in [True, False]:
+                df_k100_dublicates.append(
+                    df_k100.copy().assign(
+                        importance_measure=importance_measure,
+                        recursive=recursive,
+                        strategy='quantile'
+                    )
+                )
+        df = pd.concat([df.loc[(df['k'] != 100) | (df['strategy'] != 'quantile')], *df_k100_dublicates])
 
         # Dublicate (random, recursive=False) to recursive=True because
         # this importance measure is model independent
@@ -158,7 +172,12 @@ if __name__ == "__main__":
         # Generate summary table
         df_latex = (df
             .merge(
-                df.loc[pd.IndexSlice[:, :, :, :, :, 'Random']].rename(columns={'metric': 'random'}),
+                (df
+                    .loc[pd.IndexSlice[:, :, :, :, :, 'Random']]
+                    .reset_index(level='importance_measure_pretty')
+                    .drop('importance_measure_pretty', axis=1)
+                    .rename(columns={'metric': 'random'})
+                ),
                 left_index=True, right_index=True)
             .loc[pd.IndexSlice[:, :, 'quantile', :, :, ['Attention', 'Gradient', 'Integrated Gradient']]]
             .groupby(['seed', 'dataset_pretty', 'recursive_pretty', 'importance_measure_pretty']).apply(area_between)
@@ -198,7 +217,7 @@ if __name__ == "__main__":
             if strategy == 'count':
                 p += p9.scale_x_continuous(name='nb. tokens removed', breaks=range(0, 11, 2))
             elif strategy == 'quantile':
-                p += p9.scale_x_continuous(name='% tokens removed', breaks=range(0, 91, 20))
+                p += p9.scale_x_continuous(name='% tokens removed', breaks=range(0, 101, 20))
 
             # Save plot, the width is the \linewidth of a collumn in the LaTeX document
             os.makedirs(f'{args.persistent_dir}/plots', exist_ok=True)
