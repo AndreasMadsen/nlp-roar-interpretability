@@ -5,7 +5,7 @@ seeds="0 1 2 3 4"
 
 # Actual time:    ["anemia random"]="0:09:0"   ["anemia mutual-information"]="0:25:0"   ["anemia attention"]="0:09:0"   ["anemia gradient"]="0:11:0" ["anemia integrated-gradient"]="0:44:0"
 #                 ["diabetes random"]="0:17:0" ["diabetes mutual-information"]="0:40:0" ["diabetes attention"]="0:17:0" ["diabetes gradient"]="0:23:0" ["diabetes integrated-gradient"]="1:46:0"
-declare -A time=( ["anemia random"]="0:25:0"   ["anemia mutual-information"]="0:25:0"   ["anemia attention"]="0:25:0"   ["anemia gradient"]="0:30:0" ["anemia integrated-gradient"]="1:05:0"
+declare -A time=( ["anemia random"]="0:25:0"   ["anemia mutual-information"]="0:35:0"   ["anemia attention"]="0:25:0"   ["anemia gradient"]="0:30:0" ["anemia integrated-gradient"]="1:05:0"
                   ["diabetes random"]="0:40:0" ["diabetes mutual-information"]="0:40:0" ["diabetes attention"]="0:40:0" ["diabetes gradient"]="0:50:0" ["diabetes integrated-gradient"]="2:05:0" )
 
 for seed in $(echo "$seeds")
