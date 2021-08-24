@@ -33,7 +33,7 @@ class MutualInformationImportanceMeasure(ImportanceMeasureModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.mutual_information = torch.zeros(
-            len(self.dataset.vocabulary), len(self.dataset.label_names),
+            len(self.dataset.vocabulary),
             device=self.device
         )
 
@@ -97,19 +97,21 @@ class MutualInformationImportanceMeasure(ImportanceMeasureModule):
         mutual_information[self.dataset.tokenizer.start_token_id, :] = 0
         mutual_information[self.dataset.tokenizer.end_token_id, :] = 0
 
+        # Aggregate by weighted mean, the mutual information for each label. If this is not done,
+        # then removing all token_1 from label_1 will leak information about label_1. Because,
+        # instead of the model now using the existence of token_1 to predict label_1, it uses
+        # the absense of token_1 to predict label_1. It is therefore necessary to remove token_1
+        # equally, independent of the document label.
+        P_label_1 = N_docs_label_1 / N_docs
+        mutual_information_agg = torch.sum(mutual_information * P_label_1, axis=1)
+
         # Assign mutual_information to the class parameter.
-        self.mutual_information += mutual_information.to(self.device)
+        self.mutual_information += mutual_information_agg.to(self.device)
 
     def forward(self, batch: SequenceBatch) -> torch.Tensor:
-        importances = []
-        for observation_i in range(batch.sentence.size(0)):
-            mutual_information_for_label = self.mutual_information[:, batch.label[observation_i]]
-
-            importances.append(
-                torch.index_select(mutual_information_for_label, 0, batch.sentence[observation_i, :])
-            )
-
-        return torch.stack(importances)
+        return torch.index_select(
+            self.mutual_information, 0, batch.sentence.reshape([-1])
+        ).reshape_as(batch.sentence).detach()
 
 class AttentionImportanceMeasure(ImportanceMeasureModule):
     def forward(self, batch: SequenceBatch) -> torch.Tensor:
