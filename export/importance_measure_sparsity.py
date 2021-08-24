@@ -94,14 +94,6 @@ def ratio_confint(df):
         'n': len(x)
     })
 
-def _format_ci(row, percentage=False):
-    print(row)
-    return 'ci'
-    #if percentage:
-    #    return f"${mean:.2%} \\pm {ci:.2%}$".replace('%', '\\%')
-    #else:
-    #    return f"${mean:.2f} \\pm {ci:.2f}$"
-
 def _read_csv_tqdm(file, dtype=None, desc=None, leave=True):
     return pd.concat(tqdm(pd.read_csv(file, dtype=dtype, chunksize=1_000_000, usecols=list(dtype.keys())),
                      desc=desc, leave=leave))
@@ -136,7 +128,7 @@ if __name__ == "__main__":
             filename = path.basename(file)
 
             dataset, seed, measure, riemann_samples = re.match(r'([0-9A-Za-z-]+)_s-(\d+)_m-([a-z])_rs-(\d+)', filename).groups()
-            if measure == 'i' and riemann_samples != '50':
+            if (measure == 'i' and riemann_samples != '50') or measure == 'm':
                 continue
 
             df_partial = _read_csv_tqdm(file, desc=f'Reading {filename}', leave=False, dtype={
@@ -194,9 +186,9 @@ if __name__ == "__main__":
             p = (p9.ggplot(df.loc[pd.IndexSlice[:, strategy, :, :]].reset_index(), p9.aes(x='k'))
                 + p9.geom_ribbon(p9.aes(ymin='lower', ymax='upper', fill='importance_measure_pretty'), alpha=0.35)
                 + p9.geom_line(p9.aes(y='mean', color='importance_measure_pretty'))
-                + p9.geom_point(p9.aes(y='mean', color='importance_measure_pretty'))
+                + p9.geom_point(p9.aes(y='mean', color='importance_measure_pretty', shape='importance_measure_pretty'))
                 + p9.facet_grid('dataset_pretty ~ .', scales='free_x')
-                + p9.labs(y='', colour='')
+                + p9.labs(y='', color='', shape='')
                 + p9.scale_y_continuous(labels = lambda ticks: [f'{tick:.0%}' for tick in ticks])
                 + p9.guides(fill=False, color = p9.guide_legend(nrow = 2))
                 + p9.theme(plot_margin=0,
@@ -229,7 +221,6 @@ if __name__ == "__main__":
                     'dataset_pretty': 'dataset',
                     'importance_measure_pretty': 'importance measure'
                 })
-                #.set_index(['dataset', 'importance measure', 'k'])
                 .pivot(
                     index=['dataset', 'importance measure'],
                     columns=['k']
