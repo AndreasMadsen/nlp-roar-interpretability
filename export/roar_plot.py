@@ -30,11 +30,17 @@ def area_between(partial_df):
     areas = (y_diff[1:] + y_diff[0:-1]) * 0.5 * x_diff
     total = np.sum(areas)
 
+    y_diff = baseline - baseline[-1]
+    x_diff = np.diff(k)
+    areas = (y_diff[1:] + y_diff[0:-1]) * 0.5 * x_diff
+    max_area = np.sum(areas)
+
     return pd.Series({
-        'area': total
+        'absolute_area': total,
+        'relative_area': total / max_area
     })
 
-def ratio_confint(column_name):
+def ratio_confint(column_names):
     """Implementes a ratio-confidence interval
 
     The idea is to project to logits space, then assume a normal distribution,
@@ -43,26 +49,32 @@ def ratio_confint(column_name):
     Method proposed here: https://stats.stackexchange.com/questions/263516
     """
     def agg(partial_df):
-        x = partial_df.loc[:, column_name]
-        logits = scipy.special.logit(x)
-        mean = np.mean(logits)
-        sem = scipy.stats.sem(logits)
-        lower, upper = scipy.stats.t.interval(0.95, len(x) - 1,
-                                            loc=mean,
-                                            scale=sem)
+        summary = dict()
 
-        lower = scipy.special.expit(lower)
-        mean = scipy.special.expit(mean)
-        upper = scipy.special.expit(upper)
-        if np.isnan(sem):
-            lower, upper = mean, mean
+        for column_name in column_names:
+            x = partial_df.loc[:, column_name]
+            logits = scipy.special.logit(x)
+            mean = np.mean(logits)
+            sem = scipy.stats.sem(logits)
+            lower, upper = scipy.stats.t.interval(0.95, len(x) - 1,
+                                                loc=mean,
+                                                scale=sem)
 
-        return pd.Series({
-            'lower': lower,
-            'mean': mean,
-            'upper': upper,
-            'n': len(x)
-        })
+            lower = scipy.special.expit(lower)
+            mean = scipy.special.expit(mean)
+            upper = scipy.special.expit(upper)
+            if np.isnan(sem) or sem == 0:
+                lower, upper = mean, mean
+
+            summary.update({
+                f'{column_name}_lower': lower,
+                f'{column_name}_mean': mean,
+                f'{column_name}_upper': upper,
+                f'{column_name}_n': len(x)
+            })
+
+        return pd.Series(summary)
+
 
     return agg
 
@@ -181,33 +193,63 @@ if __name__ == "__main__":
                 left_index=True, right_index=True)
             .loc[pd.IndexSlice[:, :, 'quantile', :, :, ['Attention', 'Gradient', 'Integrated Gradient']]]
             .groupby(['seed', 'dataset_pretty', 'recursive_pretty', 'importance_measure_pretty']).apply(area_between)
-            .apply(lambda col: (col + 1) / 2)
-            .groupby(['dataset_pretty', 'recursive_pretty', 'importance_measure_pretty']).apply(ratio_confint('area'))
-            .apply(lambda col: (col * 2) - 1)
+            .apply(lambda col: (col + 1) / 2) # Project from [-1, 1] to [0, 1]
+            .groupby(['dataset_pretty', 'recursive_pretty', 'importance_measure_pretty']).apply(ratio_confint(['absolute_area', 'relative_area']))
+            .apply(lambda col: (col * 2) - 1) # Project from [0, 1] to [-1, 1]
             .loc[pd.IndexSlice[:, 'Recursive', :]]
-            .assign(faithfulness=lambda x: [
-                f'${mean:.1%}^{{+{upper-mean:.1%}}}_{{-{mean-lower:.1%}}}$'.replace('%', '\\%')
-                for mean, lower, upper
-                in zip(x['mean'], x['lower'], x['upper'])
-            ])
-            .drop(['mean', 'lower', 'upper', 'n'], axis=1)
+            .reset_index(level='recursive_pretty')
+            .drop('recursive_pretty', axis=1)
+            .assign(
+                absolute_faithfulness=lambda x: [
+                    f'${mean:.1%}^{{+{upper-mean:.1%}}}_{{-{mean-lower:.1%}}}$'.replace('%', '\\%')
+                    for mean, lower, upper
+                    in zip(x['absolute_area_mean'], x['absolute_area_lower'], x['absolute_area_upper'])
+                ],
+                relative_faithfulness=lambda x: [
+                    f'${mean:.1%}^{{+{upper-mean:.1%}}}_{{-{mean-lower:.1%}}}$'.replace('%', '\\%')
+                    for mean, lower, upper
+                    in zip(x['relative_area_mean'], x['relative_area_lower'], x['relative_area_upper'])
+                ])
+            .drop(['absolute_area_mean', 'absolute_area_lower', 'absolute_area_upper', 'absolute_area_n',
+                   'relative_area_mean', 'relative_area_lower', 'relative_area_upper', 'relative_area_n'], axis=1)
         )
 
         os.makedirs(f"{args.persistent_dir}/tables", exist_ok=True)
-        df_latex.to_latex(f'{args.persistent_dir}/tables/roar_summary.tex', escape=False, multirow=True)
+        (df_latex
+            .reset_index()
+            .rename(columns={
+                'dataset_pretty': 'Dataset',
+                'importance_measure_pretty': 'Importance Measure',
+                'absolute_faithfulness': 'Absolute Faithfulness',
+                'relative_faithfulness': 'Relative Faithfulness'
+            })
+            .set_index(['Dataset', 'Importance Measure', 'Absolute Faithfulness', 'Relative Faithfulness'])
+        ).to_latex(f'{args.persistent_dir}/tables/faithfulness_metric_full.tex', escape=False, multirow=True)
+
+        (df_latex
+            .reset_index()
+            .drop('absolute_faithfulness', axis=1)
+            .rename(columns={
+                'dataset_pretty': 'Dataset',
+                'importance_measure_pretty': 'Importance Measure',
+                'relative_faithfulness': 'Faithfulness'
+            })
+            .set_index(['Dataset', 'Importance Measure', 'Faithfulness'])
+        ).to_latex(f'{args.persistent_dir}/tables/faithfulness_metric.tex', escape=False, multirow=True)
 
         # Generate result plots
-        df_plot = df.groupby(['dataset_pretty', 'strategy', 'k', 'recursive_pretty', 'importance_measure_pretty']).apply(ratio_confint('metric'))
+        df_plot = df.groupby(['dataset_pretty', 'strategy', 'k', 'recursive_pretty', 'importance_measure_pretty']).apply(ratio_confint(['metric']))
+
         for strategy in ['count', 'quantile']:
             experiment_id = generate_experiment_id('roar', strategy=strategy)
 
             # Generate plot
             p = (p9.ggplot(df_plot.loc[pd.IndexSlice[:, strategy, :, :, :]].reset_index(), p9.aes(x='k'))
-                + p9.geom_ribbon(p9.aes(ymin='lower', ymax='upper', fill='importance_measure_pretty'), alpha=0.35)
-                + p9.geom_line(p9.aes(y='mean', color='importance_measure_pretty'))
-                + p9.geom_point(p9.aes(y='mean', color='importance_measure_pretty'))
+                + p9.geom_ribbon(p9.aes(ymin='metric_lower', ymax='metric_upper', fill='importance_measure_pretty'), alpha=0.35)
+                + p9.geom_line(p9.aes(y='metric_mean', color='importance_measure_pretty'))
+                + p9.geom_point(p9.aes(y='metric_mean', color='importance_measure_pretty', shape='importance_measure_pretty'))
                 + p9.facet_grid('dataset_pretty ~ recursive_pretty', scales='free_y')
-                + p9.labs(y='', colour='')
+                + p9.labs(y='', color='', shape='')
                 + p9.scale_y_continuous(labels = lambda ticks: [f'{tick:.0%}' for tick in ticks])
                 + p9.guides(fill=False)
                 + p9.theme(plot_margin=0,
@@ -215,9 +257,9 @@ if __name__ == "__main__":
                         text=p9.element_text(size=12)))
 
             if strategy == 'count':
-                p += p9.scale_x_continuous(name='nb. tokens removed', breaks=range(0, 11, 2))
+                p += p9.scale_x_continuous(name='nb. tokens masked', breaks=range(0, 11, 2))
             elif strategy == 'quantile':
-                p += p9.scale_x_continuous(name='% tokens removed', breaks=range(0, 101, 20))
+                p += p9.scale_x_continuous(name='% tokens masked', breaks=range(0, 101, 20))
 
             # Save plot, the width is the \linewidth of a collumn in the LaTeX document
             os.makedirs(f'{args.persistent_dir}/plots', exist_ok=True)
