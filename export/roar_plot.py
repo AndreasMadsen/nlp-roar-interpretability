@@ -19,26 +19,47 @@ def select_test_metric(partial_df):
         'metric': partial_df.loc[:, column_name].iat[0]
     })
 
-def area_between(partial_df):
-    partial_df = partial_df.sort_index(level='k').reset_index()
-    k = partial_df.loc[:,'k'].to_numpy() / 100
-    measure = partial_df.loc[:,'metric'].to_numpy()
-    baseline = partial_df.loc[:,'random'].to_numpy()
+def area_between(topks):
+    def agg(partial_df):
+        partial_df = partial_df.sort_index(level='k').reset_index()
+        k = partial_df.loc[:,'k'].to_numpy()
+        k_ratio = k / 100
+        measure = partial_df.loc[:,'metric'].to_numpy()
+        baseline = partial_df.loc[:,'baseline'].to_numpy()
 
-    y_diff = baseline - measure
-    x_diff = np.diff(k)
-    areas = (y_diff[1:] + y_diff[0:-1]) * 0.5 * x_diff
-    total = np.sum(areas)
+        columns = {}
 
-    y_diff = baseline - baseline[-1]
-    x_diff = np.diff(k)
-    areas = (y_diff[1:] + y_diff[0:-1]) * 0.5 * x_diff
-    max_area = np.sum(areas)
+        for topk in topks:
+            mask = (k <= topk)
 
-    return pd.Series({
-        'absolute_area': total,
-        'relative_area': total / max_area
-    })
+            y_diff = baseline[mask] - measure[mask]
+            x_diff = np.diff(k_ratio[mask])
+            areas = (y_diff[1:] + y_diff[0:-1]) * 0.5 * x_diff
+            total = np.sum(areas)
+
+            y_diff = baseline[mask] - baseline[-1]
+            x_diff = np.diff(k_ratio[mask])
+            areas = (y_diff[1:] + y_diff[0:-1]) * 0.5 * x_diff
+            max_area = np.sum(areas)
+
+            columns.update({
+                f'absolute_area_k-{topk}': total,
+                f'relative_area_k-{topk}': total / max_area
+            })
+
+        return pd.Series(columns)
+
+    return agg
+
+def format_mean_ci(column_name):
+    def formatter(df):
+        ret = [
+            f'${mean:.1%}^{{+{upper-mean:.1%}}}_{{-{mean-lower:.1%}}}$'.replace('%', '\\%')
+            for mean, lower, upper
+            in zip(df[f'{column_name}_mean'], df[f'{column_name}_lower'], df[f'{column_name}_upper'])
+        ]
+        return ret
+    return formatter
 
 def ratio_confint(column_names):
     """Implementes a ratio-confidence interval
@@ -148,8 +169,8 @@ if __name__ == "__main__":
 
         # Duplicate k=100 for 'random' to 'attention', 'gradient', 'integrated-gradient'
         df_k100 = df.loc[(df['k'] == 100) & (df['strategy'] == 'quantile')]
-        df_k100_duplicates = []
-        for importance_measure in ['random', 'attention', 'gradient', 'integrated-gradient']:
+        df_k100_dublicates = []
+        for importance_measure in ['random', 'attention', 'gradient', 'integrated-gradient', 'mutual-information']:
             for recursive in [True, False]:
                 df_k100_duplicates.append(
                     df_k100.copy().assign(
@@ -182,37 +203,40 @@ if __name__ == "__main__":
         df = pd.read_pickle(f'{args.persistent_dir}/pandas/roar.pd.pkl.xz')
 
     if args.stage in ['both', 'plot']:
+        df_baseline = (df
+            .reset_index()
+            .pivot(
+                index=['seed', 'dataset_pretty', 'strategy', 'k', 'recursive_pretty'],
+                columns='importance_measure_pretty',
+                values='metric'
+            )
+            .drop(['Attention', 'Gradient', 'Integrated Gradient'], axis=1)
+            .aggregate(['min'], axis=1)
+            .rename(columns={'min': 'baseline'})
+        )
+
         # Generate summary table
         df_latex = (df
-            .merge(
-                (df
-                    .loc[pd.IndexSlice[:, :, :, :, :, 'Random']]
-                    .reset_index(level='importance_measure_pretty')
-                    .drop('importance_measure_pretty', axis=1)
-                    .rename(columns={'metric': 'random'})
-                ),
-                left_index=True, right_index=True)
-            .loc[pd.IndexSlice[:, :, 'quantile', :, :, ['Attention', 'Gradient', 'Integrated Gradient']]]
-            .groupby(['seed', 'dataset_pretty', 'recursive_pretty', 'importance_measure_pretty']).apply(area_between)
+            .merge(df_baseline, left_index=True, right_index=True)
+            .loc[pd.IndexSlice[:, :, 'quantile', :, 'Recursive', ['Attention', 'Gradient', 'Integrated Gradient']]]
+            .groupby(['seed', 'dataset_pretty', 'recursive_pretty', 'importance_measure_pretty'])
+            .apply(area_between([100, 20]))
             .apply(lambda col: (col + 1) / 2) # Project from [-1, 1] to [0, 1]
-            .groupby(['dataset_pretty', 'recursive_pretty', 'importance_measure_pretty']).apply(ratio_confint(['absolute_area', 'relative_area']))
+            .groupby(['dataset_pretty', 'recursive_pretty', 'importance_measure_pretty'])
+            .apply(ratio_confint(['absolute_area_k-100', 'relative_area_k-100', 'absolute_area_k-20', 'relative_area_k-20']))
             .apply(lambda col: (col * 2) - 1) # Project from [0, 1] to [-1, 1]
-            .loc[pd.IndexSlice[:, 'Recursive', :]]
             .reset_index(level='recursive_pretty')
             .drop('recursive_pretty', axis=1)
-            .assign(
-                absolute_faithfulness=lambda x: [
-                    f'${mean:.1%}^{{+{upper-mean:.1%}}}_{{-{mean-lower:.1%}}}$'.replace('%', '\\%')
-                    for mean, lower, upper
-                    in zip(x['absolute_area_mean'], x['absolute_area_lower'], x['absolute_area_upper'])
-                ],
-                relative_faithfulness=lambda x: [
-                    f'${mean:.1%}^{{+{upper-mean:.1%}}}_{{-{mean-lower:.1%}}}$'.replace('%', '\\%')
-                    for mean, lower, upper
-                    in zip(x['relative_area_mean'], x['relative_area_lower'], x['relative_area_upper'])
-                ])
-            .drop(['absolute_area_mean', 'absolute_area_lower', 'absolute_area_upper', 'absolute_area_n',
-                   'relative_area_mean', 'relative_area_lower', 'relative_area_upper', 'relative_area_n'], axis=1)
+            .assign(**{
+                'absolute_faithfulness_k-100': format_mean_ci('absolute_area_k-100'),
+                'relative_faithfulness_k-100': format_mean_ci('relative_area_k-100'),
+                'absolute_faithfulness_k-20': format_mean_ci('absolute_area_k-20'),
+                'relative_faithfulness_k-20': format_mean_ci('relative_area_k-20')
+            })
+            .drop(['absolute_area_k-100_mean', 'absolute_area_k-100_lower', 'absolute_area_k-100_upper', 'absolute_area_k-100_n',
+                   'relative_area_k-100_mean', 'relative_area_k-100_lower', 'relative_area_k-100_upper', 'relative_area_k-100_n',
+                   'absolute_area_k-20_mean', 'absolute_area_k-20_lower', 'absolute_area_k-20_upper', 'absolute_area_k-20_n',
+                   'relative_area_k-20_mean', 'relative_area_k-20_lower', 'relative_area_k-20_upper', 'relative_area_k-20_n'], axis=1)
         )
 
         os.makedirs(f"{args.persistent_dir}/tables", exist_ok=True)
@@ -221,21 +245,23 @@ if __name__ == "__main__":
             .rename(columns={
                 'dataset_pretty': 'Dataset',
                 'importance_measure_pretty': 'Importance Measure',
-                'absolute_faithfulness': 'Absolute Faithfulness',
-                'relative_faithfulness': 'Relative Faithfulness'
+                'absolute_faithfulness_k-20': 'Absolute Faithfulness 20\\%',
+                'relative_faithfulness_k-20': 'Relative Faithfulness 20\\%',
+                'absolute_faithfulness_k-100': 'Absolute Faithfulness 100\\%',
+                'relative_faithfulness_k-100': 'Relative Faithfulness 100\\%'
             })
-            .set_index(['Dataset', 'Importance Measure', 'Absolute Faithfulness', 'Relative Faithfulness'])
+            .set_index(['Dataset', 'Importance Measure'])
         ).to_latex(f'{args.persistent_dir}/tables/faithfulness_metric_full.tex', escape=False, multirow=True)
 
         (df_latex
             .reset_index()
-            .drop('absolute_faithfulness', axis=1)
+            .drop(['relative_faithfulness_k-20', 'absolute_faithfulness_k-20', 'absolute_faithfulness_k-100'], axis=1)
             .rename(columns={
                 'dataset_pretty': 'Dataset',
                 'importance_measure_pretty': 'Importance Measure',
-                'relative_faithfulness': 'Faithfulness'
+                'relative_faithfulness_k-100': 'Faithfulness'
             })
-            .set_index(['Dataset', 'Importance Measure', 'Faithfulness'])
+            .set_index(['Dataset', 'Importance Measure'])
         ).to_latex(f'{args.persistent_dir}/tables/faithfulness_metric.tex', escape=False, multirow=True)
 
         # Generate result plots
