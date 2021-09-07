@@ -27,7 +27,7 @@ submit_seeds () {
     local filename
     for seed in $(echo "$seeds")
     do
-        filename=$(printf $SCRATCH"/comp550/results/$name" "$seed")
+        filename=$(printf $SCRATCH"/nlproar/results/$name" "$seed")
         if [ ! -f "$filename" ]; then
             run_seeds+=($seed)
             echo "scheduling $filename" 1>&2
@@ -49,7 +49,7 @@ submit_seeds () {
         sbatch --time="$walltime_times_nb_seeds" \
                --export=ALL,RUN_SEEDS="$(join_by ' ' "${run_seeds[@]}")" \
                -J "$jobname" \
-               -o "$SCRATCH"/comp550/logs/%x.%j.out -e "$SCRATCH"/comp550/logs/%x.%j.err \
+               -o "$SCRATCH"/nlproar/logs/%x.%j.out -e "$SCRATCH"/nlproar/logs/%x.%j.err \
                "${@:4}"
     else
         echo "skipping"

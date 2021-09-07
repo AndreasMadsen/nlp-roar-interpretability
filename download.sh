@@ -17,8 +17,8 @@ python -m pip download --no-deps 'en_core_web_sm @ https://github.com/explosion/
 python -m pip install --no-deps $HOME/python_wheels/en_core_web_sm-3.1.0-py3-none-any.whl
 python -m pip install --no-index 'chardet<4.0,>=2.0' 'click<7.2.0,>=7.1.1'
 
-cd $HOME/workspace/comp550
+cd $HOME/workspace/nlproar
 python -m pip install --no-index -e .
 
 # Fetch dataset
-python experiments/download_datasets.py --persistent-dir $SCRATCH/comp550
+python experiments/download_datasets.py --persistent-dir $SCRATCH/nlproar

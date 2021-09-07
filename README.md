@@ -1,12 +1,12 @@
-# COMP550 Interpretability
+# NLP ROAR Interpretability
 
 **Measuring if attention is explanation with ROAR**
 
 ## Install
 
 ```bash
-git clone https://github.com/AndreasMadsen/python-comp550-interpretability.git comp550-interpretability
-cd comp550-interpretability
+git clone https://github.com/AndreasMadsen/nlp-roar-interpretability.git
+cd nlp-roar-interpretability
 python -m pip install -e .
 ```
 
@@ -45,7 +45,7 @@ Additionally, we provide script for submitting all jobs to a Slurm
 queue, in `batch_jobs/`. Note again, that the ROAR script assume
 there are checkpoints for the baseline models.
 
-The jobs automatically `$SCRATCH/comp550` as the presistent dir.
+The jobs automatically `$SCRATCH/nlproar` as the presistent dir.
 
 ## MIMIC
 

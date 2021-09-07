@@ -14,8 +14,8 @@ import plotnine as p9
 from tqdm import tqdm
 from matplotlib import colors
 
-from comp550.util import generate_experiment_id
-from comp550.dataset import SSTDataset
+from nlproar.util import generate_experiment_id
+from nlproar.dataset import SSTDataset
 
 thisdir = os.path.dirname(os.path.realpath(__file__))
 parser = argparse.ArgumentParser()

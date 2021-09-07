@@ -13,7 +13,7 @@ import pandas as pd
 import plotnine as p9
 from tqdm import tqdm
 
-from comp550.util import generate_experiment_id
+from nlproar.util import generate_experiment_id
 
 thisdir = os.path.dirname(os.path.realpath(__file__))
 parser = argparse.ArgumentParser()

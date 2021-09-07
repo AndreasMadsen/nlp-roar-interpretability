@@ -1,11 +1,11 @@
 from setuptools import setup
 
-setup(name='comp550',
+setup(name='nlproar',
       version='0.1.0',
       description='Measuring if attention is explanation with ROAR',
-      url='https://github.com/AndreasMadsen/python-comp550-interpretability',
+      url='https://github.com/AndreasMadsen/python-nlproar-interpretability',
       license='MIT',
-      packages=['comp550'],
+      packages=['nlproar'],
       install_requires=[
           'numpy>=1.21.0',
           'tqdm>=4.61.2',

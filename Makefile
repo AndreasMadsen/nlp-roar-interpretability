@@ -6,24 +6,24 @@ sync: sync-beluga
 sync-beluga:
 	rsync --info=progress2 -urltv --delete \
 		--filter=':- .gitignore' \
-		-e ssh ./ cc-beluga:~/workspace/comp550
+		-e ssh ./ cc-beluga:~/workspace/nlproar
 
 sync-cedar:
 	rsync --info=progress2 -urltv --delete \
 		--filter=':- .gitignore' \
-		-e ssh ./ cc-cedar:~/workspace/comp550
+		-e ssh ./ cc-cedar:~/workspace/nlproar
 
 sync-beluga-cache:
 	rsync --info=progress2 -urltv \
-		-e ssh ./cache/ cc-beluga:~/scratch/comp550/cache
+		-e ssh ./cache/ cc-beluga:~/scratch/nlproar/cache
 
 sync-beluga-mimic:
 	rsync --info=progress2 -urltv \
-		-e ssh ./mimic/ cc-beluga:~/scratch/comp550/mimic
+		-e ssh ./mimic/ cc-beluga:~/scratch/nlproar/mimic
 
 download-beluga-results:
 	rsync --info=progress2 -urltv --delete \
-		-e ssh cc-beluga:~/scratch/comp550/results/ ./results
+		-e ssh cc-beluga:~/scratch/nlproar/results/ ./results
 
 schedule-base:
 	bash batch_jobs/babi.sh

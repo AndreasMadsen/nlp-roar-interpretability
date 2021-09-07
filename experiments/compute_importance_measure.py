@@ -11,10 +11,10 @@ import time
 import torch
 from tqdm import tqdm
 
-from comp550.dataset import SNLIDataset, SSTDataset, IMDBDataset, BabiDataset, MimicDataset
-from comp550.model import SingleSequenceToClass, MultipleSequenceToClass
-from comp550.util import generate_experiment_id, optimal_roar_batch_size
-from comp550.explain import ImportanceMeasure
+from nlproar.dataset import SNLIDataset, SSTDataset, IMDBDataset, BabiDataset, MimicDataset
+from nlproar.model import SingleSequenceToClass, MultipleSequenceToClass
+from nlproar.util import generate_experiment_id, optimal_roar_batch_size
+from nlproar.explain import ImportanceMeasure
 
 thisdir = os.path.dirname(os.path.realpath(__file__))
 parser = argparse.ArgumentParser(description="Quantify attention sparsity")
