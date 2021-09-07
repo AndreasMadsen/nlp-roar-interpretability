@@ -3,7 +3,7 @@
 source "batch_jobs/_job_script.sh"
 seeds="0 1 2 3 4"
 
-# Actual time:    ["random"]="0:51:0" ["mutual-information"]="0:??:0" ["attention"]="0:46:0" ["gradient"]="0:48:0" ["integrated-gradient"]="1:09:0"
+# Actual time:    ["random"]="0:51:0" ["mutual-information"]="0:46:0" ["attention"]="0:46:0" ["gradient"]="0:48:0" ["integrated-gradient"]="1:09:0"
 declare -A time=( ["random"]="1:15:0" ["mutual-information"]="1:15:0" ["attention"]="1:15:0" ["gradient"]="1:15:0" ["integrated-gradient"]="1:30:0" )
 
 for seed in $(echo "$seeds")

@@ -3,9 +3,9 @@
 source "batch_jobs/_job_script.sh"
 seeds="0 1 2 3 4"
 
-# Actual   pre_time=( ["1 random"]="0:01:0" ["1 mutual-information"]="0:??:0" ["1 attention"]="0:02:0" ["1 gradient"]="0:02:0" ["1 integrated-gradient"]="0:02:0"
-#                     ["2 random"]="0:02:0" ["2 mutual-information"]="0:??:0" ["2 attention"]="0:02:0" ["2 gradient"]="0:02:0" ["2 integrated-gradient"]="0:03:0"
-#                     ["3 random"]="0:02:0" ["3 mutual-information"]="0:??:0" ["3 attention"]="0:02:0" ["3 gradient"]="0:02:0" ["3 integrated-gradient"]="0:08:0" )
+# Actual   pre_time=( ["1 random"]="0:01:0" ["1 mutual-information"]="0:04:0" ["1 attention"]="0:02:0" ["1 gradient"]="0:02:0" ["1 integrated-gradient"]="0:02:0"
+#                     ["2 random"]="0:02:0" ["2 mutual-information"]="0:04:0" ["2 attention"]="0:02:0" ["2 gradient"]="0:02:0" ["2 integrated-gradient"]="0:03:0"
+#                     ["3 random"]="0:02:0" ["3 mutual-information"]="0:05:0" ["3 attention"]="0:02:0" ["3 gradient"]="0:02:0" ["3 integrated-gradient"]="0:08:0" )
 declare -A pre_time=( ["1 random"]="0:15:0" ["1 mutual-information"]="0:15:0" ["1 attention"]="0:15:0" ["1 gradient"]="0:15:0" ["1 integrated-gradient"]="0:15:0"
                       ["2 random"]="0:15:0" ["2 mutual-information"]="0:15:0" ["2 attention"]="0:15:0" ["2 gradient"]="0:15:0" ["2 integrated-gradient"]="0:15:0"
                       ["3 random"]="0:15:0" ["3 mutual-information"]="0:15:0" ["3 attention"]="0:15:0" ["3 gradient"]="0:15:0" ["3 integrated-gradient"]="0:20:0" )

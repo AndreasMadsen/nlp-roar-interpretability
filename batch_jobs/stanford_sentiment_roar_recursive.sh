@@ -3,7 +3,7 @@
 source "batch_jobs/_job_script.sh"
 seeds="0 1 2 3 4"
 
-# Actual time:    ["random"]="0:02:0" ["mutual-information"]="0:??:0" ["attention"]="0:02:0" ["gradient"]="0:02:0" ["integrated-gradient"]="0:03:0"
+# Actual time:    ["random"]="0:02:0" ["mutual-information"]="0:06:0" ["attention"]="0:02:0" ["gradient"]="0:02:0" ["integrated-gradient"]="0:03:0"
 declare -A time=( ["random"]="0:15:0" ["mutual-information"]="0:15:0" ["attention"]="0:15:0" ["gradient"]="0:15:0" ["integrated-gradient"]="0:15:0" )
 
 for importance_measure in 'mutual-information' 'attention' 'gradient' 'integrated-gradient'

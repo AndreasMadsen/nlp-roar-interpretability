@@ -3,8 +3,8 @@
 source "batch_jobs/_job_script.sh"
 seeds="0 1 2 3 4"
 
-# Actual   pre_time=( ["anemia random"]="0:04:0"   ["anemia mutual-information"]="0:??:0"   ["anemia attention"]="0:05:0"   ["anemia gradient"]="0:07:0"   ["anemia integrated-gradient"]="0:36:0"
-#                     ["diabetes random"]="0:05:0" ["diabetes mutual-information"]="0:??:0" ["diabetes attention"]="0:06:0" ["diabetes gradient"]="0:12:0" ["diabetes integrated-gradient"]="1:29:0" )
+# Actual   pre_time=( ["anemia random"]="0:04:0"   ["anemia mutual-information"]="0:05:0"   ["anemia attention"]="0:05:0"   ["anemia gradient"]="0:07:0"   ["anemia integrated-gradient"]="0:36:0"
+#                     ["diabetes random"]="0:05:0" ["diabetes mutual-information"]="0:07:0" ["diabetes attention"]="0:06:0" ["diabetes gradient"]="0:12:0" ["diabetes integrated-gradient"]="1:29:0" )
 declare -A pre_time=( ["anemia random"]="0:15:0"   ["anemia mutual-information"]="0:15:0"   ["anemia attention"]="0:15:0"   ["anemia gradient"]="0:20:0"   ["anemia integrated-gradient"]="0:55:0"
                       ["diabetes random"]="0:20:0" ["diabetes mutual-information"]="0:20:0" ["diabetes attention"]="0:20:0" ["diabetes gradient"]="0:30:0" ["diabetes integrated-gradient"]="1:50:0" )
 
