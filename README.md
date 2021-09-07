@@ -1,6 +1,6 @@
 # NLP ROAR Interpretability
 
-**Measuring if attention is explanation with ROAR**
+**Evaluating the faithfulness of importance measures in NLP with ROAR**
 
 ## Install
 
@@ -12,40 +12,43 @@ python -m pip install -e .
 
 ## Experiments
 
-To run the baseline model (no masking) there is a script for each dataset.
-The scripts will download the datasets themself, the only exception is MIMIC
-which is free by require authorization to access.
+### Tasks
 
+There are scripts for each dataset. Note that some tasks share a dataset.
+Use this list to identify how to train a model for each task.
 * SST: `python experiments/stanford_sentiment.py`
 * SNLI: `python experiments/stanford_nli.py`
 * IMDB: `python experiments/imdb.py`
 * MIMIC (Diabetes): `python experiments/mimic.py --subset diabetes`
 * MIMIC (Anemia): `python experiments/mimic.py --subset anemia`
-* bABI-1: `python experiments/mimic.py --task 1`
-* bABI-2: `python experiments/mimic.py --task 2`
-* bABI-3: `python experiments/mimic.py --task 3`
+* bABI-1: `python experiments/babi.py --task 1`
+* bABI-2: `python experiments/babi.py --task 2`
+* bABI-3: `python experiments/babi.py --task 3`
 
-There are similar scripts for ROAR experiments. These experiments assume that
-the model checkpoints from baseline scripts already exists.
-* SST: `python experiments/stanford_sentiment_roar.py`
-* SNLI: `python experiments/stanford_nli_roar.py`
-* IMDB: `python experiments/imdb_roar.py`
-* MIMIC (Diabetes): `python experiments/mimic_roar.py --subset diabetes`
-* MIMIC (Anemia): `python experiments/mimic_roar.py --subset anemia`
-* bABI-1: `python experiments/mimic_roar.py --task 1`
-* bABI-2: `python experiments/mimic_roar.py --task 2`
-* bABI-3: `python experiments/mimic_roar.py --task 3`
+### Parameters
+
+Each of the above scripts `stanford_sentiment`, `stanford_nli`, `imdb`,
+`mimic`, and `babi` take the same set of CLI arguments. You can learn
+about each argument with `--help`. The most important arguments are
+which will allow you to run the experiments presented in the paper are:
+
+* `--importance-measure`: this specify which importance measure is used. It can be either `random`, `mutual-information`, `attention` , `gradient`, and `integrated-gradient`.
+* `--seed`: specify the seed used to initialize the model.
+* `--roar-strategy`: should ROAR masking be done absoloute (`count`) or relative (`quantile`),
+* `--k`: the proportion of tokens in % to mask if `--roar-strategy quantile` is used. The number of tokens if `--roar-strategy count` is used.
+* `--recursive`: indicates that model to use for computing the importance measure has `--k` set to `--k` - `--recursive-step-size` instead of `0` as used in classic ROAR.
+
+Note, for `--k` > 0, the reference model must already be trained. For example, in the non-recursive case, this means that a model trained with `--k 0` must already available.
 
 ## Running on a HPC setup
 
-For downloading dataset dependencies and packages not avaliable
-on Beluga (compute-canada) we provide a `download.sh` script.
+For downloading dataset dependencies we provide a `download.sh` script.
 
 Additionally, we provide script for submitting all jobs to a Slurm
 queue, in `batch_jobs/`. Note again, that the ROAR script assume
-there are checkpoints for the baseline models.
+there are checkpoints for the baseline `--k 0` models.
 
-The jobs automatically `$SCRATCH/nlproar` as the presistent dir.
+The jobs automatically use `$SCRATCH/nlproar` as the presistent dir.
 
 ## MIMIC
 
