@@ -210,8 +210,8 @@ if __name__ == "__main__":
                 columns='importance_measure_pretty',
                 values='metric'
             )
-            .drop(['Attention', 'Gradient', 'Integrated Gradient'], axis=1)
-            .aggregate(['min'], axis=1)
+            .drop(['Attention', 'Gradient', 'Integrated Gradient', 'Mutual Information'], axis=1)
+            .aggregate(['min'], axis=1) # no-op. The min of just Random. But kept in case someone wants to include mutual-information.
             .rename(columns={'min': 'baseline'})
         )
 
@@ -278,6 +278,14 @@ if __name__ == "__main__":
                 + p9.facet_grid('dataset_pretty ~ recursive_pretty', scales='free_y')
                 + p9.labs(y='', color='', shape='')
                 + p9.scale_y_continuous(labels = lambda ticks: [f'{tick:.0%}' for tick in ticks])
+                + p9.scale_color_manual(
+                    values = ['#F8766D', '#A3A500', '#00BF7D', '#00B0F6', '#E76BF3'],
+                    breaks = ['Attention', 'Gradient', 'Integrated Gradient', 'Mutual Information', 'Random']
+                )
+                + p9.scale_shape_manual(
+                    values = ['o', '^', 's', 'D', 'v'],
+                    breaks = ['Attention', 'Gradient', 'Integrated Gradient', 'Mutual Information', 'Random']
+                )
                 + p9.guides(fill=False)
                 + p9.theme(plot_margin=0,
                         legend_box = "vertical", legend_position="bottom",
