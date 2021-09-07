@@ -124,6 +124,9 @@ class GradientImportanceMeasure(ImportanceMeasureModule):
         # Compute model
         y, _, embedding = self.model(batch)
         # Select correct label, as we would like gradient of y[correct_label] w.r.t. x
+        # Note, we want an explanation for the correct label, as removing the tokens
+        # that are relevant for making a wrong prediction, would help the performance
+        # of the model.
         yc = y[torch.arange(batch.label.numel(), device=self.device), batch.label]
 
         # autograd.grad must take a scalar, however we would like $d y_{i,c}/d x_i$
