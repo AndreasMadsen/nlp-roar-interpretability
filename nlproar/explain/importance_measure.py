@@ -269,6 +269,21 @@ class ImportanceMeasure:
     def __init__(self, model, dataset, importance_measure,
                  riemann_samples=50, use_gpu=False, num_workers=4, batch_size=None, seed=0,
                  caching=None, cachedir=None):
+        """Create an ImportanceMeasure instance, which explans each obseration in the dataset.
+
+        Args:
+            model (MultipleSequenceToClass or SingleSequenceToClass): The model instance to explain
+            dataset (Dataset): The dataset comtaining the observations that will be explained.
+            importance_measure (str): The importance measure which provides explanations.
+            riemann_samples (int, optional): Number of samples used in integrated gradient. Defaults to 50.
+            use_gpu (bool, optional): Should a GPU be used for computing explanations.
+            num_workers (int, optional): Number of pytourch workers. Defaults to 4.
+            batch_size ([type], optional): The batch size.
+            seed (int, optional): Random seed, use for random explanation and cache lookup. Defaults to 0.
+            caching (None, 'use', 'build'): Should the importance measure use cacheing.
+            cachedir ([type], optional): Where should the cache be stored.
+        """
+
         if caching not in [None, 'use', 'build']:
             raise ValueError('caching argument must be either None, "use" or "build"')
 
@@ -308,6 +323,14 @@ class ImportanceMeasure:
             raise ValueError(f'{importance_measure} is not supported')
 
     def evaluate(self, split):
+        """Creates an iterable that provide explanations for each observation in the dataset split.
+
+        Args:
+            split: ('train', 'val', 'test') the dataset split to iterate over
+
+        Returns:
+            Interable of tubles, (observation, explanation)
+        """
         if split not in setup_name:
             raise ValueError(f'split "{split}" is not supported')
 

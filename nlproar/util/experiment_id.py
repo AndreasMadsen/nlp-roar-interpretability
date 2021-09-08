@@ -2,6 +2,25 @@
 def generate_experiment_id(name,
                            seed=None, k=None, strategy=None, importance_measure=None,
                            recursive=None, riemann_samples=None):
+    """Creates a standardized experiment name
+
+    The format is
+        {name}_s-{seed}_k-{k}_y-{strategy[0]}_y-{importance_measure[0]}_r-{int(recursive)}_rs-{riemann_samples}
+    Note that parts are only added when not None.
+
+    Args:
+        name: str, the name of the experiment, this is usually the name of the task
+        seed: int, the models initialization seed
+        k: int, indicates the amount of information removed by ROAR
+        strategy: 'count' or 'quantile', the ROAR removal strategy
+        importance_measure: 'random', 'mutual-information', 'attention', 'gradient',
+            or 'integrated-gradient'
+        recursive: bool, indicates if Recursive ROAR is used
+        riemann_samples: int, the amount of samples when computing integrated-gradient
+
+    Returns:
+        string, the experiment identifier
+    """
     experiment_id = f"{name}"
     if isinstance(seed, int):
         experiment_id += f"_s-{seed}"

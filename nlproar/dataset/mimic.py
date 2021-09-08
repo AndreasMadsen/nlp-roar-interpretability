@@ -46,6 +46,16 @@ class MimicDataset(SingleSequenceDataset):
         https://github.com/successar/AttentionExplanation/blob/master/Trainers/DatasetBC.py#L113
     """
     def __init__(self, cachedir, mimicdir, subset='diabetes', batch_size=32, **kwargs):
+        """Creates an MIMIC dataset instance
+
+        Args:
+            cachedir (str): Directory to use for caching the compiled dataset.
+            mimicdir (str): Directory where the mimic source files are found.
+            subset (diabetes', 'anemia'): Which subset to use.
+            seed (int): Seed used for shuffling the dataset.
+            batch_size (int, optional): The batch size used in the data loader. Defaults to 32.
+            num_workers (int, optional): The number of pytorch workers in the data loader. Defaults to 4.
+        """
         if subset not in ['diabetes', 'anemia']:
             raise ValueError('subset must be either "diabetes" or "anemia"')
 
@@ -55,6 +65,11 @@ class MimicDataset(SingleSequenceDataset):
         self.label_names = ['negative', 'positive']
 
     def embedding(self):
+        """Creates word embedding matrix.
+
+        Returns:
+            np.array: shape = (vocabulary, 300)
+        """
         lookup = KeyedVectors.load(f'{self._cachedir}/embeddings/mimic.wv')
 
         embeddings = []
@@ -71,6 +86,8 @@ class MimicDataset(SingleSequenceDataset):
         return np.vstack(embeddings)
 
     def prepare_data(self):
+        """Compile and cache the dataset.
+        """
         # Short-circuit the build logic if the minimum-required files exists
         if (path.exists(f'{self._cachedir}/embeddings/mimic.wv') and
             path.exists(f'{self._cachedir}/vocab/mimic-a.vocab') and
