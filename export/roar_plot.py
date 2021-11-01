@@ -130,36 +130,36 @@ if __name__ == "__main__":
                     print(f'{file} has a format error')
         df = pd.DataFrame(results)
 
-        # Dublicate k=0 for 'random' to 'attention', 'gradient', 'integrated-gradient'
+        # Duplicate k=0 for 'random' to 'attention', 'gradient', 'integrated-gradient'
         df_k0 = df.loc[df['k'] == 0]
-        df_k0_dublicates = []
+        df_k0_duplicates = []
         for importance_measure in ['random', 'attention', 'gradient', 'integrated-gradient']:
             for recursive in [True, False]:
                 for strategy in ['count', 'quantile']:
-                    df_k0_dublicates.append(
+                    df_k0_duplicates.append(
                         df_k0.copy().assign(
                             importance_measure=importance_measure,
                             recursive=recursive,
                             strategy=strategy
                         )
                     )
-        df = pd.concat([df.loc[df['k'] != 0], *df_k0_dublicates])
+        df = pd.concat([df.loc[df['k'] != 0], *df_k0_duplicates])
 
-        # Dublicate k=100 for 'random' to 'attention', 'gradient', 'integrated-gradient'
+        # Duplicate k=100 for 'random' to 'attention', 'gradient', 'integrated-gradient'
         df_k100 = df.loc[(df['k'] == 100) & (df['strategy'] == 'quantile')]
-        df_k100_dublicates = []
+        df_k100_duplicates = []
         for importance_measure in ['random', 'attention', 'gradient', 'integrated-gradient']:
             for recursive in [True, False]:
-                df_k100_dublicates.append(
+                df_k100_duplicates.append(
                     df_k100.copy().assign(
                         importance_measure=importance_measure,
                         recursive=recursive,
                         strategy='quantile'
                     )
                 )
-        df = pd.concat([df.loc[(df['k'] != 100) | (df['strategy'] != 'quantile')], *df_k100_dublicates])
+        df = pd.concat([df.loc[(df['k'] != 100) | (df['strategy'] != 'quantile')], *df_k100_duplicates])
 
-        # Dublicate (random, recursive=False) to recursive=True because
+        # Duplicate (random, recursive=False) to recursive=True because
         # this importance measure is model independent
         df = pd.concat([
             df.loc[(df['importance_measure'] != 'random') | (df['recursive'] == False)],
