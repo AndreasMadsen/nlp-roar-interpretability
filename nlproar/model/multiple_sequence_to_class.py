@@ -90,6 +90,13 @@ class _Attention(nn.Module):
 class MultipleSequenceToClass(pl.LightningModule):
 
     def __init__(self, embedding, hidden_size=128, num_of_classes=3):
+        """Creates a model instance that maps from a sequence pair to a class
+
+        Args:
+            embedding (np.array): The inital word embedding matrix, for example Glove
+            hidden_size (int, optional): The hidden size used in the attention mechanism. Defaults to 128.
+            num_of_classes (int, optional): The number of output classes. Defaults to 3.
+        """
         super().__init__()
         self.encoder_premise = _Encoder(embedding, hidden_size)
         self.encoder_hypothesis = _Encoder(embedding, hidden_size)

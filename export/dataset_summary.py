@@ -12,7 +12,7 @@ import numpy as np
 import scipy
 import plotnine as p9
 
-from comp550.dataset import SNLIDataset, SSTDataset, IMDBDataset, BabiDataset, MimicDataset
+from nlproar.dataset import SNLIDataset, SSTDataset, IMDBDataset, BabiDataset, MimicDataset
 
 def ratio_confint(partial_df):
     """Implementes a ratio-confidence interval

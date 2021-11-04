@@ -11,7 +11,7 @@ import numpy as np
 import scipy
 import plotnine as p9
 
-from comp550.util import generate_experiment_id
+from nlproar.util import generate_experiment_id
 
 def select_test_metric(partial_df):
     column_name = partial_df.loc[:, 'test_metric'].iat[0]

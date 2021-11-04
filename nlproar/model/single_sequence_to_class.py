@@ -85,7 +85,16 @@ class SingleSequenceToClass(pl.LightningModule):
     Differences from 'Attention Interpretablity Across NLP Tasks':
     * Uses Glove embeddings
     """
+
     def __init__(self, embedding, hidden_size=128, num_of_classes=2):
+        """Creates a model instance that maps from a single sequence to a class
+
+        Args:
+            embedding (np.array): The inital word embedding matrix, for example Glove
+            hidden_size (int, optional): The hidden size used in the attention mechanism. Defaults to 128.
+            num_of_classes (int, optional): The number of output classes. Defaults to 2.
+        """
+
         super().__init__()
         self.encoder = _Encoder(embedding, 2 * hidden_size)
         self.attention = _Attention(2 * hidden_size, hidden_size)

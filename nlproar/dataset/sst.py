@@ -53,10 +53,23 @@ class SSTDataset(SingleSequenceDataset):
     * set [PAD] embedding to zero
     """
     def __init__(self, cachedir, seed=0, **kwargs):
+        """Creates an SST dataset instance
+
+        Args:
+            cachedir (str): Directory to use for caching the compiled dataset.
+            seed (int): Seed used for shuffling the dataset.
+            batch_size (int, optional): The batch size used in the data loader. Defaults to 32.
+            num_workers (int, optional): The number of pytorch workers in the data loader. Defaults to 4.
+        """
         super().__init__(cachedir, 'sst', SSTTokenizer(), **kwargs)
         self.label_names = ['negative', 'positive']
 
     def embedding(self):
+        """Creates word embedding matrix.
+
+        Returns:
+            np.array: shape = (vocabulary, 300)
+        """
         lookup = torchtext.vocab.pretrained_aliases['fasttext.simple.300d'](cache=f'{self._cachedir}/embeddings')
 
         embeddings = []
@@ -69,6 +82,8 @@ class SSTDataset(SingleSequenceDataset):
         return np.vstack(embeddings)
 
     def prepare_data(self):
+        """Download, compiles, and cache the dataset.
+        """
         # Load embeddings
         torchtext.vocab.pretrained_aliases['fasttext.simple.300d'](cache=f'{self._cachedir}/embeddings')
 

@@ -1,7 +1,7 @@
 import argparse
 import os.path as path
 
-from comp550.dataset import MimicDataset, SNLIDataset, SSTDataset, IMDBDataset, BabiDataset
+from nlproar.dataset import MimicDataset, SNLIDataset, SSTDataset, IMDBDataset, BabiDataset
 
 thisdir = path.dirname(path.realpath(__file__))
 parser = argparse.ArgumentParser()

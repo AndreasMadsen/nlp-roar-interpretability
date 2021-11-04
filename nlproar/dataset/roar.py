@@ -23,8 +23,6 @@ lookup_dtype = {
 }
 
 class ROARDataset(Dataset):
-    """Loads a dataset with masking for ROAR."""
-
     def __init__(self, cachedir, model, base_dataset,
                  k=1, strategy='count',
                  recursive=False, recursive_step_size=1,
@@ -33,17 +31,25 @@ class ROARDataset(Dataset):
                  build_batch_size=None, importance_caching=None,
                  use_gpu=False,
                  seed=0, _read_from_cache=False, **kwargs):
-        """
+        """Build and cache a new instance of the base_dataset with information removed.
+
         Args:
-            model: The model to use to determine which tokens to mask.
-            base_dataset: The dataset to apply masking to.
-            k (int): The number of tokens to mask for each instance in the
-                dataset.
-            recursive (bool): Should roar masking be applied recursively.
-                If recursive is used, the model should be trained for k-1
+            cachedir (str): Directory to store new datasets to.
+            model (MultipleSequenceToClass or SingleSequenceToClass): The model to use to determine which tokens to mask.
+            base_dataset (Dataset): The dataset to apply masking to.
+            k (int, optional): The number of tokens to mask for each instance in the
+                dataset. Defaults to 1.
+            strategy (str, optional): [description]. Defaults to 'count'.
+            recursive (bool, optional): Should roar masking be applied recursively.
+                If recursive is used, the model should be trained for k-recursive_step_size
                 and the base_dataset should be for k=0.
-            importance_measure (str): Which importance measure to use. Supported values
-                are: "random", "attention", "gradient" and "integrated-gradient".
+            recursive_step_size (int, optional): See documentation for recursive = True, default is 1.
+            importance_measure (str): The importance measure which provides explanations.
+            riemann_samples (int, optional): Number of samples used in integrated gradient. Defaults to 50.
+            build_batch_size ([type], optional): The batch size used when generating explanations.
+            importance_caching ([type], optional): Should the importance measure use cacheing.
+            use_gpu (bool, optional): Should a GPU be used for computing explanations.
+            seed (int, optional): Random seed, use for random explanation and cache lookup. Defaults to 0.
         """
         super().__init__(cachedir, base_dataset.name,
                          base_dataset.tokenizer, batch_size=base_dataset.batch_size,

@@ -16,4 +16,4 @@ source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index tqdm
 
 # Suggestion from https://docs.computecanada.ca/wiki/Handling_large_collections_of_files
-tar -vc --use-compress-program="pigz -p 4" -f $SCRATCH/comp550.tar.gz $SCRATCH/comp550/ | tqdm --total $(find $SCRATCH/comp550/ | wc -l) > /dev/null
+tar -vc --use-compress-program="pigz -p 4" -f $SCRATCH/nlproar.tar.gz $SCRATCH/nlproar/ | tqdm --total $(find $SCRATCH/nlproar/ | wc -l) > /dev/null

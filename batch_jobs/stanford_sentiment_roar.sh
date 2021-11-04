@@ -48,7 +48,7 @@ do
         if [ "$k" -le 90 ] || [ "$importance_measure" = "random" ]; then
             submit_seeds ${roar_time} "$seeds" "roar/sst_s-%s_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" \
                 --mem=6G $dependency \
-                -o $SCRATCH"/comp550/logs/%x.%j.out" -e $SCRATCH"/comp550/logs/%x.%j.err" \
+                -o $SCRATCH"/nlproar/logs/%x.%j.out" -e $SCRATCH"/nlproar/logs/%x.%j.err" \
                 $(job_script gpu) \
                 experiments/stanford_sentiment.py \
                 --k "$k" --recursive-step-size 10 \

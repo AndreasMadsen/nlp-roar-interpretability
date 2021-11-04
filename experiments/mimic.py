@@ -9,9 +9,9 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from comp550.dataset import MimicDataset, ROARDataset
-from comp550.model import SingleSequenceToClass
-from comp550.util import generate_experiment_id, optimal_roar_batch_size
+from nlproar.dataset import MimicDataset, ROARDataset
+from nlproar.model import SingleSequenceToClass
+from nlproar.util import generate_experiment_id, optimal_roar_batch_size
 
 # On compute canada the ulimit -n is reached, unless this strategy is used.
 torch.multiprocessing.set_sharing_strategy('file_system')

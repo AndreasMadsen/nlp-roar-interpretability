@@ -51,10 +51,23 @@ class SNLIDataset(PairedSequenceDataset):
     * set [PAD] embedding to zero
     """
     def __init__(self, cachedir, batch_size=128, **kwargs):
+        """Creates an SNLI dataset instance
+
+        Args:
+            cachedir (str): Directory to use for caching the compiled dataset.
+            seed (int): Seed used for shuffling the dataset.
+            batch_size (int, optional): The batch size used in the data loader. Defaults to 32.
+            num_workers (int, optional): The number of pytorch workers in the data loader. Defaults to 4.
+        """
         super().__init__(cachedir, 'snli', SNLITokenizer(), batch_size=batch_size, **kwargs)
         self.label_names = ['entailment', 'contradiction', 'neutral']
 
     def embedding(self):
+        """Creates word embedding matrix.
+
+        Returns:
+            np.array: shape = (vocabulary, 300)
+        """
         lookup = torchtext.vocab.pretrained_aliases['glove.840B.300d'](
             cache=f'{self._cachedir}/embeddings')
 
@@ -68,6 +81,8 @@ class SNLIDataset(PairedSequenceDataset):
         return np.vstack(embeddings)
 
     def prepare_data(self):
+        """Download, compiles, and cache the dataset.
+        """
         # In the Hugging Face distribution of the dataset,
         # the label has 4 possible values, 0, 1, 2, -1.
         # which correspond to entailment, neutral, contradiction,
