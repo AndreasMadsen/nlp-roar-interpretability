@@ -3,16 +3,16 @@
 source "batch_jobs/_job_script.sh"
 seeds="0 1 2 3 4"
 
-# Actual time:    ["1 random"]="0:08:0" ["1 attention"]="0:09:0" ["1 gradient"]="0:08:0" ["1 integrated-gradient"]="0:10:0"
-#                 ["2 random"]="0:11:0" ["2 attention"]="0:12:0" ["2 gradient"]="0:12:0" ["2 integrated-gradient"]="0:15:0"
-#                 ["3 random"]="0:25:0" ["3 attention"]="0:25:0" ["3 gradient"]="0:25:0" ["3 integrated-gradient"]="0:32:0" )
-declare -A time=( ["1 random"]="0:20:0" ["1 attention"]="0:20:0" ["1 gradient"]="0:20:0" ["1 integrated-gradient"]="1:20:0"
-                  ["2 random"]="0:25:0" ["2 attention"]="0:25:0" ["2 gradient"]="0:25:0" ["2 integrated-gradient"]="1:25:0"
-                  ["3 random"]="0:35:0" ["3 attention"]="0:35:0" ["3 gradient"]="0:35:0" ["3 integrated-gradient"]="1:45:0" )
+# Actual time:    ["1 random"]="0:08:0" ["1 mutual-information"]="0:07:0" ["1 attention"]="0:09:0" ["1 gradient"]="0:08:0" ["1 integrated-gradient"]="0:10:0"
+#                 ["2 random"]="0:11:0" ["2 mutual-information"]="0:11:0" ["2 attention"]="0:12:0" ["2 gradient"]="0:12:0" ["2 integrated-gradient"]="0:15:0"
+#                 ["3 random"]="0:25:0" ["3 mutual-information"]="0:21:0" ["3 attention"]="0:25:0" ["3 gradient"]="0:25:0" ["3 integrated-gradient"]="0:32:0" )
+declare -A time=( ["1 random"]="0:20:0" ["1 mutual-information"]="0:20:0" ["1 attention"]="0:20:0" ["1 gradient"]="0:20:0" ["1 integrated-gradient"]="1:20:0"
+                  ["2 random"]="0:25:0" ["2 mutual-information"]="0:25:0" ["2 attention"]="0:25:0" ["2 gradient"]="0:25:0" ["2 integrated-gradient"]="1:25:0"
+                  ["3 random"]="0:35:0" ["3 mutual-information"]="0:35:0" ["3 attention"]="0:35:0" ["3 gradient"]="0:35:0" ["3 integrated-gradient"]="1:45:0" )
 
 for type in 1 2 3
 do
-    for importance_measure in 'attention' 'gradient' 'integrated-gradient'
+    for importance_measure in 'mutual-information' 'attention' 'gradient' 'integrated-gradient'
     do
         riemann_samples=$([ "$importance_measure" == integrated-gradient ] && echo 50 || echo 0)
         dependency=''

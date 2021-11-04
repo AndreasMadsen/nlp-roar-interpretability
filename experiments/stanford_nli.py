@@ -47,8 +47,8 @@ parser.add_argument("--importance-measure",
                     action="store",
                     default='attention',
                     type=str,
-                    choices=['random', 'attention', 'gradient', 'integrated-gradient'],
-                    help="Use 'random', 'attention', 'gradient', or 'integrated-gradient' as the importance measure.")
+                    choices=['random', 'mutual-information', 'attention', 'gradient', 'integrated-gradient'],
+                    help="Use 'random', 'mutual-information', 'attention', 'gradient', or 'integrated-gradient' as the importance measure.")
 parser.add_argument("--riemann-samples",
                     action="store",
                     default=50,

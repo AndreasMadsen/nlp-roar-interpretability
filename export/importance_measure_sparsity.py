@@ -190,6 +190,14 @@ if __name__ == "__main__":
                 + p9.facet_grid('dataset_pretty ~ .', scales='free_x')
                 + p9.labs(y='', color='', shape='')
                 + p9.scale_y_continuous(labels = lambda ticks: [f'{tick:.0%}' for tick in ticks])
+                + p9.scale_color_manual(
+                    values = ['#F8766D', '#A3A500', '#00BF7D', '#00B0F6'],
+                    breaks = ['Attention', 'Gradient', 'Integrated Gradient', 'Random']
+                )
+                + p9.scale_shape_manual(
+                    values = ['o', '^', 's', 'v'],
+                    breaks = ['Attention', 'Gradient', 'Integrated Gradient', 'Random']
+                )
                 + p9.guides(fill=False, color = p9.guide_legend(nrow = 2))
                 + p9.theme(plot_margin=0,
                         legend_box = "vertical", legend_position="bottom",
