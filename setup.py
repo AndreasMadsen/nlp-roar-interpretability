@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(name='nlproar',
       version='0.1.0',
-      description='Measuring if attention is explanation with ROAR',
+      description='Evaluating the Faithfulness of Importance Measures in NLP by Recursively Masking Allegedly Important Tokens and Retraining',
       url='https://github.com/AndreasMadsen/python-nlproar-interpretability',
       license='MIT',
       packages=['nlproar'],
