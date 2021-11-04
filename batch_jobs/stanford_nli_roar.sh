@@ -45,15 +45,17 @@ do
                 --importance-caching use
         done
 
-        for k in {10..90..10}
+        for k in {10..100..10}
         do
-            submit_seeds ${roar_time} "$seed" "roar/snli_s-%s_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" \
-                --mem=24G $dependency \
-                $(job_script gpu) \
-                experiments/stanford_nli.py \
-                --k "$k" --recursive-step-size 10 \
-                --roar-strategy quantile --importance-measure "$importance_measure" \
-                --importance-caching use
+            if [ "$k" -le 90 ] || [ "$importance_measure" = "random" ]; then
+                submit_seeds ${roar_time} "$seed" "roar/snli_s-%s_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" \
+                    --mem=24G $dependency \
+                    $(job_script gpu) \
+                    experiments/stanford_nli.py \
+                    --k "$k" --recursive-step-size 10 \
+                    --roar-strategy quantile --importance-measure "$importance_measure" \
+                    --importance-caching use
+            fi
         done
     done
 done

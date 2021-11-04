@@ -51,16 +51,18 @@ do
                     --subset "$subset"
             done
 
-            for k in {10..90..10}
+            for k in {10..100..10}
             do
-                submit_seeds ${roar_time[$subset]} "$seed"  "roar/mimic-${subset::1}_s-%s_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" \
-                    --mem=8G $dependency \
-                    $(job_script gpu) \
-                    experiments/mimic.py \
-                    --k "$k" --recursive-step-size 10 \
-                    --roar-strategy quantile --importance-measure "$importance_measure" \
-                    --importance-caching use \
-                    --subset "$subset"
+                if [ "$k" -le 90 ] || [ "$importance_measure" = "random" ]; then
+                    submit_seeds ${roar_time[$subset]} "$seed"  "roar/mimic-${subset::1}_s-%s_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" \
+                        --mem=8G $dependency \
+                        $(job_script gpu) \
+                        experiments/mimic.py \
+                        --k "$k" --recursive-step-size 10 \
+                        --roar-strategy quantile --importance-measure "$importance_measure" \
+                        --importance-caching use \
+                        --subset "$subset"
+                fi
             done
         done
     done
