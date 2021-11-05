@@ -2,6 +2,8 @@
 
 **Official code for: [Evaluating the Faithfulness of Importance Measures in NLP by Recursively Masking Allegedly Important Tokens and Retraining](https://arxiv.org/abs/2110.08412)**
 
+![Plot of ROAR and Recursive ROAR faithfulness curves](roarplot.png)
+
 ## Install
 
 ```bash
