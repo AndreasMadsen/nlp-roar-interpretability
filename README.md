@@ -1,14 +1,17 @@
 # NLP ROAR Interpretability
 
-**Official code for: [Evaluating the Faithfulness of Importance Measures in NLP by Recursively Masking Allegedly Important Tokens and Retraining](https://arxiv.org/abs/2110.08412)**
+**Official code for: Evaluating the Faithfulness of Importance Measures in NLP by Recursively Masking Allegedly Important Tokens and Retraining**
 
 ![Plot of ROAR and Recursive ROAR faithfulness curves](roarplot.png)
+
+## Anonymous
+
+The code for scheduling jobs on a compute cluster have been removed, as this would partially reveal
+our idendity.
 
 ## Install
 
 ```bash
-git clone https://github.com/AndreasMadsen/nlp-roar-interpretability.git
-cd nlp-roar-interpretability
 python -m pip install -e .
 ```
 
