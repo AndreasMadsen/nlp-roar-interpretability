@@ -2,8 +2,6 @@
 
 **Official code for: Evaluating the Faithfulness of Importance Measures in NLP by Recursively Masking Allegedly Important Tokens and Retraining**
 
-![Plot of ROAR and Recursive ROAR faithfulness curves](roarplot.png)
-
 ## Anonymous
 
 The code for scheduling jobs on a compute cluster have been removed, as this would partially reveal
