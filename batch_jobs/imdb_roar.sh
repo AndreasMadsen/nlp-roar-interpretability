@@ -3,13 +3,13 @@
 source "batch_jobs/_job_script.sh"
 seeds="0 1 2 3 4"
 
-# Actual   pre_time=( ["random"]="0:02:0" ["mutual-information"]="0:07:0" ["attention"]="0:02:0" ["gradient"]="0:02:0" ["integrated-gradient"]="0:16:0" )
-declare -A pre_time=( ["random"]="0:15:0" ["mutual-information"]="0:15:0" ["attention"]="0:15:0" ["gradient"]="0:15:0" ["integrated-gradient"]="0:30:0" )
+# Actual   pre_time=( ["random"]="0:02:0" ["mutual-information"]="0:07:0" ["attention"]="0:02:0" ["gradient"]="0:02:0" ["integrated-gradient"]="0:16:0" ["times-input-gradient"]="0:??:0" )
+declare -A pre_time=( ["random"]="0:15:0" ["mutual-information"]="0:15:0" ["attention"]="0:15:0" ["gradient"]="0:15:0" ["integrated-gradient"]="0:30:0" ["times-input-gradient"]="0:15:0" )
 
 # Actual   roar_time="0:05:0"
 declare -r roar_time="0:20:0"
 
-for importance_measure in 'random' 'mutual-information' 'attention' 'gradient' 'integrated-gradient'
+for importance_measure in 'random' 'mutual-information' 'attention' 'gradient' 'integrated-gradient' 'times-input-gradient'
 do
     riemann_samples=$([ "$importance_measure" == integrated-gradient ] && echo 50 || echo 0)
     dependency=''

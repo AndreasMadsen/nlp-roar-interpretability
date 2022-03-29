@@ -1,29 +1,39 @@
 
-.PHONY: sync sync-beluga sync-cedar sync-beluga-cache sync-beluga-mimic download-beluga-results
+.PHONY: sync sync-beluga sync-graham sync-cedar sync-beluga-cache sync-graham-cache sync-beluga-mimic download-beluga-results
 
-sync: sync-beluga
+default:
+	echo "no default"
 
 sync-beluga:
 	rsync --info=progress2 -urltv --delete \
 		--filter=':- .gitignore' \
 		-e ssh ./ cc-beluga:~/workspace/nlproar
 
-sync-cedar:
+sync-graham:
 	rsync --info=progress2 -urltv --delete \
 		--filter=':- .gitignore' \
+		-e ssh ./ cc-graham:~/workspace/nlproar
+
+sync-cedar:
+	rsync --info=progress2 -urltv --delete \
+		--filter=':- .gitignore' --exclude='.git/' \
 		-e ssh ./ cc-cedar:~/workspace/nlproar
 
 sync-beluga-cache:
 	rsync --info=progress2 -urltv \
 		-e ssh ./cache/ cc-beluga:~/scratch/nlproar/cache
 
+sync-graham-cache:
+	rsync --info=progress2 -urltv \
+		-e ssh ./cache/ cc-graham:~/scratch/nlproar/cache
+
 sync-beluga-mimic:
 	rsync --info=progress2 -urltv \
 		-e ssh ./mimic/ cc-beluga:~/scratch/nlproar/mimic
 
-download-beluga-results:
-	rsync --info=progress2 -urltv --delete \
-		-e ssh cc-beluga:~/scratch/nlproar/results/ ./results
+download-cedar-results:
+	rsync --info=progress2 -urltv \
+		-e ssh cc-cedar:~/scratch/nlproar/results/ ./results
 
 schedule-base:
 	bash batch_jobs/babi.sh

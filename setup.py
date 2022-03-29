@@ -18,7 +18,7 @@ setup(name='nlproar',
           'pandas>=1.3.0',
           'scipy>=1.7.0',
           'numba>=0.53.1,<1.0.0',
-          'nltk>=3.5',
+          'nltk>=3.5,<3.6',
           'gensim>=4.0.1,<4.1.0'
       ],
       include_package_data=True,

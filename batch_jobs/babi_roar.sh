@@ -6,16 +6,16 @@ seeds="0 1 2 3 4"
 # Actual   pre_time=( ["1 random"]="0:01:0" ["1 mutual-information"]="0:04:0" ["1 attention"]="0:02:0" ["1 gradient"]="0:02:0" ["1 integrated-gradient"]="0:02:0"
 #                     ["2 random"]="0:02:0" ["2 mutual-information"]="0:04:0" ["2 attention"]="0:02:0" ["2 gradient"]="0:02:0" ["2 integrated-gradient"]="0:03:0"
 #                     ["3 random"]="0:02:0" ["3 mutual-information"]="0:05:0" ["3 attention"]="0:02:0" ["3 gradient"]="0:02:0" ["3 integrated-gradient"]="0:08:0" )
-declare -A pre_time=( ["1 random"]="0:15:0" ["1 mutual-information"]="0:15:0" ["1 attention"]="0:15:0" ["1 gradient"]="0:15:0" ["1 integrated-gradient"]="0:15:0"
-                      ["2 random"]="0:15:0" ["2 mutual-information"]="0:15:0" ["2 attention"]="0:15:0" ["2 gradient"]="0:15:0" ["2 integrated-gradient"]="0:15:0"
-                      ["3 random"]="0:15:0" ["3 mutual-information"]="0:15:0" ["3 attention"]="0:15:0" ["3 gradient"]="0:15:0" ["3 integrated-gradient"]="0:20:0" )
+declare -A pre_time=( ["1 random"]="0:15:0" ["1 mutual-information"]="0:15:0" ["1 attention"]="0:15:0" ["1 gradient"]="0:15:0" ["1 integrated-gradient"]="0:15:0" ["1 times-input-gradient"]="0:15:0"
+                      ["2 random"]="0:15:0" ["2 mutual-information"]="0:15:0" ["2 attention"]="0:15:0" ["2 gradient"]="0:15:0" ["2 integrated-gradient"]="0:15:0" ["2 times-input-gradient"]="0:15:0"
+                      ["3 random"]="0:15:0" ["3 mutual-information"]="0:15:0" ["3 attention"]="0:15:0" ["3 gradient"]="0:15:0" ["3 integrated-gradient"]="0:20:0" ["3 times-input-gradient"]="0:20:0" )
 
 # Actual   roar_time=( ["1"]="0:08:0" ["2"]="0:12:0" ["3"]="0:24:0" )
 declare -A roar_time=( ["1"]="0:20:0" ["2"]="0:25:0" ["3"]="0:35:0" )
 
 for type in 1 2 3
 do
-    for importance_measure in 'random' 'mutual-information' 'attention' 'gradient' 'integrated-gradient'
+    for importance_measure in 'random' 'mutual-information' 'attention' 'gradient' 'integrated-gradient' 'times-input-gradient'
     do
         riemann_samples=$([ "$importance_measure" == integrated-gradient ] && echo 50 || echo 0)
         dependency=''
