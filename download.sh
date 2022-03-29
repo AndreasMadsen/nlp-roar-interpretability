@@ -11,7 +11,7 @@ source $TMP_ENV/bin/activate
 rm -rf $HOME/python_wheels
 mkdir -p $HOME/python_wheels
 cd $HOME/python_wheels
-python -m pip download --no-deps 'en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.1.0/en_core_web_sm-3.1.0-py3-none-any.whl'
+python -m pip download --no-deps 'en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.2.0/en_core_web_sm-3.2.0-py3-none-any.whl'
 
 # Install dependencies
 python -m pip install --no-deps $HOME/python_wheels/en_core_web_sm-3.1.0-py3-none-any.whl
