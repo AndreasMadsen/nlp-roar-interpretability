@@ -14,7 +14,7 @@ do
     for k in {1..10}
     do
         if last_jobid=$(
-                submit_seeds "${time[$importance_measure]}" "$seeds" "roar/imdb_s-%s_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" \
+                submit_seeds "${time[$importance_measure]}" "$seeds" "roar/imdb_rnn_s-%s_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" \
                     --mem=6G --parsable $dependency \
                     $(job_script gpu) \
                     experiments/imdb.py --recursive \
@@ -36,7 +36,7 @@ do
     for k in {10..90..10}
     do
         if last_jobid=$(
-                submit_seeds "${time[$importance_measure]}" "$seeds" "roar/imdb_s-%s_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" \
+                submit_seeds "${time[$importance_measure]}" "$seeds" "roar/imdb_rnn_s-%s_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" \
                     --mem=6G --parsable $dependency \
                     $(job_script gpu) \
                     experiments/imdb.py --recursive \

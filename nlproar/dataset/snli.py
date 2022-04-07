@@ -13,10 +13,11 @@ import numpy as np
 import spacy
 import torchtext
 
-from ._tokenizer import Tokenizer
+from ._roberta_tokenizer import RobertaTokenizer
+from ._vocab_tokenizer import VocabTokenizer
 from ._paired_sequence_dataset import PairedSequenceDataset
 
-class SNLITokenizer(Tokenizer):
+class SNLITokenizer(VocabTokenizer):
     def __init__(self):
         # Original implementation has "en", we are using "en_core_web_sm"
         # https://github.com/successar/AttentionExplanation/blob/master/preprocess/vectorizer.py
@@ -50,7 +51,7 @@ class SNLIDataset(PairedSequenceDataset):
     * use 'glove.840B.300d' (https://github.com/successar/AttentionExplanation/blob/master/preprocess/SNLI/SNLI.ipynb)
     * set [PAD] embedding to zero
     """
-    def __init__(self, cachedir, batch_size=128, **kwargs):
+    def __init__(self, cachedir, model_type, batch_size=128, **kwargs):
         """Creates an SNLI dataset instance
 
         Args:
@@ -59,7 +60,8 @@ class SNLIDataset(PairedSequenceDataset):
             batch_size (int, optional): The batch size used in the data loader. Defaults to 32.
             num_workers (int, optional): The number of pytorch workers in the data loader. Defaults to 4.
         """
-        super().__init__(cachedir, 'snli', SNLITokenizer(), batch_size=batch_size, **kwargs)
+        tokenizer = RobertaTokenizer(cachedir) if model_type == 'roberta' else SNLITokenizer()
+        super().__init__(cachedir, 'snli', model_type, tokenizer, batch_size=batch_size, **kwargs)
         self.label_names = ['entailment', 'contradiction', 'neutral']
 
     def embedding(self):
@@ -92,7 +94,7 @@ class SNLIDataset(PairedSequenceDataset):
             cache=f'{self._cachedir}/embeddings')
 
         if (path.exists(f'{self._cachedir}/vocab/snli.vocab') and
-            path.exists(f'{self._cachedir}/encoded/snli.pkl')):
+            path.exists(f'{self._cachedir}/encoded/snli_{self.model_type}.pkl')):
             self.tokenizer.from_file(f'{self._cachedir}/vocab/snli.vocab')
             return
 
@@ -130,7 +132,7 @@ class SNLIDataset(PairedSequenceDataset):
             self.tokenizer.from_file(f'{self._cachedir}/vocab/snli.vocab')
 
         # Encode data
-        if not path.exists(f'{self._cachedir}/encoded/snli.pkl'):
+        if not path.exists(f'{self._cachedir}/encoded/snli_{self.model_type}.pkl'):
             os.makedirs(f'{self._cachedir}/encoded', exist_ok=True)
 
             data = {}
@@ -141,5 +143,5 @@ class SNLIDataset(PairedSequenceDataset):
                     'label': self.label_names.index(x['label']),
                 } for x in dataset[zipfile_name]]
 
-            with open(f'{self._cachedir}/encoded/snli.pkl', 'wb') as fp:
+            with open(f'{self._cachedir}/encoded/snli_{self.model_type}.pkl', 'wb') as fp:
                 pickle.dump(data, fp)

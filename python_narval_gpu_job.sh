@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account=rrg-bengioy-ad
-#SBATCH --cpus-per-task=4
-#SBATCH --gres=gpu:v100:1
+#SBATCH --cpus-per-task=8
+#SBATCH --gres=gpu:1
 #SBATCH --mem=24G
 #SBATCH --time=2:00:00
 

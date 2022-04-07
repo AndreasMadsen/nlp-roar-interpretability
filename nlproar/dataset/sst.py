@@ -11,10 +11,11 @@ import torch
 import spacy
 import numpy as np
 
-from ._tokenizer import Tokenizer
+from ._roberta_tokenizer import RobertaTokenizer
+from ._vocab_tokenizer import VocabTokenizer
 from ._single_sequence_dataset import SingleSequenceDataset
 
-class SSTTokenizer(Tokenizer):
+class SSTTokenizer(VocabTokenizer):
     def __init__(self):
         super().__init__()
         self._tokenizer = spacy.load('en_core_web_sm',
@@ -52,7 +53,7 @@ class SSTDataset(SingleSequenceDataset):
     * use 'fasttext.simple.300d'
     * set [PAD] embedding to zero
     """
-    def __init__(self, cachedir, seed=0, **kwargs):
+    def __init__(self, cachedir, model_type, seed=0, **kwargs):
         """Creates an SST dataset instance
 
         Args:
@@ -61,7 +62,8 @@ class SSTDataset(SingleSequenceDataset):
             batch_size (int, optional): The batch size used in the data loader. Defaults to 32.
             num_workers (int, optional): The number of pytorch workers in the data loader. Defaults to 4.
         """
-        super().__init__(cachedir, 'sst', SSTTokenizer(), **kwargs)
+        tokenizer = RobertaTokenizer(cachedir) if model_type == 'roberta' else SSTTokenizer()
+        super().__init__(cachedir, 'sst', model_type, tokenizer, **kwargs)
         self.label_names = ['negative', 'positive']
 
     def embedding(self):
@@ -108,7 +110,7 @@ class SSTDataset(SingleSequenceDataset):
             self.tokenizer.from_file(f'{self._cachedir}/vocab/sst.vocab')
 
         # Encode data
-        if not path.exists(f'{self._cachedir}/encoded/sst.pkl'):
+        if not path.exists(f'{self._cachedir}/encoded/sst_{self.model_type}.pkl'):
             os.makedirs(f'{self._cachedir}/encoded', exist_ok=True)
 
             rng = random.Random(self._seed)
@@ -123,5 +125,5 @@ class SSTDataset(SingleSequenceDataset):
                     })
                 data[name] = rng.sample(observations, len(observations))
 
-            with open(f'{self._cachedir}/encoded/sst.pkl', 'wb') as fp:
+            with open(f'{self._cachedir}/encoded/sst_{self.model_type}.pkl', 'wb') as fp:
                 pickle.dump(data, fp)

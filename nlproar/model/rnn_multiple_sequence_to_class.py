@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchmetrics
 import pytorch_lightning as pl
 
 from ._total_ce_loss import TotalCrossEntropyLoss
@@ -87,9 +88,9 @@ class _Attention(nn.Module):
         return context_t, alpha_t
 
 
-class MultipleSequenceToClass(pl.LightningModule):
+class RNNMultipleSequenceToClass(pl.LightningModule):
 
-    def __init__(self, embedding, hidden_size=128, num_of_classes=3):
+    def __init__(self, cachedir, embedding, hidden_size=128, num_of_classes=3):
         """Creates a model instance that maps from a sequence pair to a class
 
         Args:
@@ -105,12 +106,12 @@ class MultipleSequenceToClass(pl.LightningModule):
         self.decoder = _Decoder(hidden_size, num_of_classes)
         self.ce_loss = nn.CrossEntropyLoss()
 
-        self.val_metric_acc = pl.metrics.Accuracy(compute_on_step=False)
-        self.val_metric_f1 = pl.metrics.F1(num_classes=num_of_classes, average='micro', compute_on_step=False)
+        self.val_metric_acc = torchmetrics.Accuracy(compute_on_step=False)
+        self.val_metric_f1 = torchmetrics.F1(num_classes=num_of_classes, average='micro', compute_on_step=False)
         self.val_metric_ce = TotalCrossEntropyLoss()
 
-        self.test_metric_acc = pl.metrics.Accuracy(compute_on_step=False)
-        self.test_metric_f1 = pl.metrics.F1(num_classes=num_of_classes, average='micro', compute_on_step=False)
+        self.test_metric_acc = torchmetrics.Accuracy(compute_on_step=False)
+        self.test_metric_f1 = torchmetrics.F1(num_classes=num_of_classes, average='micro', compute_on_step=False)
         self.test_metric_ce = TotalCrossEntropyLoss()
 
     @property

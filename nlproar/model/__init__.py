@@ -1,3 +1,6 @@
 
-from .multiple_sequence_to_class import MultipleSequenceToClass
-from .single_sequence_to_class import SingleSequenceToClass
+from .rnn_multiple_sequence_to_class import RNNMultipleSequenceToClass
+from .rnn_single_sequence_to_class import RNNSingleSequenceToClass
+
+from .roberta_single_sequence_to_class import RobertaSingleSequenceToClass
+from .roberta_multiple_sequence_to_class import RobertaMultipleSequenceToClass

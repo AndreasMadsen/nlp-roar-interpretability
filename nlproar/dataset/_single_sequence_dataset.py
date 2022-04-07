@@ -14,7 +14,9 @@ class SingleSequenceDataset(Dataset):
             'mask': torch.tensor(self.tokenizer.mask(x['sentence']), dtype=torch.bool),
             'label': torch.tensor(x['label'], dtype=torch.int64),
             'index': torch.tensor(idx, dtype=torch.int64)
-        } for idx, x in enumerate(data)]
+        } for idx, x
+          in enumerate(data)
+          if (self.model_type != 'roberta' or len(x['sentence']) < 512)]
 
     def collate(self, observations) -> SequenceBatch:
         return SequenceBatch(
@@ -24,6 +26,8 @@ class SingleSequenceDataset(Dataset):
             sentence_aux=empty_tensor,
             sentence_aux_length=empty_tensor,
             sentence_aux_mask=empty_tensor,
+            sentence_pair=empty_tensor,
+            sentence_pair_type=empty_tensor,
             label=torch.stack([observation['label'] for observation in observations]),
             index=torch.stack([observation['index'] for observation in observations])
         )

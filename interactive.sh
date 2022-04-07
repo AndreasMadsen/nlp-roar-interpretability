@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account=rrg-bengioy-ad
 #SBATCH --cpus-per-task=4
-#SBATCH --gres=gpu:v100:1
+#SBATCH --gres=gpu:1
 #SBATCH --mem=24G
 #SBATCH --time=2:00:00
 
@@ -18,25 +18,10 @@ python -m pip install --no-index 'chardet<4.0,>=2.0' 'click<7.2.0,>=7.1.1'
 
 # Install nlproar
 # Copy the module files to localscratch to avoid conflicts when building the .egg-link
-mkdir $SLURM_TMPDIR/nlproar
-cp -r -t $SLURM_TMPDIR/nlproar $HOME/workspace/nlproar/setup.py $HOME/workspace/nlproar/nlproar
-cd $SLURM_TMPDIR/nlproar
+cd $HOME/workspace/nlproar
 python -m pip install --no-index -e .
 
 # Enable offline model
 export HF_DATASETS_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export NO_GCE_CHECK=true
-
-# Run code
-cd $SLURM_TMPDIR
-
-if [ -z "${RUN_SEEDS}" ]; then
-    python -u -X faulthandler "$HOME/workspace/nlproar/$1" "${@:2}" --use-gpu True --num-workers 4 --persistent-dir $SCRATCH/nlproar
-else
-    for seed in $(echo $RUN_SEEDS)
-    do
-        echo Running $seed
-        python -u -X faulthandler "$HOME/workspace/nlproar/$1" "${@:2}"  --seed "$seed" --use-gpu True --num-workers 4 --persistent-dir $SCRATCH/nlproar
-    done
-fi

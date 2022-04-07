@@ -51,7 +51,7 @@ class ROARDataset(Dataset):
             use_gpu (bool, optional): Should a GPU be used for computing explanations.
             seed (int, optional): Random seed, use for random explanation and cache lookup. Defaults to 0.
         """
-        super().__init__(cachedir, base_dataset.name,
+        super().__init__(cachedir, base_dataset.name, base_dataset.model_type,
                          base_dataset.tokenizer, batch_size=base_dataset.batch_size,
                          seed=seed, **kwargs)
 
@@ -71,7 +71,7 @@ class ROARDataset(Dataset):
         self._use_gpu = use_gpu
         self._read_from_cache = _read_from_cache
 
-        self._basename = generate_experiment_id(base_dataset.name, seed,
+        self._basename = generate_experiment_id(f'{base_dataset.name}_{base_dataset.model_type}', seed,
                                                 k=k,
                                                 strategy=strategy,
                                                 importance_measure=importance_measure,

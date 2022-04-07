@@ -15,7 +15,7 @@ do
     dependency=''
 
     if precompute_jobid=$(
-        submit_seeds ${pre_time[$importance_measure]} "$seeds" "importance_measure/sst-pre_s-%s_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
+        submit_seeds ${pre_time[$importance_measure]} "$seeds" "importance_measure/sst-pre_rnn_s-%s_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
             --mem=6G --parsable \
             $(job_script gpu) \
             experiments/compute_importance_measure.py \
@@ -34,7 +34,7 @@ do
 
     for k in {1..10}
     do
-        submit_seeds ${roar_time} "$seeds" "roar/sst_s-%s_k-${k}_y-c_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" \
+        submit_seeds ${roar_time} "$seeds" "roar/sst_rnn_s-%s_k-${k}_y-c_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" \
             --mem=6G $dependency \
             $(job_script gpu) \
             experiments/stanford_sentiment.py \
@@ -46,7 +46,7 @@ do
     for k in {10..100..10}
     do
         if [ "$k" -le 90 ] || [ "$importance_measure" = "random" ]; then
-            submit_seeds ${roar_time} "$seeds" "roar/sst_s-%s_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" \
+            submit_seeds ${roar_time} "$seeds" "roar/sst_rnn_s-%s_k-${k}_y-q_m-${importance_measure::1}_r-0_rs-${riemann_samples}.json" \
                 --mem=6G $dependency \
                 -o $SCRATCH"/nlproar/logs/%x.%j.out" -e $SCRATCH"/nlproar/logs/%x.%j.err" \
                 $(job_script gpu) \

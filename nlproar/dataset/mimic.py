@@ -12,10 +12,11 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from gensim.models import Word2Vec, KeyedVectors
 
-from ._tokenizer import Tokenizer
+from ._roberta_tokenizer import RobertaTokenizer
+from ._vocab_tokenizer import VocabTokenizer
 from ._single_sequence_dataset import SingleSequenceDataset
 
-class _Normalizer(Tokenizer):
+class _Normalizer(VocabTokenizer):
     def __init__(self):
         super().__init__()
         self._tokenizer = spacy.load('en_core_web_sm',
@@ -32,7 +33,7 @@ class _Normalizer(Tokenizer):
         ]
         return ' '.join(sentence)
 
-class MimicTokenizer(Tokenizer):
+class MimicTokenizer(VocabTokenizer):
     def __init__(self):
         super().__init__(min_df=5)
 
@@ -45,7 +46,7 @@ class MimicDataset(SingleSequenceDataset):
     Note that there are special min-max lengths, see:
         https://github.com/successar/AttentionExplanation/blob/master/Trainers/DatasetBC.py#L113
     """
-    def __init__(self, cachedir, mimicdir, subset='diabetes', batch_size=32, **kwargs):
+    def __init__(self, cachedir, mimicdir, model_type, subset='diabetes', batch_size=32, **kwargs):
         """Creates an MIMIC dataset instance
 
         Args:
@@ -59,7 +60,8 @@ class MimicDataset(SingleSequenceDataset):
         if subset not in ['diabetes', 'anemia']:
             raise ValueError('subset must be either "diabetes" or "anemia"')
 
-        super().__init__(cachedir, f'mimic-{subset[0]}', MimicTokenizer(), batch_size=batch_size, **kwargs)
+        tokenizer = RobertaTokenizer(cachedir) if model_type == 'roberta' else MimicTokenizer()
+        super().__init__(cachedir, f'mimic-{subset[0]}', model_type, tokenizer, batch_size=batch_size, **kwargs)
         self._mimicdir = path.realpath(mimicdir)
         self._subset = subset
         self.label_names = ['negative', 'positive']
@@ -159,7 +161,7 @@ class MimicDataset(SingleSequenceDataset):
 
         # Build anemia dataset
         os.makedirs(f'{self._cachedir}/encoded', exist_ok=True)
-        if not path.exists(f'{self._cachedir}/encoded/mimic-a.pkl'):
+        if not path.exists(f'{self._cachedir}/encoded/mimic-a_{self.model_type}.pkl'):
             print('building anemia dataset')
             if df_merged is None:
                 df_merged = pd.read_csv(f'{self._cachedir}/mimic-dataset/merged.csv.gz', compression='gzip')
@@ -202,12 +204,12 @@ class MimicDataset(SingleSequenceDataset):
                 data_anemia[name] = observations
 
             # Save dataset
-            with open(f'{self._cachedir}/encoded/mimic-a.pkl', 'wb') as fp:
+            with open(f'{self._cachedir}/encoded/mimic-a_{self.model_type}.pkl', 'wb') as fp:
                 pickle.dump(data_anemia, fp)
 
         # Build diabetes dataset
         os.makedirs(f'{self._cachedir}/encoded', exist_ok=True)
-        if not path.exists(f'{self._cachedir}/encoded/mimic-d.pkl'):
+        if not path.exists(f'{self._cachedir}/encoded/mimic-d_{self.model_type}.pkl'):
             print('building diabetes dataset')
             if df_merged is None:
                 df_merged = pd.read_csv(f'{self._cachedir}/mimic-dataset/merged.csv.gz', compression='gzip')
@@ -251,7 +253,7 @@ class MimicDataset(SingleSequenceDataset):
                 data_diabetes[name] = observations
 
             # Save dataset
-            with open(f'{self._cachedir}/encoded/mimic-d.pkl', 'wb') as fp:
+            with open(f'{self._cachedir}/encoded/mimic-d_{self.model_type}.pkl', 'wb') as fp:
                 pickle.dump(data_diabetes, fp)
 
         # Load relevant vocabulary

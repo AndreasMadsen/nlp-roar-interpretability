@@ -1,11 +1,12 @@
 from typing import Tuple, Optional
-
 import warnings
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
+import torchmetrics
 
 from ._total_ce_loss import TotalCrossEntropyLoss
 from ..dataset import SequenceBatch
@@ -63,7 +64,7 @@ class _Attention(nn.Module):
 
         return context_t, alpha_t
 
-class SingleSequenceToClass(pl.LightningModule):
+class RNNSingleSequenceToClass(pl.LightningModule):
     """Implements the Text-Classification task from 'Attention is not Explanation'
 
     The paper's model code is in:
@@ -86,7 +87,7 @@ class SingleSequenceToClass(pl.LightningModule):
     * Uses Glove embeddings
     """
 
-    def __init__(self, embedding, hidden_size=128, num_of_classes=2):
+    def __init__(self, cachedir, embedding, hidden_size=128, num_of_classes=2):
         """Creates a model instance that maps from a single sequence to a class
 
         Args:
@@ -101,12 +102,12 @@ class SingleSequenceToClass(pl.LightningModule):
         self.decoder = nn.Linear(2 * hidden_size, num_of_classes)
         self.ce_loss = nn.CrossEntropyLoss()
 
-        self.val_metric_acc = pl.metrics.Accuracy(compute_on_step=False)
-        self.val_metric_f1 = pl.metrics.F1(num_classes=num_of_classes, average='macro', compute_on_step=False)
+        self.val_metric_acc = torchmetrics.Accuracy(compute_on_step=False)
+        self.val_metric_f1 = torchmetrics.F1(num_classes=num_of_classes, average='macro', compute_on_step=False)
         self.val_metric_ce = TotalCrossEntropyLoss()
 
-        self.test_metric_acc = pl.metrics.Accuracy(compute_on_step=False)
-        self.test_metric_f1 = pl.metrics.F1(num_classes=num_of_classes, average='macro', compute_on_step=False)
+        self.test_metric_acc = torchmetrics.Accuracy(compute_on_step=False)
+        self.test_metric_f1 = torchmetrics.F1(num_classes=num_of_classes, average='macro', compute_on_step=False)
         self.test_metric_ce = TotalCrossEntropyLoss()
 
         with warnings.catch_warnings():
@@ -114,8 +115,8 @@ class SingleSequenceToClass(pl.LightningModule):
             # Metric `AUROC` will save all targets and predictions in buffer.
             # For large datasets this may lead to large memory footprint.
             warnings.filterwarnings("ignore", category=UserWarning)
-            self.val_metric_auroc = pl.metrics.AUROC(num_classes=num_of_classes, compute_on_step=False)
-            self.test_metric_auroc = pl.metrics.AUROC(num_classes=num_of_classes, compute_on_step=False)
+            self.val_metric_auroc = torchmetrics.AUROC(num_classes=num_of_classes, compute_on_step=False)
+            self.test_metric_auroc = torchmetrics.AUROC(num_classes=num_of_classes, compute_on_step=False)
 
     @property
     def embedding_matrix(self):

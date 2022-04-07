@@ -23,6 +23,11 @@ cp -r -t $SLURM_TMPDIR/nlproar $HOME/workspace/nlproar/setup.py $HOME/workspace/
 cd $SLURM_TMPDIR/nlproar
 python -m pip install --no-index -e .
 
+# Enable offline model
+export HF_DATASETS_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+export NO_GCE_CHECK=true
+
 # Run code
 cd $SLURM_TMPDIR
 

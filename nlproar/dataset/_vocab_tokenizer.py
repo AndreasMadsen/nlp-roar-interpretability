@@ -2,7 +2,7 @@ import spacy
 import torch
 from collections import Counter
 
-class Tokenizer:
+class VocabTokenizer:
     def __init__(self, min_df=1):
         self.min_df = min_df
         self.ids_to_token = []
@@ -76,3 +76,6 @@ class Tokenizer:
             for tokens in observations
         ]
         return torch.stack(padded_observations)
+
+    def stack_pad_mask(self, observations):
+        return self.stack_pad(observations)

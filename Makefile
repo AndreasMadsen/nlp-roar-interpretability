@@ -19,6 +19,11 @@ sync-cedar:
 		--filter=':- .gitignore' --exclude='.git/' \
 		-e ssh ./ cc-cedar:~/workspace/nlproar
 
+sync-narval:
+	rsync --info=progress2 -urltv --delete \
+		--filter=':- .gitignore' --exclude='.git/' \
+		-e ssh ./ cc-narval:~/workspace/nlproar
+
 sync-beluga-cache:
 	rsync --info=progress2 -urltv \
 		-e ssh ./cache/ cc-beluga:~/scratch/nlproar/cache
@@ -27,9 +32,9 @@ sync-graham-cache:
 	rsync --info=progress2 -urltv \
 		-e ssh ./cache/ cc-graham:~/scratch/nlproar/cache
 
-sync-beluga-mimic:
+sync-cedar-mimic:
 	rsync --info=progress2 -urltv \
-		-e ssh ./mimic/ cc-beluga:~/scratch/nlproar/mimic
+		-e ssh ./mimic/ cc-cedar:~/scratch/nlproar/mimic
 
 download-cedar-results:
 	rsync --info=progress2 -urltv \

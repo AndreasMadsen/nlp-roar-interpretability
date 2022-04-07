@@ -10,7 +10,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from nlproar.dataset import SNLIDataset, ROARDataset
-from nlproar.model import MultipleSequenceToClass
+from nlproar.model import RNNMultipleSequenceToClass, RobertaMultipleSequenceToClass
 from nlproar.util import generate_experiment_id, optimal_roar_batch_size
 
 # On compute canada the ulimit -n is reached, unless this strategy is used.
@@ -23,6 +23,12 @@ parser.add_argument('--persistent-dir',
                     default=path.realpath(path.join(thisdir, '..')),
                     type=str,
                     help='Directory where all persistent data will be stored')
+parser.add_argument("--model-type",
+                    action="store",
+                    default='rnn',
+                    type=str,
+                    choices=['roberta', 'rnn'],
+                    help="The model to use either rnn or roberta.")
 parser.add_argument("--k",
                     action="store",
                     default=0,
@@ -66,6 +72,11 @@ parser.add_argument("--max-epochs",
                     default=25,
                     type=int,
                     help="The max number of epochs to use")
+parser.add_argument('--batch-size',
+                    action='store',
+                    default=128,
+                    type=int,
+                    help='The batch size to use')
 parser.add_argument("--importance-caching",
                     action="store",
                     default=None,
@@ -82,7 +93,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     torch.set_num_threads(max(1, args.num_workers))
     seed_everything(args.seed)
-    experiment_id = generate_experiment_id('snli', args.seed,
+    experiment_id = generate_experiment_id(f'snli_{args.model_type}', args.seed,
                                            k=args.k,
                                            strategy=args.roar_strategy,
                                            importance_measure=args.importance_measure,
@@ -99,7 +110,10 @@ if __name__ == "__main__":
 
     # Create ROAR dataset
     base_dataset = SNLIDataset(
-        cachedir=f'{args.persistent_dir}/cache', num_workers=args.num_workers
+        cachedir=f'{args.persistent_dir}/cache',
+        model_type=args.model_type,
+        num_workers=args.num_workers,
+        batch_size=args.batch_size
     )
     base_dataset.prepare_data()
 
@@ -107,7 +121,7 @@ if __name__ == "__main__":
     if args.k == 0:
         main_dataset = base_dataset
     else:
-        base_experiment_id = generate_experiment_id('snli', args.seed,
+        base_experiment_id = generate_experiment_id(f'snli_{args.model_type}', args.seed,
                                                     k=args.k-args.recursive_step_size if args.recursive else 0,
                                                     strategy=args.roar_strategy,
                                                     importance_measure=args.importance_measure,
@@ -135,7 +149,10 @@ if __name__ == "__main__":
         main_dataset.prepare_data()
 
     logger = TensorBoardLogger(f'{args.persistent_dir}/tensorboard', name=experiment_id)
-    model = MultipleSequenceToClass(main_dataset.embedding())
+    if args.model_type == 'rnn':
+        model = RNNMultipleSequenceToClass(f'{args.persistent_dir}/cache', main_dataset.embedding())
+    elif args.model_type == 'roberta':
+        model = RobertaMultipleSequenceToClass(f'{args.persistent_dir}/cache')
 
     """
     Original implementation chooses the best checkpoint on the basis of accuracy

@@ -10,7 +10,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from nlproar.dataset import IMDBDataset, ROARDataset
-from nlproar.model import SingleSequenceToClass
+from nlproar.model import RNNSingleSequenceToClass, RobertaSingleSequenceToClass
 from nlproar.util import generate_experiment_id, optimal_roar_batch_size
 
 # On compute canada the ulimit -n is reached, unless this strategy is used.
@@ -23,6 +23,12 @@ parser.add_argument('--persistent-dir',
                     default=path.realpath(path.join(thisdir, '..')),
                     type=str,
                     help='Directory where all persistent data will be stored')
+parser.add_argument("--model-type",
+                    action="store",
+                    default='rnn',
+                    type=str,
+                    choices=['roberta', 'rnn'],
+                    help="The model to use either rnn or roberta.")
 parser.add_argument("--k",
                     action="store",
                     default=0,
@@ -65,6 +71,11 @@ parser.add_argument('--num-workers',
                     type=int,
                     help='The number of workers to use in data loading')
 # epochs = 8 (https://github.com/successar/AttentionExplanation/blob/master/ExperimentsBC.py#L11)
+parser.add_argument('--batch-size',
+                    action='store',
+                    default=32,
+                    type=int,
+                    help='The batch size to use')
 parser.add_argument('--max-epochs',
                     action='store',
                     default=8,
@@ -86,7 +97,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     torch.set_num_threads(max(1, args.num_workers))
     pl.seed_everything(args.seed)
-    experiment_id = generate_experiment_id('imdb', args.seed,
+    experiment_id = generate_experiment_id(f'imdb_{args.model_type}', args.seed,
                                            k=args.k,
                                            strategy=args.roar_strategy,
                                            importance_measure=args.importance_measure,
@@ -94,6 +105,7 @@ if __name__ == '__main__':
                                            riemann_samples=args.riemann_samples)
 
     print('Running IMDB-ROAR experiment:')
+    print(f' - model_type: {args.model_type}')
     print(f' - k: {args.k}')
     print(f' - seed: {args.seed}')
     print(f' - strategy: {args.roar_strategy}')
@@ -103,7 +115,9 @@ if __name__ == '__main__':
 
     base_dataset = IMDBDataset(
         cachedir=f'{args.persistent_dir}/cache',
-        num_workers=args.num_workers
+        model_type=args.model_type,
+        num_workers=args.num_workers,
+        batch_size=args.batch_size
     )
     base_dataset.prepare_data()
 
@@ -111,7 +125,7 @@ if __name__ == '__main__':
     if args.k == 0:
         main_dataset = base_dataset
     else:
-        base_experiment_id = generate_experiment_id('imdb', args.seed,
+        base_experiment_id = generate_experiment_id(f'imdb_{args.model_type}', args.seed,
                                                     k=args.k-args.recursive_step_size if args.recursive else 0,
                                                     strategy=args.roar_strategy,
                                                     importance_measure=args.importance_measure,
@@ -139,7 +153,10 @@ if __name__ == '__main__':
         main_dataset.prepare_data()
 
     logger = TensorBoardLogger(f'{args.persistent_dir}/tensorboard', name=experiment_id)
-    model = SingleSequenceToClass(main_dataset.embedding())
+    if args.model_type == 'rnn':
+        model = RNNSingleSequenceToClass(f'{args.persistent_dir}/cache', main_dataset.embedding())
+    elif args.model_type == 'roberta':
+        model = RobertaSingleSequenceToClass(f'{args.persistent_dir}/cache')
 
     # Source uses the best model, measured with AUC metric, and evaluates every epoch.
     #  https://github.com/successar/AttentionExplanation/blob/master/Trainers/TrainerBC.py#L28
