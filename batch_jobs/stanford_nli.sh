@@ -11,7 +11,7 @@ do
         experiments/stanford_nli.py
 
     # Actual time: "0:??:0"
-    submit_seeds "1:10:0" "$seed" "roar/snli_roberta_s-%s.json" \
+    submit_seeds "3:00:0" "$seed" "roar/snli_roberta_s-%s.json" \
         --mem=64G \
         $(job_script gpu) \
         experiments/stanford_nli.py \

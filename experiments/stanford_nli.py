@@ -101,6 +101,7 @@ if __name__ == "__main__":
                                            riemann_samples=args.riemann_samples)
 
     print('Running SNLI-ROAR experiment:')
+    print(f' - model_type: {args.model_type}')
     print(f' - k: {args.k}')
     print(f' - seed: {args.seed}')
     print(f' - strategy: {args.roar_strategy}')
