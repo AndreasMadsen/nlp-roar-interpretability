@@ -50,7 +50,7 @@ class ImportanceMeasure:
         self._batch_size = batch_size
         self._caching = caching
         self._cachedir = cachedir
-        self._cachename = generate_experiment_id(dataset.name, seed,
+        self._cachename = generate_experiment_id(f'{dataset.name}_{model.model_type}', seed,
                                                  importance_measure=importance_measure,
                                                  riemann_samples=riemann_samples)
 
