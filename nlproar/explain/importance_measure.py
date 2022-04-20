@@ -50,35 +50,36 @@ class ImportanceMeasure:
         self._batch_size = batch_size
         self._caching = caching
         self._cachedir = cachedir
-        self._cachename = generate_experiment_id(f'{dataset.name}_{model.model_type}', seed,
+        self._cachename = generate_experiment_id(f'{dataset.name}_{dataset.model_type}', seed,
                                                  importance_measure=importance_measure,
                                                  riemann_samples=riemann_samples)
 
         if importance_measure == 'random':
             self._use_gpu = False
-            self._importance_measure_fn = RandomImportanceMeasure(model, dataset, use_gpu=self._use_gpu, rng=self._np_rng)
+            self._importance_measure_fn = RandomImportanceMeasure(
+                model, dataset, use_gpu=self._use_gpu, rng=self._np_rng)
         elif importance_measure == 'mutual-information':
             self._use_gpu = use_gpu
             measure = MutualInformationImportanceMeasure(model, dataset, use_gpu=self._use_gpu, rng=self._np_rng)
             measure.precompute(batch_size=self._batch_size, num_workers=self._num_workers, shuffle=False)
-            self._importance_measure_fn = torch.jit.script(measure)
+            self._importance_measure_fn = measure
         elif importance_measure == 'attention':
             self._use_gpu = use_gpu
-            self._importance_measure_fn = torch.jit.script(
-                AttentionImportanceMeasure(model, dataset, use_gpu=self._use_gpu, rng=self._np_rng))
+            self._importance_measure_fn = AttentionImportanceMeasure(
+                model, dataset, use_gpu=self._use_gpu, rng=self._np_rng)
         elif importance_measure == 'gradient':
             self._use_gpu = use_gpu
-            self._importance_measure_fn = torch.jit.script(
-                GradientImportanceMeasure(model, dataset, use_gpu=self._use_gpu, rng=self._np_rng))
+            self._importance_measure_fn = GradientImportanceMeasure(
+                model, dataset, use_gpu=self._use_gpu, rng=self._np_rng)
         elif importance_measure == 'times-input-gradient':
             self._use_gpu = use_gpu
-            self._importance_measure_fn = torch.jit.script(
-                InputTimesGradientImportanceMeasure(model, dataset, use_gpu=self._use_gpu, rng=self._np_rng))
+            self._importance_measure_fn = InputTimesGradientImportanceMeasure(
+                model, dataset, use_gpu=self._use_gpu, rng=self._np_rng)
         elif importance_measure == 'integrated-gradient':
             self._use_gpu = use_gpu
-            self._importance_measure_fn = torch.jit.script(
-                IntegratedGradientImportanceMeasure(model, dataset, riemann_samples=riemann_samples,
-                                                    use_gpu=self._use_gpu, rng=self._np_rng))
+            self._importance_measure_fn = IntegratedGradientImportanceMeasure(
+                model, dataset, riemann_samples=riemann_samples,
+                use_gpu=self._use_gpu, rng=self._np_rng)
         else:
             raise ValueError(f'{importance_measure} is not supported')
 

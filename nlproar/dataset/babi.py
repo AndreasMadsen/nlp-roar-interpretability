@@ -7,7 +7,7 @@ import tarfile
 
 from sklearn.model_selection import train_test_split
 
-from ._roberta_tokenizer import RobertaTokenizer
+from ._choose_tokenizer import choose_tokenizer
 from ._vocab_tokenizer import VocabTokenizer
 from ._paired_sequence_dataset import PairedSequenceDataset
 
@@ -51,7 +51,7 @@ class BabiDataset(PairedSequenceDataset):
         if task not in [1, 2, 3]:
             raise ValueError('task must be either 1, 2, or 3')
 
-        tokenizer = RobertaTokenizer(cachedir) if model_type == 'roberta' else BabiTokenizer()
+        tokenizer = choose_tokenizer(cachedir, model_type, BabiTokenizer)
         super().__init__(cachedir, f'babi-{task}', model_type, tokenizer, batch_size=batch_size, **kwargs)
         self._task = task
         self.label_names = ['put', 'picked', 'down', '.', 'travelled', 'was',
@@ -67,6 +67,9 @@ class BabiDataset(PairedSequenceDataset):
         Returns:
             np.array: shape = (vocabulary, 300)
         """
+        if self.model_type != 'rnn':
+            return None
+
         # Random embeddings of size 50
         # https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/model/modules/Encoder.py#L26
         # https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/Trainers/DatasetQA.py#L112

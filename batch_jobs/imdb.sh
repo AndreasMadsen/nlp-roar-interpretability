@@ -2,15 +2,13 @@
 source "batch_jobs/_job_script.sh"
 seeds="0 1 2 3 4"
 
-# Actual time: "0:04:0"
-submit_seeds "0:15:0" "$seeds" "roar/imdb_rnn_s-%s.json" \
-    --mem=6G \
-    $(job_script gpu) \
-    experiments/imdb.py
+# Actual time:    ["rnn"]="0:04:0" ["roberta"]="0:8:0" )
+declare -A time=( ["rnn"]="0:15:0" ["roberta"]="0:20:0" )
 
-# Actual time: "0:26:0"
-submit_seeds "0:35:0" "$seeds" "roar/imdb_roberta_s-%s.json" \
-    --mem=64G \
-    $(job_script gpu) \
-    experiments/imdb.py \
-    --model-type roberta --batch-size 8 --max-epochs 3
+for model_type in 'rnn' 'roberta'
+do
+    submit_seeds ""${time[$model_type]}"" "$seeds" "roar/imdb_${model_type}_s-%s.json" \
+        $(job_script gpu) \
+        experiments/imdb.py \
+        --model-type "$model_type"
+done

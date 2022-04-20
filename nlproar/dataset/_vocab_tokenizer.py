@@ -79,3 +79,12 @@ class VocabTokenizer:
 
     def stack_pad_mask(self, observations):
         return self.stack_pad(observations)
+
+    def truncate(self, sequence):
+        return sequence
+
+    def sentence_pair(self, sentence, sentence_aux):
+        return sentence[:-1] + sentence_aux
+
+    def sentence_type(self, sentence, sentence_aux=[0]):
+        return [0] * (len(sentence) - 1) + [1] * (len(sentence_aux) - 1) + [2]

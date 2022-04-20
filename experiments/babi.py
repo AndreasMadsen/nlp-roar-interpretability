@@ -3,6 +3,7 @@ import json
 import os
 import os.path as path
 import shutil
+import tempfile
 
 import torch
 import pytorch_lightning as pl
@@ -11,7 +12,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from nlproar.dataset import BabiDataset, ROARDataset
-from nlproar.model import RNNMultipleSequenceToClass, RobertaMultipleSequenceToClass
+from nlproar.model import select_multiple_sequence_to_class
 from nlproar.util import generate_experiment_id, optimal_roar_batch_size
 
 # On compute canada the ulimit -n is reached, unless this strategy is used.
@@ -28,7 +29,7 @@ parser.add_argument("--model-type",
                     action="store",
                     default='rnn',
                     type=str,
-                    choices=['roberta', 'rnn'],
+                    choices=['roberta', 'rnn', 'xlnet'],
                     help="The model to use either rnn or roberta.")
 parser.add_argument("--k",
                     action="store",
@@ -74,12 +75,12 @@ parser.add_argument('--num-workers',
 # epochs = 100 (https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/Trainers/DatasetQA.py#L106)
 parser.add_argument('--max-epochs',
                     action='store',
-                    default=100,
+                    default=None,
                     type=int,
                     help='The max number of epochs to use')
 parser.add_argument('--batch-size',
                     action='store',
-                    default=50,
+                    default=None,
                     type=int,
                     help='The batch size to use')
 parser.add_argument("--importance-caching",
@@ -101,8 +102,15 @@ parser.add_argument('--task',
 
 if __name__ == "__main__":
     args = parser.parse_args()
+    if args.max_epochs is None:
+        args.max_epochs = ({ 'rnn': 100, 'roberta': 8, 'longformer': 8, 'xlnet': 8 })[args.model_type]
+    if args.batch_size is None:
+        args.batch_size = ({ 'rnn': 50, 'roberta': 16, 'longformer': 16, 'xlnet': 16 })[args.model_type]
+
     torch.set_num_threads(max(1, args.num_workers))
-    pl.seed_everything(args.seed)
+    pl.seed_everything(args.seed, workers=True)
+
+    MultipleSequenceToClass = select_multiple_sequence_to_class(args.model_type)
     experiment_id = generate_experiment_id(f'babi-{args.task}_{args.model_type}', args.seed,
                                            k=args.k,
                                            strategy=args.roar_strategy,
@@ -142,6 +150,7 @@ if __name__ == "__main__":
             cachedir=f'{args.persistent_dir}/cache',
             model=MultipleSequenceToClass.load_from_checkpoint(
                 checkpoint_path=f'{args.persistent_dir}/checkpoints/{base_experiment_id}/checkpoint.ckpt',
+                cachedir=f'{args.persistent_dir}/cache',
                 embedding=base_dataset.embedding(),
                 hidden_size=32,
                 num_of_classes=len(base_dataset.label_names)
@@ -154,7 +163,9 @@ if __name__ == "__main__":
             importance_measure=args.importance_measure,
             riemann_samples=args.riemann_samples,
             use_gpu=args.use_gpu,
-            build_batch_size=optimal_roar_batch_size(base_dataset.name, args.importance_measure, args.use_gpu),
+            build_batch_size=optimal_roar_batch_size(
+                base_dataset.name, base_dataset.model_type,
+                args.importance_measure, args.use_gpu),
             importance_caching=args.importance_caching,
             seed=args.seed,
             num_workers=args.num_workers,
@@ -162,16 +173,13 @@ if __name__ == "__main__":
         main_dataset.prepare_data()
 
     logger = TensorBoardLogger(f'{args.persistent_dir}/tensorboard', name=experiment_id)
-    if args.model_type == 'rnn':
-        model = RNNMultipleSequenceToClass(f'{args.persistent_dir}/cache', main_dataset.embedding(),
-                                         hidden_size=32, num_of_classes=len(main_dataset.label_names))
-    elif args.model_type == 'roberta':
-        model = RobertaMultipleSequenceToClass(f'{args.persistent_dir}/cache',
-                                               num_of_classes=len(main_dataset.label_names))
+    model = MultipleSequenceToClass(f'{args.persistent_dir}/cache', main_dataset.embedding(),
+                                    hidden_size=32, num_of_classes=len(main_dataset.label_names))
+
 
     checkpoint_callback = ModelCheckpoint(
         monitor="acc_val",
-        dirpath=f'{args.persistent_dir}/checkpoints/{experiment_id}',
+        dirpath=tempfile.mkdtemp(),
         filename="checkpoint-{epoch:02d}-{acc_val:.2f}",
         mode="max",
     )
@@ -184,6 +192,7 @@ if __name__ == "__main__":
     trainer.fit(model, main_dataset)
     main_dataset.clean('fit')
 
+    os.makedirs(f'{args.persistent_dir}/checkpoints/{experiment_id}', exist_ok=True)
     shutil.copyfile(
         checkpoint_callback.best_model_path,
         f'{args.persistent_dir}/checkpoints/{experiment_id}/checkpoint.ckpt',

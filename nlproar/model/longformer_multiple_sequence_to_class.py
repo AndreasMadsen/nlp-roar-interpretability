@@ -12,9 +12,9 @@ import transformers
 from ._base_multiple_sequence_to_class import BaseMultipleSequenceToClass
 from ..dataset import SequenceBatch
 
-class RobertaMultipleSequenceToClass(BaseMultipleSequenceToClass):
+class LongformerMultipleSequenceToClass(BaseMultipleSequenceToClass):
 
-    def __init__(self, cachedir, embedding, hidden_size=None, num_of_classes=3):
+    def __init__(self, cachedir, hidden_size=None, num_of_classes=3):
         """Creates a model instance that maps from a sequence pair to a class
 
         Args:
@@ -25,11 +25,11 @@ class RobertaMultipleSequenceToClass(BaseMultipleSequenceToClass):
         super().__init__(num_of_classes=num_of_classes)
 
         self.config = transformers.RobertaConfig.from_pretrained(
-            "roberta-base",
+            "allenai/longformer-base-4096",
             cache_dir=f'{cachedir}/huggingface/transformers')
         self.config.num_labels = num_of_classes
         self.model = transformers.RobertaForSequenceClassification.from_pretrained(
-            'roberta-base',
+            "allenai/longformer-base-4096",
             cache_dir=f'{cachedir}/huggingface/transformers',
             config=self.config)
         self.embedding = self.model.roberta.embeddings.word_embeddings
@@ -42,6 +42,8 @@ class RobertaMultipleSequenceToClass(BaseMultipleSequenceToClass):
         pass
 
     def forward(self, batch: SequenceBatch, embedding_scale: Optional[torch.Tensor]=None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        # TODO:
+
         embedding = self.embedding(batch.sentence_pair)
         embedding.requires_grad_()
 
@@ -49,21 +51,23 @@ class RobertaMultipleSequenceToClass(BaseMultipleSequenceToClass):
         if embedding_scale is None:
             inputs_embeds = embedding
         else:
-            embedding_scale_type = torch.where(
-                batch.sentence_type >= 1,
-                torch.ones_like(batch.sentence_type, dtype=torch.float32),
-                torch.full_like(batch.sentence_type, embedding_scale, dtype=torch.float32))
-            inputs_embeds = embedding * torch.unsqueeze(embedding_scale_type, -1)
+            inputs_embeds = torch.where(batch.sentence_pair_type, embedding, embedding * embedding_scale)
 
         # RobertaTokenizerFast.from_pretrained("roberta-base").pad_token_id == 1
         attention_mask = (batch.sentence_pair != self.config.pad_token_id).type(batch.sentence.dtype)
+        global_attention_mask = (batch.sentence_pair == self.config.cls_token_id).type(batch.sentence.dtype)
 
         predict = self.model.forward(
             attention_mask=attention_mask,
+            global_attention_mask=global_attention_mask,
             inputs_embeds=inputs_embeds
         ).logits
 
-        return predict, None, embedding
+        # The ROAR procedure only needs the embeddings from the first sentence, and expect
+        # the shape to match batch.sentence. Note, that the ROAR procedure will also mask
+        # with batch.sentence_mask which will mask the second sentence.
+        embedding_main = embedding[:, 0:batch.sentence.size(1)]
+        return predict, None, embedding_main
 
     def configure_optimizers(self):
         '''

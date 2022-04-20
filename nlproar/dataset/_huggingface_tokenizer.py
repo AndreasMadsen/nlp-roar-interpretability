@@ -2,10 +2,10 @@
 import torch
 from transformers import AutoTokenizer
 
-class RobertaTokenizer:
-    def __init__(self, cachedir):
+class HuggingfaceTokenizer:
+    def __init__(self, cachedir, model_name):
         self._tokenizer = AutoTokenizer.from_pretrained(
-            'roberta-base',
+            model_name,
             cache_dir=f'{cachedir}/huggingface/tokenizer',
             use_fast=True
         )
@@ -29,7 +29,7 @@ class RobertaTokenizer:
             self.start_token, self.end_token,
             self.mask_token, self.unknown_token
         ]
-        self.masked_tokens = {self.pad_token_id, self.start_token_id, self.end_token_id, self.mask_token_id}
+        self.masked_tokens = {self.pad_token_id, self.start_token_id, self.end_token_id}
 
     def from_file(self, filepath):
         pass
@@ -46,11 +46,11 @@ class RobertaTokenizer:
     def encode(self, sentence):
         return self._tokenizer(sentence, return_attention_mask=False)['input_ids']
 
-    def mask(self, token_ids):
-        return [token_id not in self.masked_tokens for token_id in token_ids]
-
     def decode(self, token_ids):
         return tokenizer.decode(token_ids)
+
+    def mask(self, token_ids):
+        return [token_id not in self.masked_tokens for token_id in token_ids]
 
     def stack_pad(self, observations):
         max_length = max(tokens.shape[0] for tokens in observations)
@@ -69,3 +69,51 @@ class RobertaTokenizer:
             for tokens in observations
         ]
         return torch.stack(padded_observations)
+
+class RobertaTokenizer(HuggingfaceTokenizer):
+    def __init__(self, cachedir):
+        super().__init__(cachedir, 'roberta-base')
+        self.max_sequence_length = 512
+
+    def truncate(self, sequence):
+        if len(sequence) > self.max_sequence_length:
+            sequence = sequence[:self.max_sequence_length - 1] + sequence[-1:]
+        return sequence
+
+    def sentence_pair(self, sentence, sentence_aux):
+        return sentence + sentence_aux[1:]
+
+    def sentence_type(self, sentence, sentence_aux=[0]):
+        return [0] * len(sentence) + [1] * (len(sentence_aux) - 1)
+
+class LongformerTokenizer(HuggingfaceTokenizer):
+    def __init__(self, cachedir):
+        super().__init__(cachedir, 'allenai/longformer-base-4096')
+        self.max_sequence_length = 4096
+
+    def truncate(self, sequence):
+        if len(sequence) > self.max_sequence_length:
+            sequence = sequence[:self.max_sequence_length - 1] + sequence[-1:]
+        return sequence
+
+    def sentence_pair(self, sentence, sentence_aux):
+        return sentence + sentence_aux[1:]
+
+    def sentence_type(self, sentence, sentence_aux=[0]):
+        return [0] * len(sentence) + [1] * (len(sentence_aux) - 1)
+
+class XLNetTokenizer(HuggingfaceTokenizer):
+    def __init__(self, cachedir):
+        super().__init__(cachedir, 'xlnet-base-cased')
+        self.max_sequence_length = 2048 # XLNet runs out of memory above this
+
+    def truncate(self, sequence):
+        if len(sequence) > self.max_sequence_length:
+            sequence = sequence[:self.max_sequence_length - 2] + sequence[-2:]
+        return sequence
+
+    def sentence_pair(self, sentence, sentence_aux):
+        return sentence[:-1] + sentence_aux
+
+    def sentence_type(self, sentence, sentence_aux=[0]):
+        return [0] * (len(sentence) - 1) + [1] * (len(sentence_aux) - 1) + [2]

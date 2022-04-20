@@ -10,6 +10,7 @@ import torchmetrics
 
 from ._total_ce_loss import TotalCrossEntropyLoss
 from ..dataset import SequenceBatch
+from ._base_single_sequence_to_class import BaseSingleSequenceToClass
 
 class _Encoder(nn.Module):
     def __init__(self, embedding, output_size):
@@ -64,7 +65,7 @@ class _Attention(nn.Module):
 
         return context_t, alpha_t
 
-class RNNSingleSequenceToClass(pl.LightningModule):
+class RNNSingleSequenceToClass(BaseSingleSequenceToClass):
     """Implements the Text-Classification task from 'Attention is not Explanation'
 
     The paper's model code is in:
@@ -96,27 +97,10 @@ class RNNSingleSequenceToClass(pl.LightningModule):
             num_of_classes (int, optional): The number of output classes. Defaults to 2.
         """
 
-        super().__init__()
+        super().__init__(num_of_classes=num_of_classes)
         self.encoder = _Encoder(embedding, 2 * hidden_size)
         self.attention = _Attention(2 * hidden_size, hidden_size)
         self.decoder = nn.Linear(2 * hidden_size, num_of_classes)
-        self.ce_loss = nn.CrossEntropyLoss()
-
-        self.val_metric_acc = torchmetrics.Accuracy(compute_on_step=False)
-        self.val_metric_f1 = torchmetrics.F1(num_classes=num_of_classes, average='macro', compute_on_step=False)
-        self.val_metric_ce = TotalCrossEntropyLoss()
-
-        self.test_metric_acc = torchmetrics.Accuracy(compute_on_step=False)
-        self.test_metric_f1 = torchmetrics.F1(num_classes=num_of_classes, average='macro', compute_on_step=False)
-        self.test_metric_ce = TotalCrossEntropyLoss()
-
-        with warnings.catch_warnings():
-            # Ignore this warning:
-            # Metric `AUROC` will save all targets and predictions in buffer.
-            # For large datasets this may lead to large memory footprint.
-            warnings.filterwarnings("ignore", category=UserWarning)
-            self.val_metric_auroc = torchmetrics.AUROC(num_classes=num_of_classes, compute_on_step=False)
-            self.test_metric_auroc = torchmetrics.AUROC(num_classes=num_of_classes, compute_on_step=False)
 
     @property
     def embedding_matrix(self):
@@ -131,50 +115,6 @@ class RNNSingleSequenceToClass(pl.LightningModule):
         h2, alpha = self.attention(h1, batch.mask)
         h3 = self.decoder(h2)
         return h3, alpha, embedding
-
-    def training_step(self, batch: SequenceBatch, batch_idx):
-        y, _, _ = self.forward(batch)
-        train_loss = self.ce_loss(y, batch.label)
-        self.log('loss_train', train_loss, on_step=True)
-        return train_loss
-
-    def validation_step(self, batch: SequenceBatch, batch_nb):
-        y, _, _ = self.forward(batch)
-        predict_label = torch.argmax(y, dim=1)
-        predict_prop = F.softmax(y, dim=1)
-        self.val_metric_acc.update(predict_label, batch.label)
-        self.val_metric_auroc.update(predict_prop, batch.label)
-        self.val_metric_f1.update(predict_label, batch.label)
-        self.val_metric_ce.update(y, batch.label)
-
-    def test_step(self, batch: SequenceBatch, batch_nb):
-        y, _, _ = self.forward(batch)
-        predict_label = torch.argmax(y, dim=1)
-        predict_prop = F.softmax(y, dim=1)
-        self.test_metric_acc.update(predict_label, batch.label)
-        self.test_metric_auroc.update(predict_prop, batch.label)
-        self.test_metric_f1.update(predict_label, batch.label)
-        self.test_metric_ce.update(y, batch.label)
-
-    def validation_epoch_end(self, outputs):
-        self.log('acc_val', self.val_metric_acc.compute(), on_epoch=True)
-        self.log('auroc_val', self.val_metric_auroc.compute(), on_epoch=True, prog_bar=True)
-        self.log('f1_val', self.val_metric_f1.compute(), on_epoch=True, prog_bar=True)
-        self.log('ce_val', self.val_metric_ce.compute(), on_epoch=True)
-        self.val_metric_acc.reset()
-        self.val_metric_auroc.reset()
-        self.val_metric_f1.reset()
-        self.val_metric_ce.reset()
-
-    def test_epoch_end(self, outputs):
-        self.log('acc_test', self.test_metric_acc.compute(), on_epoch=True)
-        self.log('auroc_test', self.test_metric_auroc.compute(), on_epoch=True, prog_bar=True)
-        self.log('f1_test', self.test_metric_f1.compute(), on_epoch=True, prog_bar=True)
-        self.log('ce_test', self.test_metric_ce.compute(), on_epoch=True)
-        self.test_metric_acc.reset()
-        self.test_metric_auroc.reset()
-        self.test_metric_f1.reset()
-        self.test_metric_ce.reset()
 
     def configure_optimizers(self):
         return torch.optim.Adam([

@@ -4,3 +4,11 @@ from .rnn_single_sequence_to_class import RNNSingleSequenceToClass
 
 from .roberta_single_sequence_to_class import RobertaSingleSequenceToClass
 from .roberta_multiple_sequence_to_class import RobertaMultipleSequenceToClass
+
+from .longformer_single_sequence_to_class import LongformerSingleSequenceToClass
+from .longformer_multiple_sequence_to_class import LongformerMultipleSequenceToClass
+
+from .xlnet_single_sequence_to_class import XLNetSingleSequenceToClass
+from .xlnet_multiple_sequence_to_class import XLNetMultipleSequenceToClass
+
+from .select import select_single_sequence_to_class, select_multiple_sequence_to_class

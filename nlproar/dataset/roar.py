@@ -173,9 +173,7 @@ class ROARDataset(Dataset):
             self._read_from_cache = True
 
     def _pickle_data_to_torch_data(self, data):
-        return [{
-            key: torch.tensor(val, dtype=lookup_dtype[key]) for key, val in x.items()
-        } for x in data]
+        return self._base_dataset._pickle_data_to_torch_data(data)
 
     def setup(self, stage=None):
         with open(f'{self._cachedir}/encoded-roar/{self._basename}.pkl', 'rb') as fp:

@@ -13,7 +13,7 @@ import numpy as np
 import spacy
 import torchtext
 
-from ._roberta_tokenizer import RobertaTokenizer
+from ._choose_tokenizer import choose_tokenizer
 from ._vocab_tokenizer import VocabTokenizer
 from ._paired_sequence_dataset import PairedSequenceDataset
 
@@ -60,7 +60,7 @@ class SNLIDataset(PairedSequenceDataset):
             batch_size (int, optional): The batch size used in the data loader. Defaults to 32.
             num_workers (int, optional): The number of pytorch workers in the data loader. Defaults to 4.
         """
-        tokenizer = RobertaTokenizer(cachedir) if model_type == 'roberta' else SNLITokenizer()
+        tokenizer = choose_tokenizer(cachedir, model_type, SNLITokenizer)
         super().__init__(cachedir, 'snli', model_type, tokenizer, batch_size=batch_size, **kwargs)
         self.label_names = ['entailment', 'contradiction', 'neutral']
 
@@ -70,6 +70,9 @@ class SNLIDataset(PairedSequenceDataset):
         Returns:
             np.array: shape = (vocabulary, 300)
         """
+        if self.model_type != 'rnn':
+            return None
+
         lookup = torchtext.vocab.pretrained_aliases['glove.840B.300d'](
             cache=f'{self._cachedir}/embeddings')
 
@@ -99,30 +102,37 @@ class SNLIDataset(PairedSequenceDataset):
             return
 
         # Download and parse data
-        dataset = {}
-        data_url = 'https://nlp.stanford.edu/projects/snli/snli_1.0.zip'
-        zf = ZipFile(BytesIO(requests.get(data_url).content))
+        if not path.exists(f'{self._cachedir}/datasets/snli/snli_1.0.zip'):
+            with open(f'{self._cachedir}/datasets/snli/snli_1.0.zip', 'wb') as fp:
+                download_url = 'https://nlp.stanford.edu/projects/snli/snli_1.0.zip'
+                fp.write(requests.get(download_url).content)
 
+        dataset = {}
         # Change in data statistics on removing "no label"
         # Train - 550,152 -> 549367
         # Valid - 10,000 -> 9842
         # Test - 10,000 -> 9824
-        for zipfile_name in ['train', 'dev', 'test']:
-            dataset[zipfile_name] = []
 
-            for line in zf.open(f'snli_1.0/snli_1.0_{zipfile_name}.jsonl'):
-                observation = json.loads(line)
-                if observation['gold_label'] == '-':
-                    continue
+        with open(f'{self._cachedir}/datasets/snli/snli_1.0.zip', 'rb') as fp:
+            zf = ZipFile(fp)
 
-                dataset[zipfile_name].append({
-                    'premise': observation['sentence1'],
-                    'hypothesis': observation['sentence2'],
-                    'label': observation['gold_label']
-                })
+            for zipfile_name in ['train', 'dev', 'test']:
+                dataset[zipfile_name] = []
+
+                for line in zf.open(f'snli_1.0/snli_1.0_{zipfile_name}.jsonl'):
+                    observation = json.loads(line)
+                    if observation['gold_label'] == '-':
+                        continue
+
+                    dataset[zipfile_name].append({
+                        'premise': observation['sentence1'],
+                        'hypothesis': observation['sentence2'],
+                        'label': observation['gold_label']
+                    })
 
         # Create vocabulary from training data, if it hasn't already been done
         if not path.exists(f'{self._cachedir}/vocab/snli.vocab'):
+            print('building vocab')
             os.makedirs(f'{self._cachedir}/vocab', exist_ok=True)
 
             self.tokenizer.from_iterable(chain.from_iterable(

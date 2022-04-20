@@ -7,13 +7,11 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader
-from ._roberta_tokenizer import RobertaTokenizer
-from ._vocab_tokenizer import VocabTokenizer
 
 class SequenceBatch(namedtuple('SequenceBatch', [
     'sentence', 'length', 'mask',
     'sentence_aux', 'sentence_aux_length', 'sentence_aux_mask',
-    'sentence_pair', 'sentence_pair_type',
+    'sentence_pair', 'sentence_type',
     'label', 'index'
 ])):
     def cuda(self):

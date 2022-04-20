@@ -36,9 +36,9 @@ sync-cedar-mimic:
 	rsync --info=progress2 -urltv \
 		-e ssh ./mimic/ cc-cedar:~/scratch/nlproar/mimic
 
-download-cedar-results:
-	rsync --info=progress2 -urltv \
-		-e ssh cc-cedar:~/scratch/nlproar/results/ ./results
+download-narval-results-roar:
+	rsync --info=progress2 -urltv --delete \
+		-e ssh cc-narval:~/scratch/nlproar/results/roar/ ./results/roar
 
 schedule-base:
 	bash batch_jobs/babi.sh

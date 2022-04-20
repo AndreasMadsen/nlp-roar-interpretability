@@ -12,7 +12,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from gensim.models import Word2Vec, KeyedVectors
 
-from ._roberta_tokenizer import RobertaTokenizer
+from ._choose_tokenizer import choose_tokenizer
 from ._vocab_tokenizer import VocabTokenizer
 from ._single_sequence_dataset import SingleSequenceDataset
 
@@ -60,7 +60,7 @@ class MimicDataset(SingleSequenceDataset):
         if subset not in ['diabetes', 'anemia']:
             raise ValueError('subset must be either "diabetes" or "anemia"')
 
-        tokenizer = RobertaTokenizer(cachedir) if model_type == 'roberta' else MimicTokenizer()
+        tokenizer = choose_tokenizer(cachedir, model_type, MimicTokenizer)
         super().__init__(cachedir, f'mimic-{subset[0]}', model_type, tokenizer, batch_size=batch_size, **kwargs)
         self._mimicdir = path.realpath(mimicdir)
         self._subset = subset
@@ -72,6 +72,9 @@ class MimicDataset(SingleSequenceDataset):
         Returns:
             np.array: shape = (vocabulary, 300)
         """
+        if self.model_type != 'rnn':
+            return None
+
         lookup = KeyedVectors.load(f'{self._cachedir}/embeddings/mimic.wv')
 
         embeddings = []
@@ -94,8 +97,8 @@ class MimicDataset(SingleSequenceDataset):
         if (path.exists(f'{self._cachedir}/embeddings/mimic.wv') and
             path.exists(f'{self._cachedir}/vocab/mimic-a.vocab') and
             path.exists(f'{self._cachedir}/vocab/mimic-d.vocab') and
-            path.exists(f'{self._cachedir}/encoded/mimic-a.pkl') and
-            path.exists(f'{self._cachedir}/encoded/mimic-d.pkl')):
+            path.exists(f'{self._cachedir}/encoded/mimic-a_{self.model_type}.pkl') and
+            path.exists(f'{self._cachedir}/encoded/mimic-d_{self.model_type}.pkl')):
             self.tokenizer.from_file(f'{self._cachedir}/vocab/{self.name}.vocab')
             return
 
@@ -184,7 +187,7 @@ class MimicDataset(SingleSequenceDataset):
 
             # Build vocabulary
             os.makedirs(f'{self._cachedir}/vocab', exist_ok=True)
-            tokenizer_anemia = MimicTokenizer()
+            tokenizer_anemia = choose_tokenizer(self._cachedir, self.model_type, MimicTokenizer)
             tokenizer_anemia.from_iterable(df_anemia.iloc[train_idx, :].loc[:, 'TEXT'])
             tokenizer_anemia.to_file(f'{self._cachedir}/vocab/mimic-a.vocab')
 
@@ -232,7 +235,7 @@ class MimicDataset(SingleSequenceDataset):
 
             # Build vocabulary
             os.makedirs(f'{self._cachedir}/vocab', exist_ok=True)
-            tokenizer_diabetes = MimicTokenizer()
+            tokenizer_diabetes = choose_tokenizer(self._cachedir, self.model_type, MimicTokenizer)
             tokenizer_diabetes.from_iterable(df_diabetes.loc[df_diabetes['HADM_ID'].isin(hadm_ids['train']), 'TEXT'])
             tokenizer_diabetes.to_file(f'{self._cachedir}/vocab/mimic-d.vocab')
 

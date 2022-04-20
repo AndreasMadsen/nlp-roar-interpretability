@@ -11,7 +11,7 @@ import torch
 import spacy
 import numpy as np
 
-from ._roberta_tokenizer import RobertaTokenizer
+from ._choose_tokenizer import choose_tokenizer
 from ._vocab_tokenizer import VocabTokenizer
 from ._single_sequence_dataset import SingleSequenceDataset
 
@@ -62,7 +62,7 @@ class SSTDataset(SingleSequenceDataset):
             batch_size (int, optional): The batch size used in the data loader. Defaults to 32.
             num_workers (int, optional): The number of pytorch workers in the data loader. Defaults to 4.
         """
-        tokenizer = RobertaTokenizer(cachedir) if model_type == 'roberta' else SSTTokenizer()
+        tokenizer = choose_tokenizer(cachedir, model_type, SSTTokenizer)
         super().__init__(cachedir, 'sst', model_type, tokenizer, **kwargs)
         self.label_names = ['negative', 'positive']
 
@@ -72,6 +72,9 @@ class SSTDataset(SingleSequenceDataset):
         Returns:
             np.array: shape = (vocabulary, 300)
         """
+        if self.model_type != 'rnn':
+            return None
+
         lookup = torchtext.vocab.pretrained_aliases['fasttext.simple.300d'](cache=f'{self._cachedir}/embeddings')
 
         embeddings = []

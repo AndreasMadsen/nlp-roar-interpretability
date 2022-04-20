@@ -9,7 +9,7 @@ import numpy as np
 import torchtext
 from sklearn.model_selection import train_test_split
 
-from ._roberta_tokenizer import RobertaTokenizer
+from ._choose_tokenizer import choose_tokenizer
 from ._vocab_tokenizer import VocabTokenizer
 from ._single_sequence_dataset import SingleSequenceDataset
 
@@ -34,7 +34,7 @@ class IMDBDataset(SingleSequenceDataset):
             batch_size (int, optional): The batch size used in the data loader. Defaults to 32.
             num_workers (int, optional): The number of pytorch workers in the data loader. Defaults to 4.
         """
-        tokenizer = RobertaTokenizer(cachedir) if model_type == 'roberta' else IMDBTokenizer()
+        tokenizer = choose_tokenizer(cachedir, model_type, IMDBTokenizer)
         super().__init__(cachedir, 'imdb', model_type, tokenizer, batch_size=batch_size, **kwargs)
         self.label_names = ['negative', 'positive']
 
@@ -44,6 +44,9 @@ class IMDBDataset(SingleSequenceDataset):
         Returns:
             np.array: shape = (vocabulary, 300)
         """
+        if self.model_type != 'rnn':
+            return None
+
         lookup = torchtext.vocab.pretrained_aliases['fasttext.simple.300d'](
             cache=f'{self._cachedir}/embeddings')
 

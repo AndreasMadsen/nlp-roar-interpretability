@@ -19,9 +19,11 @@ python -m pip install --no-index 'chardet<4.0,>=2.0' 'click<7.2.0,>=7.1.1'
 # Install nlproar
 # Copy the module files to localscratch to avoid conflicts when building the .egg-link
 cd $HOME/workspace/nlproar
-python -m pip install --no-index -e .
+python -m pip install --no-index --find-links $HOME/python_wheels -e .
 
 # Enable offline model
 export HF_DATASETS_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export NO_GCE_CHECK=true
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+

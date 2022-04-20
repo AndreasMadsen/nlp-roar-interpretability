@@ -7,4 +7,4 @@
 #SBATCH --mem=10G
 #SBATCH --time=24:00:00
 
-tar -mxvf $SCRATCH/comp550.tar.gz -C /
+tar -mxvf $SCRATCH/nlproar.tar.gz -C /

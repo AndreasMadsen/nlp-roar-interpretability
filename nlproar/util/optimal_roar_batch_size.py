@@ -1,5 +1,5 @@
 
-def optimal_roar_batch_size(dataset_name, importance_measure_name, use_gpu):
+def optimal_roar_batch_size(dataset_name, model_type, importance_measure_name, use_gpu):
     """ Utility function for batch-size used in computing importance measures
 
     Because the MIMIC datasets are very large, the gradient importance measure
@@ -15,7 +15,15 @@ def optimal_roar_batch_size(dataset_name, importance_measure_name, use_gpu):
     Returns:
         int, the batch size
     """
+    if model_type == 'roberta':
+        if importance_measure_name == 'gradient':
+            return 8
+        return 48
+
     if dataset_name in ['mimic-a', 'mimic-d']:
-        return 8 if importance_measure_name == 'gradient' or not use_gpu else 64
+        if importance_measure_name == 'gradient':
+            return 8
+
+        return 64
     else:
-        return None if not use_gpu else 256
+        return 256

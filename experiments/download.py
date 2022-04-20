@@ -2,7 +2,7 @@ import argparse
 import os.path as path
 
 from nlproar.dataset import MimicDataset, SNLIDataset, SSTDataset, IMDBDataset, BabiDataset
-from nlproar.model import RNNSingleSequenceToClass, RobertaSingleSequenceToClass
+from nlproar.model import select_single_sequence_to_class, select_multiple_sequence_to_class
 
 thisdir = path.dirname(path.realpath(__file__))
 parser = argparse.ArgumentParser()
@@ -16,8 +16,13 @@ if __name__ == "__main__":
     print('Starting ...')
     args = parser.parse_args()
 
+    # download models
+    for model_type in ['roberta', 'longformer', 'xlnet']:
+        SingleSequenceToClass = select_single_sequence_to_class(model_type)
+        model = SingleSequenceToClass(f'{args.persistent_dir}/cache', None)
+
     # download and prepear datasets
-    for model_type in ['rnn', 'roberta']:
+    for model_type in ['rnn', 'roberta', 'longformer', 'xlnet']:
         print('Mimic ...')
         mimic = MimicDataset(cachedir=f'{args.persistent_dir}/cache', mimicdir=f'{args.persistent_dir}/mimic', model_type=model_type)
         mimic.prepare_data()
@@ -38,9 +43,5 @@ if __name__ == "__main__":
         for i in range(1, 4):
             babi = BabiDataset(cachedir=f'{args.persistent_dir}/cache', model_type=model_type, task=i)
             babi.prepare_data()
-
-    # download models
-    rnn = RNNSingleSequenceToClass(f'{args.persistent_dir}/cache', sst.embedding())
-    roberta = RobertaSingleSequenceToClass(f'{args.persistent_dir}/cache')
 
     print("Download complete!")
