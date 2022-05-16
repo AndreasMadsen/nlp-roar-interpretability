@@ -95,7 +95,7 @@ if __name__ == "__main__":
     if args.max_epochs is None:
         args.max_epochs = ({ 'rnn': 8, 'roberta': 3, 'longformer': 3, 'xlnet': 3 })[args.model_type]
     if args.batch_size is None:
-        args.batch_size = ({ 'rnn': 32, 'roberta': 8, 'longformer': 8, 'xlnet': 8 })[args.model_type]
+        args.batch_size = ({ 'rnn': 32, 'roberta': 16, 'longformer': 8, 'xlnet': 8 })[args.model_type]
 
     torch.set_num_threads(max(1, args.num_workers))
     pl.seed_everything(args.seed, workers=True)

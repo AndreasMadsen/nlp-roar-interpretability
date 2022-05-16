@@ -95,7 +95,7 @@ if __name__ == "__main__":
     if args.max_epochs is None:
         args.max_epochs = ({ 'rnn': 25, 'roberta': 3, 'longformer': 3, 'xlnet': 3 })[args.model_type]
     if args.batch_size is None:
-        args.batch_size = ({ 'rnn': 128, 'roberta': 8, 'longformer': 8, 'xlnet': 8 })[args.model_type]
+        args.batch_size = ({ 'rnn': 128, 'roberta': 16, 'longformer': 8, 'xlnet': 8 })[args.model_type]
 
     torch.set_num_threads(max(1, args.num_workers))
     seed_everything(args.seed, workers=True)
@@ -200,6 +200,8 @@ if __name__ == "__main__":
 
     os.makedirs(f'{args.persistent_dir}/results/roar', exist_ok=True)
     with open(f'{args.persistent_dir}/results/roar/{experiment_id}.json', "w") as f:
-        json.dump({"seed": args.seed, "dataset": main_dataset.name, "strategy": args.roar_strategy,
-                   "k": args.k, "recursive": args.recursive, "importance_measure": args.importance_measure,
+        json.dump({"seed": args.seed,
+                   "dataset": main_dataset.name, "model_type": main_dataset.model_type,
+                   "strategy": args.roar_strategy, "k": args.k, "recursive": args.recursive,
+                   "importance_measure": args.importance_measure,
                    **results}, f)

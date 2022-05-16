@@ -107,7 +107,7 @@ if __name__ == "__main__":
     if args.acc_batches is None:
         args.acc_batches = ({ 'rnn': 1, 'roberta': 1, 'longformer': 8, 'xlnet': 8 })[args.model_type]
     if args.batch_size is None:
-        args.batch_size = ({ 'rnn': 32, 'roberta': 8, 'longformer': 1, 'xlnet': 1 })[args.model_type]
+        args.batch_size = ({ 'rnn': 32, 'roberta': 16, 'longformer': 1, 'xlnet': 1 })[args.model_type]
 
     torch.set_num_threads(max(1, args.num_workers))
     pl.seed_everything(args.seed, workers=True)
@@ -216,5 +216,5 @@ if __name__ == "__main__":
         json.dump({"seed": args.seed,
                    "dataset": main_dataset.name, "model_type": main_dataset.model_type,
                    "strategy": args.roar_strategy, "k": args.k, "recursive": args.recursive,
-                   "k": args.k, "recursive": args.recursive, "importance_measure": args.importance_measure,
+                   "importance_measure": args.importance_measure,
                    **results}, f)
