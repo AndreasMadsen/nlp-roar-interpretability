@@ -1,16 +1,6 @@
 # NLP ROAR Interpretability
 
-**Official code for: [Evaluating the Faithfulness of Importance Measures in NLP by Recursively Masking Allegedly Important Tokens and Retraining](https://arxiv.org/abs/2110.08412)**
-
-![Plot of ROAR and Recursive ROAR faithfulness curves](roarplot.png)
-
-## Install
-
-```bash
-git clone https://github.com/AndreasMadsen/nlp-roar-interpretability.git
-cd nlp-roar-interpretability
-python -m pip install -e .
-```
+**Official code for: Evaluating the Faithfulness of Importance Measures in NLP by Recursively Masking Allegedly Important Tokens and Retraining**
 
 ## Experiments
 
@@ -47,13 +37,7 @@ Note, for `--k` > 0, the reference model must already be trained. For example, i
 
 ## Running on a HPC setup
 
-For downloading dataset dependencies we provide a `download.sh` script.
-
-Additionally, we provide script for submitting all jobs to a Slurm
-queue, in `batch_jobs/`. Note again, that the ROAR script assume
-there are checkpoints for the baseline `--k 0` models.
-
-The jobs automatically use `$SCRATCH/nlproar` as the presistent dir.
+_To ensure anonymity, these instructions are not included in the peer-review edition._
 
 ## MIMIC
 
