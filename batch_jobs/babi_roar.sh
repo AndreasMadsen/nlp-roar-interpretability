@@ -12,9 +12,9 @@ seeds="0 1 2 3 4"
 declare -A pre_time=( ["rnn 1 random"]="0:15:0"     ["rnn 1 mutual-information"]="0:15:0"     ["rnn 1 attention"]="0:15:0"     ["rnn 1 gradient"]="0:15:0"     ["rnn 1 integrated-gradient"]="0:15:0"     ["rnn 1 times-input-gradient"]="0:15:0"
                       ["rnn 2 random"]="0:15:0"     ["rnn 2 mutual-information"]="0:15:0"     ["rnn 2 attention"]="0:15:0"     ["rnn 2 gradient"]="0:15:0"     ["rnn 2 integrated-gradient"]="0:15:0"     ["rnn 2 times-input-gradient"]="0:15:0"
                       ["rnn 3 random"]="0:15:0"     ["rnn 3 mutual-information"]="0:15:0"     ["rnn 3 attention"]="0:15:0"     ["rnn 3 gradient"]="0:15:0"     ["rnn 3 integrated-gradient"]="0:20:0"     ["rnn 3 times-input-gradient"]="0:20:0"
-                      ["roberta 1 random"]="0:20:0" ["roberta 1 mutual-information"]="0:??:0"                                  ["roberta 1 gradient"]="0:??:0" ["roberta 1 integrated-gradient"]="0:??:0" ["roberta 1 times-input-gradient"]="0:??:0"
-                      ["roberta 2 random"]="0:20:0" ["roberta 2 mutual-information"]="0:??:0"                                  ["roberta 2 gradient"]="0:??:0" ["roberta 2 integrated-gradient"]="0:??:0" ["roberta 2 times-input-gradient"]="0:??:0"
-                      ["roberta 3 random"]="0:20:0" ["roberta 3 mutual-information"]="0:??:0"                                  ["roberta 3 gradient"]="0:??:0" ["roberta 3 integrated-gradient"]="0:??:0" ["roberta 3 times-input-gradient"]="0:??:0" )
+                      ["roberta 1 random"]="0:20:0" ["roberta 1 mutual-information"]="0:??:0"                                  ["roberta 1 gradient"]="0:20:0" ["roberta 1 integrated-gradient"]="0:20:0" ["roberta 1 times-input-gradient"]="0:30:0"
+                      ["roberta 2 random"]="0:20:0" ["roberta 2 mutual-information"]="0:??:0"                                  ["roberta 2 gradient"]="0:25:0" ["roberta 2 integrated-gradient"]="1:25:0" ["roberta 2 times-input-gradient"]="0:30:0"
+                      ["roberta 3 random"]="0:20:0" ["roberta 3 mutual-information"]="0:??:0"                                  ["roberta 3 gradient"]="0:35:0" ["roberta 3 integrated-gradient"]="1:45:0" ["roberta 3 times-input-gradient"]="0:30:0" )
 
 # Actual   roar_time=( ["rnn 1"]="0:08:0"     ["rnn 2"]="0:12:0"     ["rnn 3"]="0:24:0"
 #                      ["roberta 1"]="0:04:0" ["roberta 2"]="0:06:0" ["roberta 3"]="0:11:0" )
@@ -27,7 +27,7 @@ do
     do
         for importance_measure in 'random' 'attention' 'gradient' 'integrated-gradient' 'times-input-gradient'
         do
-            if [ "$model_type" == "roberta" ] && [ "$importance_measure" != 'random' ]; then
+            if [ "$model_type" == "roberta" ] && [ "$importance_measure" == 'attention' ]; then
                 continue
             fi
 
@@ -36,7 +36,7 @@ do
             dependency=''
 
             if precompute_jobid=$(
-                submit_seeds ${pre_time[$model_type $type $importance_measure]} "$seeds" "importance_measure/babi-${type}_${model_type}-pre_s-%s_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
+                submit_seeds "${pre_time[$model_type $type $importance_measure]}" "$seeds" "importance_measure/babi-${type}_${model_type}-pre_s-%s_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
                     --parsable \
                     $(job_script gpu) \
                     experiments/compute_importance_measure.py \
@@ -56,7 +56,7 @@ do
 
             for k in {1..10}
             do
-                if [ "$model_type" == "roberta" ]; then
+                if [ "$importance_measure" != 'random' ]; then
                     continue
                 fi
 

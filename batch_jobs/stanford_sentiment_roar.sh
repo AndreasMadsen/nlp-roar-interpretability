@@ -4,18 +4,18 @@ source "batch_jobs/_job_script.sh"
 seeds="0 1 2 3 4"
 
 # Actual   pre_time=( ["rnn random"]="0:02:0"     ["rnn mutual-information"]="0:04:0"     ["rnn attention"]="0:02:0"     ["rnn gradient"]="0:02:0"     ["rnn integrated-gradient"]="0:02:0"     ["rnn times-input-gradient"]="0:??:0" )
-#                     ["roberta random"]="0:??:0" ["roberta mutual-information"]="0:??:0"                                ["roberta gradient"]="0:??:0" ["roberta integrated-gradient"]="0:??:0" ["roberta times-input-gradient"]="0:??:0" )
+#                     ["roberta random"]="0:02:0" ["roberta mutual-information"]="0:??:0"                                ["roberta gradient"]="0:??:0" ["roberta integrated-gradient"]="0:??:0" ["roberta times-input-gradient"]="0:??:0" )
 declare -A pre_time=( ["rnn random"]="0:15:0"     ["rnn mutual-information"]="0:15:0"     ["rnn attention"]="0:15:0"     ["rnn gradient"]="0:15:0"     ["rnn integrated-gradient"]="0:15:0"     ["rnn times-input-gradient"]="0:15:0"
-                      ["roberta random"]="0:40:0" ["roberta mutual-information"]="0:40:0"                                ["roberta gradient"]="0:??:0" ["roberta integrated-gradient"]="0:??:0" ["roberta times-input-gradient"]="0:??:0" )
+                      ["roberta random"]="0:15:0" ["roberta mutual-information"]="0:??:0"                                ["roberta gradient"]="0:15:0" ["roberta integrated-gradient"]="0:20:0" ["roberta times-input-gradient"]="0:30:0" )
 
-# Actual time:         ["rnn"]="0:02:0" ["roberta"]="0:05:0"
+# Actual time:         ["rnn"]="0:02:0" ["roberta"]="0:02:0"
 declare -A roar_time=( ["rnn"]="0:10:0" ["roberta"]="0:15:0" )
 
 for model_type in 'rnn' 'roberta'
 do
     for importance_measure in 'random' 'attention' 'gradient' 'integrated-gradient' 'times-input-gradient'
     do
-        if [ "$model_type" == "roberta" ] && [ "$importance_measure" != 'random' ]; then
+        if [ "$model_type" == "roberta" ] && [ "$importance_measure" == 'attention' ]; then
             continue
         fi
 
@@ -24,7 +24,7 @@ do
         dependency=''
 
         if precompute_jobid=$(
-            submit_seeds ${pre_time[$model_type $importance_measure]} "$seeds" "importance_measure/sst_${model_type}-pre_s-%s_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
+            submit_seeds "${pre_time[$model_type $importance_measure]}" "$seeds" "importance_measure/sst_${model_type}-pre_s-%s_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
                 --parsable \
                 $(job_script gpu) \
                 experiments/compute_importance_measure.py \
@@ -44,7 +44,7 @@ do
 
         for k in {1..10}
         do
-            if [ "$model_type" == "roberta" ]; then
+            if [ "$importance_measure" != 'random' ]; then
                 continue
             fi
 

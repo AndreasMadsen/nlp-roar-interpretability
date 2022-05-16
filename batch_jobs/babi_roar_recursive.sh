@@ -16,68 +16,67 @@ declare -A time=( ["rnn 1 random"]="0:20:0"     ["rnn 1 mutual-information"]="0:
                   ["roberta 2 random"]="0:??:0" ["roberta 2 mutual-information"]="0:??:0"                                  ["roberta 2 gradient"]="0:25:0" ["roberta 2 integrated-gradient"]="1:25:0" ["roberta 2 times-input-gradient"]="0:30:0"
                   ["roberta 3 random"]="0:??:0" ["roberta 3 mutual-information"]="0:??:0"                                  ["roberta 3 gradient"]="0:35:0" ["roberta 3 integrated-gradient"]="1:45:0" ["roberta 3 times-input-gradient"]="0:30:0" )
 
-for model_type in 'rnn' 'roberta'
+for seed in $(echo "$seeds")
 do
-    for type in 1 2 3
+    for model_type in 'rnn' 'roberta'
     do
-        for importance_measure in 'attention' 'gradient' 'integrated-gradient' 'times-input-gradient'
+        for type in 1 2 3
         do
-            if [ "$model_type" == "roberta" ] && [ "$importance_measure" == 'attention' ]; then
-                continue
-            fi
-
-            riemann_samples=$([ "$importance_measure" == integrated-gradient ] && echo 50 || echo 0)
-
-            dependency=''
-
-            for k in {1..10}
+            for importance_measure in 'attention' 'gradient' 'integrated-gradient' 'times-input-gradient'
             do
-                if [ "$model_type" == "roberta" ]; then
+                if [ "$model_type" == "roberta" ] && [ "$importance_measure" == 'attention' ]; then
                     continue
                 fi
 
-                if last_jobid=$(
-                    submit_seeds "${time[$model_type $type $importance_measure]}" "$seeds" "roar/babi-${type}_${model_type}_s-%s_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" \
-                        --parsable $dependency \
-                        $(job_script gpu) \
-                        experiments/babi.py --recursive \
-                        --model-type "$model_type" \
-                        --k "$k" --recursive-step-size 1 \
-                        --roar-strategy count --importance-measure "$importance_measure" \
-                        --task "$type"
-                ); then
-                    if [ ! "$last_jobid" == "skipping" ]; then
-                        echo "Submitted batch job $last_jobid"
-                        dependency="--dependency=afterok:$last_jobid"
-                    fi
-                else
-                    echo "Could not submit batch job, skipping"
-                    break
-                fi
-            done
+                riemann_samples=$([ "$importance_measure" == integrated-gradient ] && echo 50 || echo 0)
 
-            dependency=''
+                dependency=''
 
-            for k in {10..90..10}
-            do
-                if last_jobid=$(
-                    submit_seeds "${time[$model_type $type $importance_measure]}" "$seeds" "roar/babi-${type}_${model_type}_s-%s_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" \
-                        --parsable $dependency \
-                        $(job_script gpu) \
-                        experiments/babi.py --recursive \
-                        --model-type "$model_type" \
-                        --k "$k" --recursive-step-size 10 \
-                        --roar-strategy quantile --importance-measure "$importance_measure" \
-                        --task "$type"
-                ); then
-                    if [ ! "$last_jobid" == "skipping" ]; then
-                        echo "Submitted batch job $last_jobid"
-                        dependency="--dependency=afterok:$last_jobid"
+                for k in {1..10}
+                do
+                    if last_jobid=$(
+                        submit_seeds "${time[$model_type $type $importance_measure]}" "$seed" "roar/babi-${type}_${model_type}_s-%s_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" \
+                            --parsable $dependency \
+                            $(job_script gpu) \
+                            experiments/babi.py --recursive \
+                            --model-type "$model_type" \
+                            --k "$k" --recursive-step-size 1 \
+                            --roar-strategy count --importance-measure "$importance_measure" \
+                            --task "$type"
+                    ); then
+                        if [ ! "$last_jobid" == "skipping" ]; then
+                            echo "Submitted batch job $last_jobid"
+                            dependency="--dependency=afterok:$last_jobid"
+                        fi
+                    else
+                        echo "Could not submit batch job, skipping"
+                        break
                     fi
-                else
-                    echo "Could not submit batch job, skipping"
-                    break
-                fi
+                done
+
+                dependency=''
+
+                for k in {10..90..10}
+                do
+                    if last_jobid=$(
+                        submit_seeds "${time[$model_type $type $importance_measure]}" "$seed" "roar/babi-${type}_${model_type}_s-%s_k-${k}_y-q_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" \
+                            --parsable $dependency \
+                            $(job_script gpu) \
+                            experiments/babi.py --recursive \
+                            --model-type "$model_type" \
+                            --k "$k" --recursive-step-size 10 \
+                            --roar-strategy quantile --importance-measure "$importance_measure" \
+                            --task "$type"
+                    ); then
+                        if [ ! "$last_jobid" == "skipping" ]; then
+                            echo "Submitted batch job $last_jobid"
+                            dependency="--dependency=afterok:$last_jobid"
+                        fi
+                    else
+                        echo "Could not submit batch job, skipping"
+                        break
+                    fi
+                done
             done
         done
     done

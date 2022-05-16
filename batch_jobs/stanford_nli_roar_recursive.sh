@@ -4,7 +4,7 @@ source "batch_jobs/_job_script.sh"
 seeds="0 1 2 3 4"
 
 # Actual time:    ["rnn random"]="0:51:0"     ["rnn mutual-information"]="0:46:0"     ["rnn attention"]="0:46:0"     ["rnn gradient"]="0:48:0"     ["rnn integrated-gradient"]="1:09:0"     ["rnn times-input-gradient"]="?:??:0"
-#                 ["roberta random"]="0:??:0" ["roberta mutual-information"]="0:??:0"                                ["roberta gradient"]="2:28:0" ["roberta integrated-gradient"]="6:30:0" ["roberta times-input-gradient"]="2:19:0" )
+#                 ["roberta random"]="0:??:0" ["roberta mutual-information"]="0:??:0"                                ["roberta gradient"]="1:28:0" ["roberta integrated-gradient"]="5:41:0" ["roberta times-input-gradient"]="1:10:0" )
 declare -A time=( ["rnn random"]="1:15:0"     ["rnn mutual-information"]="1:15:0"     ["rnn attention"]="1:15:0"     ["rnn gradient"]="1:15:0"     ["rnn integrated-gradient"]="1:30:0"     ["rnn times-input-gradient"]="1:15:0"
                   ["roberta random"]="0:??:0" ["roberta mutual-information"]="0:??:0"                                ["roberta gradient"]="3:00:0" ["roberta integrated-gradient"]="7:30:0" ["roberta times-input-gradient"]="3:00:0" )
 
@@ -24,10 +24,6 @@ do
 
             for k in {1..10}
             do
-                if [ "$model_type" == "roberta" ]; then
-                    continue
-                fi
-
                 if last_jobid=$(
                     submit_seeds "${time[$model_type $importance_measure]}" "$seed" "roar/snli_${model_type}_s-%s_k-${k}_y-c_m-${importance_measure::1}_r-1_rs-${riemann_samples}.json" \
                     --parsable $dependency \

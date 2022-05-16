@@ -6,9 +6,9 @@ seeds="0 1 2 3 4"
 # Actual   pre_time=( ["rnn random"]="0:04:0"     ["rnn mutual-information"]="0:07:0"     ["rnn attention"]="0:05:0" ["rnn gradient"]="0:05:0"     ["rnn integrated-gradient"]="0:27:0"     ["rnn times-input-gradient"]="0:??:0"
 #                     ["roberta random"]="0:05:0" ["roberta mutual-information"]="0:??:0"                            ["roberta gradient"]="0:??:0" ["roberta integrated-gradient"]="0:??:0" ["roberta times-input-gradient"]="0:??:0" )
 declare -A pre_time=( ["rnn random"]="0:15:0"     ["rnn mutual-information"]="0:15:0"     ["rnn attention"]="0:15:0" ["rnn gradient"]="0:15:0"     ["rnn integrated-gradient"]="0:40:0"     ["rnn times-input-gradient"]="0:15:0"
-                      ["roberta random"]="0:15:0" ["roberta mutual-information"]="0:??:0"                            ["roberta gradient"]="0:??:0" ["roberta integrated-gradient"]="0:??:0" ["roberta times-input-gradient"]="0:??:0" )
+                      ["roberta random"]="0:15:0" ["roberta mutual-information"]="0:??:0"                            ["roberta gradient"]="3:00:0" ["roberta integrated-gradient"]="7:30:0" ["roberta times-input-gradient"]="3:00:0" )
 
-# Actual time:         ["rnn"]="0:49:0" ["roberta"]="2:07:0"
+# Actual time:         ["rnn"]="0:49:0" ["roberta"]="1:03:0"
 declare -A roar_time=( ["rnn"]="1:10:0" ["roberta"]="2:45:0" )
 
 for seed in $(echo "$seeds")
@@ -17,7 +17,7 @@ do
     do
         for importance_measure in 'random' 'attention' 'gradient' 'integrated-gradient' 'times-input-gradient'
         do
-            if [ "$model_type" == "roberta" ] && [ "$importance_measure" != 'random' ]; then
+            if [ "$model_type" == "roberta" ] && [ "$importance_measure" == 'attention' ]; then
                 continue
             fi
 
@@ -26,7 +26,7 @@ do
             dependency=''
 
             if precompute_jobid=$(
-                submit_seeds ${pre_time[$model_type $importance_measure]} "$seed" "importance_measure/snli_${model_type}-pre_s-%s_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
+                submit_seeds "${pre_time[$model_type $importance_measure]}" "$seed" "importance_measure/snli_${model_type}-pre_s-%s_m-${importance_measure::1}_rs-${riemann_samples}.csv.gz" \
                     --parsable \
                     $(job_script gpu) \
                     experiments/compute_importance_measure.py \
@@ -46,7 +46,7 @@ do
 
             for k in {1..10}
             do
-                if [ "$model_type" == "roberta" ]; then
+                if [ "$importance_measure" != 'random' ]; then
                     continue
                 fi
 
