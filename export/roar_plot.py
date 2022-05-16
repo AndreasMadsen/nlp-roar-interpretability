@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import scipy
 import plotnine as p9
+from scipy.stats import bootstrap
 
 from nlproar.util import generate_experiment_id
 
@@ -44,7 +45,7 @@ def area_between(topks):
 
             columns.update({
                 f'absolute_area_k-{topk}': total,
-                f'relative_area_k-{topk}': total / max_area
+                f'relative_area_k-{topk}': np.clip(total / max_area, -1, 1)
             })
 
         return pd.Series(columns)
@@ -61,7 +62,7 @@ def format_mean_ci(column_name):
         return ret
     return formatter
 
-def ratio_confint(column_names):
+def ratio_confint_project(column_names):
     """Implementes a ratio-confidence interval
 
     The idea is to project to logits space, then assume a normal distribution,
@@ -71,21 +72,24 @@ def ratio_confint(column_names):
     """
     def agg(partial_df):
         summary = dict()
+        partial_df = partial_df.reset_index()
 
         for column_name in column_names:
-            x = partial_df.loc[:, column_name]
+            x = partial_df.loc[:, column_name].to_numpy()
             logits = scipy.special.logit(x)
             mean = np.mean(logits)
             sem = scipy.stats.sem(logits)
-            lower, upper = scipy.stats.t.interval(0.95, len(x) - 1,
-                                                loc=mean,
-                                                scale=sem)
 
-            lower = scipy.special.expit(lower)
-            mean = scipy.special.expit(mean)
-            upper = scipy.special.expit(upper)
             if np.isnan(sem) or sem == 0:
                 lower, upper = mean, mean
+            else:
+                lower, upper = scipy.stats.t.interval(0.95, len(x) - 1,
+                                                    loc=mean,
+                                                    scale=sem)
+
+            lower = scipy.special.expit(lower)
+            upper = scipy.special.expit(upper)
+            mean = scipy.special.expit(mean)
 
             summary.update({
                 f'{column_name}_lower': lower,
@@ -95,8 +99,39 @@ def ratio_confint(column_names):
             })
 
         return pd.Series(summary)
+    return agg
 
+def ratio_confint(column_names):
+    """Implementes a ratio-confidence interval
 
+    This one uses bootstrapping.
+
+    Method proposed here: https://stats.stackexchange.com/questions/263516
+    """
+    def agg(partial_df):
+        summary = dict()
+        partial_df = partial_df.reset_index()
+
+        for column_name in column_names:
+            x = partial_df.loc[:, column_name].to_numpy()
+            mean = np.mean(x)
+
+            if np.all(x[0] == x):
+                lower = mean
+                upper = mean
+            else:
+                res = bootstrap((x, ), np.mean, confidence_level=0.95, random_state=np.random.default_rng(0))
+                lower = res.confidence_interval.low
+                upper = res.confidence_interval.high
+
+            summary.update({
+                f'{column_name}_lower': lower,
+                f'{column_name}_mean': mean,
+                f'{column_name}_upper': upper,
+                f'{column_name}_n': len(x)
+            })
+
+        return pd.Series(summary)
     return agg
 
 thisdir = path.dirname(path.realpath(__file__))
@@ -115,6 +150,8 @@ parser.add_argument('--stage',
 
 if __name__ == "__main__":
     pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', None)
     args, unknown = parser.parse_known_args()
 
     dataset_mapping = pd.DataFrame([
@@ -128,6 +165,11 @@ if __name__ == "__main__":
         {'dataset': 'babi-3', 'dataset_pretty': 'bAbI-3', 'test_metric': 'acc_test'},
     ])
 
+    model_mapping = pd.DataFrame([
+        {'model_type': 'rnn', 'model_type_pretty': 'BiLSTM-Attention'},
+        {'model_type': 'roberta', 'model_type_pretty': 'RoBERTa'}
+    ])
+
     recursive_mapping = pd.DataFrame([
         {'recursive': True, 'recursive_pretty': 'Recursive'},
         {'recursive': False, 'recursive_pretty': 'Not Recursive'}
@@ -136,9 +178,9 @@ if __name__ == "__main__":
     importance_measure_mapping = pd.DataFrame([
         {'importance_measure': 'attention', 'importance_measure_pretty': 'Attention'},
         {'importance_measure': 'gradient', 'importance_measure_pretty': 'Gradient'},
+        {'importance_measure': 'times-input-gradient', 'importance_measure_pretty': 'Input times Gradient'},
         {'importance_measure': 'integrated-gradient', 'importance_measure_pretty': 'Integrated Gradient'},
-        {'importance_measure': 'random', 'importance_measure_pretty': 'Random'},
-        {'importance_measure': 'mutual-information', 'importance_measure_pretty': 'Mutual Information'}
+        {'importance_measure': 'random', 'importance_measure_pretty': 'Random'}
     ])
 
     if args.stage in ['both', 'preprocess']:
@@ -152,10 +194,10 @@ if __name__ == "__main__":
                     print(f'{file} has a format error')
         df = pd.DataFrame(results)
 
-        # Duplicate k=0 for 'random' to 'attention', 'gradient', 'integrated-gradient'
+        # Duplicate k=0 for 'random' to 'attention', 'gradient', 'integrated-gradient', 'times-input-gradient'
         df_k0 = df.loc[df['k'] == 0]
-        df_k0_dublicates = []
-        for importance_measure in ['random', 'attention', 'gradient', 'integrated-gradient', 'mutual-information']:
+        df_k0_duplicates = []
+        for importance_measure in ['random', 'attention', 'gradient', 'integrated-gradient', 'times-input-gradient']:
             for recursive in [True, False]:
                 for strategy in ['count', 'quantile']:
                     df_k0_duplicates.append(
@@ -167,10 +209,10 @@ if __name__ == "__main__":
                     )
         df = pd.concat([df.loc[df['k'] != 0], *df_k0_duplicates])
 
-        # Duplicate k=100 for 'random' to 'attention', 'gradient', 'integrated-gradient'
+        # Duplicate k=100 for 'random' to 'attention', 'gradient', 'integrated-gradient', 'times-input-gradient'
         df_k100 = df.loc[(df['k'] == 100) & (df['strategy'] == 'quantile')]
-        df_k100_dublicates = []
-        for importance_measure in ['random', 'attention', 'gradient', 'integrated-gradient', 'mutual-information']:
+        df_k100_duplicates = []
+        for importance_measure in ['random', 'attention', 'gradient', 'integrated-gradient', 'times-input-gradient']:
             for recursive in [True, False]:
                 df_k100_duplicates.append(
                     df_k100.copy().assign(
@@ -191,10 +233,22 @@ if __name__ == "__main__":
         ])
 
         # Compute confint and mean for each group
-        df = df.merge(dataset_mapping, on='dataset').drop(['dataset'], axis=1)
-        df = df.merge(recursive_mapping, on='recursive').drop(['recursive'], axis=1)
-        df = df.merge(importance_measure_mapping, on='importance_measure').drop(['importance_measure'], axis=1)
-        df = df.groupby(['seed', 'dataset_pretty', 'strategy', 'k', 'recursive_pretty', 'importance_measure_pretty']).apply(select_test_metric)
+        df = (df.merge(dataset_mapping, on='dataset')
+                .drop(['dataset'], axis=1)
+                .merge(model_mapping, on='model_type')
+                .drop(['model_type'], axis=1)
+                .merge(recursive_mapping, on='recursive')
+                .drop(['recursive'], axis=1)
+                .merge(importance_measure_mapping, on='importance_measure')
+                .drop(['importance_measure'], axis=1)
+                .groupby([
+                    'seed', 'dataset_pretty', 'model_type_pretty',
+                    'strategy', 'k', 'recursive_pretty', 'importance_measure_pretty'
+                ])
+                .apply(select_test_metric)
+        )
+
+        print(df)
 
     if args.stage in ['preprocess']:
         os.makedirs(f'{args.persistent_dir}/pandas', exist_ok=True)
@@ -204,40 +258,33 @@ if __name__ == "__main__":
 
     if args.stage in ['both', 'plot']:
         df_baseline = (df
+            .loc[pd.IndexSlice[:, :, :, :, :, :, ['Random']]]
             .reset_index()
-            .pivot(
-                index=['seed', 'dataset_pretty', 'strategy', 'k', 'recursive_pretty'],
-                columns='importance_measure_pretty',
-                values='metric'
-            )
-            .drop(['Attention', 'Gradient', 'Integrated Gradient', 'Mutual Information'], axis=1)
-            .aggregate(['min'], axis=1) # no-op. The min of just Random. But kept in case someone wants to include mutual-information.
-            .rename(columns={'min': 'baseline'})
+            .drop('importance_measure_pretty', axis=1)
+            .rename(columns={'metric': 'baseline'})
         )
 
         # Generate summary table
         df_latex = (df
-            .merge(df_baseline, left_index=True, right_index=True)
-            .loc[pd.IndexSlice[:, :, 'quantile', :, 'Recursive', ['Attention', 'Gradient', 'Integrated Gradient']]]
-            .groupby(['seed', 'dataset_pretty', 'recursive_pretty', 'importance_measure_pretty'])
-            .apply(area_between([100, 20]))
-            .apply(lambda col: (col + 1) / 2) # Project from [-1, 1] to [0, 1]
-            .groupby(['dataset_pretty', 'recursive_pretty', 'importance_measure_pretty'])
-            .apply(ratio_confint(['absolute_area_k-100', 'relative_area_k-100', 'absolute_area_k-20', 'relative_area_k-20']))
-            .apply(lambda col: (col * 2) - 1) # Project from [0, 1] to [-1, 1]
-            .reset_index(level='recursive_pretty')
-            .drop('recursive_pretty', axis=1)
+            .reset_index()
+            .merge(df_baseline, on=['seed', 'dataset_pretty', 'model_type_pretty', 'strategy', 'k', 'recursive_pretty'], how='left')
+            .set_index([
+                'seed', 'dataset_pretty', 'model_type_pretty',
+                'strategy', 'k', 'recursive_pretty', 'importance_measure_pretty'
+            ])
+            .loc[pd.IndexSlice[:, :, :, 'quantile', :, 'Recursive', ['Attention', 'Gradient', 'Integrated Gradient', 'Input times Gradient']]]
+            .reset_index(level=['strategy', 'recursive_pretty'])
+            .drop(['strategy', 'recursive_pretty'], axis=1)
+            .groupby(['seed', 'dataset_pretty', 'model_type_pretty', 'importance_measure_pretty'])
+            .apply(area_between([100]))
+            .groupby(['dataset_pretty', 'model_type_pretty', 'importance_measure_pretty'])
+            .apply(ratio_confint(['relative_area_k-100']))
             .assign(**{
-                'absolute_faithfulness_k-100': format_mean_ci('absolute_area_k-100'),
-                'relative_faithfulness_k-100': format_mean_ci('relative_area_k-100'),
-                'absolute_faithfulness_k-20': format_mean_ci('absolute_area_k-20'),
-                'relative_faithfulness_k-20': format_mean_ci('relative_area_k-20')
+                'relative_faithfulness_k-100': format_mean_ci('relative_area_k-100')
             })
-            .drop(['absolute_area_k-100_mean', 'absolute_area_k-100_lower', 'absolute_area_k-100_upper', 'absolute_area_k-100_n',
-                   'relative_area_k-100_mean', 'relative_area_k-100_lower', 'relative_area_k-100_upper', 'relative_area_k-100_n',
-                   'absolute_area_k-20_mean', 'absolute_area_k-20_lower', 'absolute_area_k-20_upper', 'absolute_area_k-20_n',
-                   'relative_area_k-20_mean', 'relative_area_k-20_lower', 'relative_area_k-20_upper', 'relative_area_k-20_n'], axis=1)
+            .drop(['relative_area_k-100_mean', 'relative_area_k-100_lower', 'relative_area_k-100_upper', 'relative_area_k-100_n'], axis=1)
         )
+        print(df_latex)
 
         os.makedirs(f"{args.persistent_dir}/tables", exist_ok=True)
         (df_latex
@@ -245,56 +292,87 @@ if __name__ == "__main__":
             .rename(columns={
                 'dataset_pretty': 'Dataset',
                 'importance_measure_pretty': 'Importance Measure',
-                'absolute_faithfulness_k-20': 'Absolute Faithfulness 20\\%',
-                'relative_faithfulness_k-20': 'Relative Faithfulness 20\\%',
-                'absolute_faithfulness_k-100': 'Absolute Faithfulness 100\\%',
-                'relative_faithfulness_k-100': 'Relative Faithfulness 100\\%'
-            })
-            .set_index(['Dataset', 'Importance Measure'])
-        ).to_latex(f'{args.persistent_dir}/tables/faithfulness_metric_full.tex', escape=False, multirow=True)
-
-        (df_latex
-            .reset_index()
-            .drop(['relative_faithfulness_k-20', 'absolute_faithfulness_k-20', 'absolute_faithfulness_k-100'], axis=1)
-            .rename(columns={
-                'dataset_pretty': 'Dataset',
-                'importance_measure_pretty': 'Importance Measure',
                 'relative_faithfulness_k-100': 'Faithfulness'
             })
-            .set_index(['Dataset', 'Importance Measure'])
-        ).to_latex(f'{args.persistent_dir}/tables/faithfulness_metric.tex', escape=False, multirow=True)
+            .pivot(
+                index=['Dataset', 'Importance Measure'],
+                columns='model_type_pretty',
+                values='Faithfulness'
+            )
+        ).style.to_latex(f'{args.persistent_dir}/tables/faithfulness_metric.tex')
 
         # Generate result plots
-        df_plot = df.groupby(['dataset_pretty', 'strategy', 'k', 'recursive_pretty', 'importance_measure_pretty']).apply(ratio_confint(['metric']))
+        df_plot = df.reset_index()
+        df_plot = (df_plot
+            .loc[(df_plot['importance_measure_pretty'] != 'Attention') | (df_plot['model_type_pretty'] == 'BiLSTM-Attention')]
+            .groupby(['dataset_pretty', 'model_type_pretty', 'strategy', 'k', 'recursive_pretty', 'importance_measure_pretty'])
+            .apply(ratio_confint(['metric']))
+        )
 
+        # Generate plot for each strategy
         for strategy in ['count', 'quantile']:
-            experiment_id = generate_experiment_id('roar', strategy=strategy)
+            experiment_id = generate_experiment_id('roar', strategy=strategy, recursive=True)
 
-            # Generate plot
-            p = (p9.ggplot(df_plot.loc[pd.IndexSlice[:, strategy, :, :, :]].reset_index(), p9.aes(x='k'))
+            p = (p9.ggplot(df_plot.loc[pd.IndexSlice[:, :, strategy, :, 'Recursive', :]].reset_index(), p9.aes(x='k'))
+                + p9.geom_ribbon(p9.aes(ymin='metric_lower', ymax='metric_upper', fill='importance_measure_pretty'), alpha=0.35)
+                + p9.geom_line(p9.aes(y='metric_mean', color='importance_measure_pretty'))
+                + p9.geom_point(p9.aes(y='metric_mean', color='importance_measure_pretty', shape='importance_measure_pretty'))
+                + p9.facet_grid('dataset_pretty ~ model_type_pretty', scales='free_y')
+                + p9.labs(y='', color='', shape='')
+                + p9.scale_y_continuous(labels = lambda ticks: [f'{tick:.0%}' for tick in ticks])
+                + p9.scale_color_manual(
+                    values = ['#F8766D', '#A3A500', '#00BF7D', '#00B0F6', '#E76BF3'],
+                    breaks = ['Attention', 'Gradient', 'Input times Gradient', 'Integrated Gradient', 'Random']
+                )
+                + p9.scale_shape_manual(
+                    values = ['o', '^', 's', 'D', 'v'],
+                    breaks = ['Attention', 'Gradient', 'Input times Gradient', 'Integrated Gradient', 'Random']
+                )
+                + p9.guides(fill=False)
+                + p9.theme(plot_margin=0,
+                        legend_box = "vertical", legend_position="bottom",
+                        text=p9.element_text(size=12))
+            )
+
+            if strategy == 'count':
+                p += p9.scale_x_continuous(name='nb. tokens masked', breaks=range(0, 11, 2))
+            elif strategy == 'quantile':
+                p += p9.scale_x_continuous(name='% tokens masked', breaks=range(0, 101, 20))
+
+            # Save plot, the width is the \linewidth of a collumn in the LaTeX document
+            os.makedirs(f'{args.persistent_dir}/plots', exist_ok=True)
+            p.save(f'{args.persistent_dir}/plots/{experiment_id}.pdf', width=6.30045 + 0.2, height=7, units='in')
+            p.save(f'{args.persistent_dir}/plots/{experiment_id}.png', width=6.30045 + 0.2, height=7, units='in')
+
+        # Generate plot for each model
+        for model_type, model_type_pretty in [('rnn', 'BiLSTM-Attention'), ('roberta', 'RoBERTa')]:
+            experiment_id = generate_experiment_id(f'roar_{model_type}', strategy='quantile')
+
+            p = (p9.ggplot(df_plot.loc[pd.IndexSlice[:, model_type_pretty, 'quantile', :, :, :]].reset_index(), p9.aes(x='k'))
                 + p9.geom_ribbon(p9.aes(ymin='metric_lower', ymax='metric_upper', fill='importance_measure_pretty'), alpha=0.35)
                 + p9.geom_line(p9.aes(y='metric_mean', color='importance_measure_pretty'))
                 + p9.geom_point(p9.aes(y='metric_mean', color='importance_measure_pretty', shape='importance_measure_pretty'))
                 + p9.facet_grid('dataset_pretty ~ recursive_pretty', scales='free_y')
                 + p9.labs(y='', color='', shape='')
                 + p9.scale_y_continuous(labels = lambda ticks: [f'{tick:.0%}' for tick in ticks])
+                + p9.scale_x_continuous(name='% tokens masked', breaks=range(0, 101, 20))
                 + p9.scale_color_manual(
                     values = ['#F8766D', '#A3A500', '#00BF7D', '#00B0F6', '#E76BF3'],
-                    breaks = ['Attention', 'Gradient', 'Integrated Gradient', 'Mutual Information', 'Random']
+                    breaks = ['Attention', 'Gradient', 'Input times Gradient', 'Integrated Gradient', 'Random']
+                )
+                + p9.scale_fill_manual(
+                    values = ['#F8766D', '#A3A500', '#00BF7D', '#00B0F6', '#E76BF3'],
+                    breaks = ['Attention', 'Gradient', 'Input times Gradient', 'Integrated Gradient', 'Random']
                 )
                 + p9.scale_shape_manual(
                     values = ['o', '^', 's', 'D', 'v'],
-                    breaks = ['Attention', 'Gradient', 'Integrated Gradient', 'Mutual Information', 'Random']
+                    breaks = ['Attention', 'Gradient', 'Input times Gradient', 'Integrated Gradient', 'Random']
                 )
                 + p9.guides(fill=False)
                 + p9.theme(plot_margin=0,
                         legend_box = "vertical", legend_position="bottom",
-                        text=p9.element_text(size=12)))
-
-            if strategy == 'count':
-                p += p9.scale_x_continuous(name='nb. tokens masked', breaks=range(0, 11, 2))
-            elif strategy == 'quantile':
-                p += p9.scale_x_continuous(name='% tokens masked', breaks=range(0, 101, 20))
+                        text=p9.element_text(size=12))
+            )
 
             # Save plot, the width is the \linewidth of a collumn in the LaTeX document
             os.makedirs(f'{args.persistent_dir}/plots', exist_ok=True)

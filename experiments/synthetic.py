@@ -177,13 +177,13 @@ if __name__ == "__main__":
     for seed in [args.seed]:
         Model = partial(LogisticRegression, seed=seed)
         dataset = Dataset(seed=seed)
-        train = dataset.generate(50000)
-        test = dataset.generate(10000)
+        train = dataset.generate(200000)
+        test = dataset.generate(50000)
         for strategy in [
-            ROAR(train, test, RandomImportance(seed=seed), Model, name='Random'),
+            #ROAR(train, test, RandomImportance(seed=seed), Model, name='Random'),
             ROAR(train, test, WeightImportance(), Model, name='ROAR'),
             RecursiveROAR(train, test, WeightImportance(), Model, name='Recursive ROAR'),
-            ROAR(train, test, BestImportance(), Model, name='Best case'),
+            ROAR(train, test, BestImportance(), Model, name='Truth'),
             ROAR(train, test, WorstImportance(), Model, name='Worst case')
         ]:
             for features_removed, test_acc in enumerate(strategy):
@@ -192,14 +192,16 @@ if __name__ == "__main__":
     df = pd.DataFrame(data)
 
     p = (p9.ggplot(df, p9.aes(x='features_removed', y='test_acc', color='measure', linetype='measure'))
-        + p9.geom_line()
-        + p9.geom_point()
+        + p9.geom_line(size=2)
         + p9.labs(y='Test Accuracy')
         + p9.scale_y_continuous(limits=(0.4, 1), labels = lambda ticks: [f'{tick:.0%}' for tick in ticks])
         + p9.scale_x_continuous(name='Number of features masked', breaks=range(0, 17, 2))
+        + p9.scale_color_manual(
+            values = ['#00BFC4', '#F8766D', '#b2df8a', '#C77CFF']
+        )
         + p9.scale_linetype_manual(
-            values = ['solid', 'solid', 'dashed', 'solid', 'solid'],
-            breaks = ['Random', 'ROAR', 'Recursive ROAR', 'Best case', 'Worst case']
+            values = ['solid', 'solid', (0, (2, 2)), 'solid'],
+            breaks = ['ROAR', 'Recursive ROAR', 'Truth', 'Worst case']
         )
         + p9.guides(linetype=None, color=p9.guide_legend(nrow=2, byrow=True))
         + p9.theme(plot_margin=0,
@@ -211,5 +213,5 @@ if __name__ == "__main__":
 
     # Save plot, the width is the \linewidth of a collumn in the LaTeX document
     os.makedirs(f'{args.persistent_dir}/plots', exist_ok=True)
-    p.save(f'{args.persistent_dir}/plots/synthetic.pdf', width=3.03209, height=3, units='in')
-    p.save(f'{args.persistent_dir}/plots/synthetic.png', width=3.03209, height=3, units='in')
+    p.save(f'{args.persistent_dir}/plots/synthetic.pdf', width=3.03209, height=1.5, units='in')
+    p.save(f'{args.persistent_dir}/plots/synthetic.png', width=3.03209, height=1.5, units='in')
