@@ -2,6 +2,12 @@
 
 **Official code for: Evaluating the Faithfulness of Importance Measures in NLP by Recursively Masking Allegedly Important Tokens and Retraining**
 
+## Install
+
+```
+python -m pip install -e .
+```
+
 ## Experiments
 
 ### Tasks
