@@ -27,6 +27,8 @@ Use this list to identify how to train a model for each task.
 * bABI-2: `python experiments/babi.py --task 2`
 * bABI-3: `python experiments/babi.py --task 3`
 
+In addition to the tasks, the synthetic experiment can created with `python experiments/synthetic.py`.
+
 ### Parameters
 
 Each of the above scripts `stanford_sentiment`, `stanford_nli`, `imdb`,
@@ -39,6 +41,7 @@ will allow you to run the experiments presented in the paper are:
 * `--roar-strategy`: should ROAR masking be done absoloute (`count`) or relative (`quantile`),
 * `--k`: the proportion of tokens in % to mask if `--roar-strategy quantile` is used. The number of tokens if `--roar-strategy count` is used.
 * `--recursive`: indicates that model to use for computing the importance measure has `--k` set to `--k` - `--recursive-step-size` instead of `0` as used in classic ROAR.
+* `--model-type` indicates which models to used. Can be either `rnn` for the BiLSTM-Attention model or `roberta` for the `RoBERTa-base` model.
 
 Note, for `--k` > 0, the reference model must already be trained. For example, in the non-recursive case, this means that a model trained with `--k 0` must already available.
 

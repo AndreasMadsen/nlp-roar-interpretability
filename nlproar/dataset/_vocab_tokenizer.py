@@ -2,7 +2,7 @@ import spacy
 import torch
 from collections import Counter
 
-class Tokenizer:
+class VocabTokenizer:
     def __init__(self, min_df=1):
         self.min_df = min_df
         self.ids_to_token = []
@@ -76,3 +76,15 @@ class Tokenizer:
             for tokens in observations
         ]
         return torch.stack(padded_observations)
+
+    def stack_pad_mask(self, observations):
+        return self.stack_pad(observations)
+
+    def truncate(self, sequence):
+        return sequence
+
+    def sentence_pair(self, sentence, sentence_aux):
+        return sentence[:-1] + sentence_aux
+
+    def sentence_type(self, sentence, sentence_aux=[0]):
+        return [0] * (len(sentence) - 1) + [1] * (len(sentence_aux) - 1) + [2]

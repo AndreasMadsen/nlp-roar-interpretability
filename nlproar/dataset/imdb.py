@@ -9,11 +9,12 @@ import numpy as np
 import torchtext
 from sklearn.model_selection import train_test_split
 
+from ._choose_tokenizer import choose_tokenizer
+from ._vocab_tokenizer import VocabTokenizer
 from ._single_sequence_dataset import SingleSequenceDataset
-from ._tokenizer import Tokenizer
 
 
-class IMDBTokenizer(Tokenizer):
+class IMDBTokenizer(VocabTokenizer):
     def __init__(self):
         # Document frequency is 10
         # https://github.com/successar/AttentionExplanation/blob/master/preprocess/IMDB/IMDB.ipynb
@@ -24,7 +25,7 @@ class IMDBTokenizer(Tokenizer):
 
 
 class IMDBDataset(SingleSequenceDataset):
-    def __init__(self, cachedir, batch_size=32, **kwargs):
+    def __init__(self, cachedir, model_type, batch_size=32, **kwargs):
         """Creates an IMDB dataset instance
 
         Args:
@@ -33,7 +34,8 @@ class IMDBDataset(SingleSequenceDataset):
             batch_size (int, optional): The batch size used in the data loader. Defaults to 32.
             num_workers (int, optional): The number of pytorch workers in the data loader. Defaults to 4.
         """
-        super().__init__(cachedir, 'imdb', IMDBTokenizer(), batch_size=batch_size, **kwargs)
+        tokenizer = choose_tokenizer(cachedir, model_type, IMDBTokenizer)
+        super().__init__(cachedir, 'imdb', model_type, tokenizer, batch_size=batch_size, **kwargs)
         self.label_names = ['negative', 'positive']
 
     def embedding(self):
@@ -42,6 +44,9 @@ class IMDBDataset(SingleSequenceDataset):
         Returns:
             np.array: shape = (vocabulary, 300)
         """
+        if self.model_type != 'rnn':
+            return None
+
         lookup = torchtext.vocab.pretrained_aliases['fasttext.simple.300d'](
             cache=f'{self._cachedir}/embeddings')
 
@@ -114,7 +119,7 @@ class IMDBDataset(SingleSequenceDataset):
             self.tokenizer.from_file(f'{self._cachedir}/vocab/imdb.vocab')
 
         # Encode dataset
-        if not path.exists(f'{self._cachedir}/encoded/imdb.pkl'):
+        if not path.exists(f'{self._cachedir}/encoded/imdb_{self.model_type}.pkl'):
             os.makedirs(f'{self._cachedir}/encoded', exist_ok=True)
 
             data = {}
@@ -126,5 +131,5 @@ class IMDBDataset(SingleSequenceDataset):
                     'label': instance['label']
                 } for instance in dataset]
 
-            with open(f'{self._cachedir}/encoded/imdb.pkl', 'wb') as fp:
+            with open(f'{self._cachedir}/encoded/imdb_{self.model_type}.pkl', 'wb') as fp:
                 pickle.dump(data, fp)

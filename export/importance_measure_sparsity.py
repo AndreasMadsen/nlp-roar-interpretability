@@ -4,7 +4,9 @@ import os.path as path
 import json
 import glob
 import re
+import gzip
 from functools import partial
+from multiprocessing import Pool
 
 import numba
 import scipy.stats
@@ -12,6 +14,7 @@ import numpy as np
 import pandas as pd
 import plotnine as p9
 from tqdm import tqdm
+from scipy.stats import bootstrap
 
 from nlproar.util import generate_experiment_id
 
@@ -22,6 +25,11 @@ parser.add_argument('--persistent-dir',
                     default=path.realpath(path.join(thisdir, '..')),
                     type=str,
                     help='Directory where all persistent data will be stored')
+parser.add_argument('--num-workers',
+                    action='store',
+                    default=4,
+                    type=int,
+                    help='The number of workers to use in data loading')
 parser.add_argument('--stage',
                     action='store',
                     default='both',
@@ -65,7 +73,8 @@ def _aggregate_importance(df):
                "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", 'c10',
                "q10", "q20", "q30", "q40", "q50", "q60", "q70", "q80", "q90"])
 
-def ratio_confint(df):
+
+def ratio_confint(partial_df):
     """Implementes a ratio-confidence interval
 
     The idea is to project to logits space, then assume a normal distribution,
@@ -73,19 +82,16 @@ def ratio_confint(df):
 
     Method proposed here: https://stats.stackexchange.com/questions/263516
     """
-    x = df['mass']
-    logits = scipy.special.logit(x)
-    mean = np.mean(logits)
-    sem = scipy.stats.sem(logits)
-    lower, upper = scipy.stats.t.interval(0.95, len(x) - 1,
-                                          loc=mean,
-                                          scale=sem)
+    x = partial_df.loc[:, 'mass'].to_numpy()
+    mean = np.mean(x)
 
-    lower = scipy.special.expit(lower)
-    mean = scipy.special.expit(mean)
-    upper = scipy.special.expit(upper)
-    if np.isnan(sem):
-        lower, upper = mean, mean
+    if np.all(x[0] == x):
+        lower = mean
+        upper = mean
+    else:
+        res = bootstrap((x, ), np.mean, confidence_level=0.95, random_state=np.random.default_rng(0))
+        lower = res.confidence_interval.low
+        upper = res.confidence_interval.high
 
     return pd.Series({
         'lower': lower,
@@ -94,9 +100,43 @@ def ratio_confint(df):
         'n': len(x)
     })
 
-def _read_csv_tqdm(file, dtype=None, desc=None, leave=True):
-    return pd.concat(tqdm(pd.read_csv(file, dtype=dtype, chunksize=1_000_000, usecols=list(dtype.keys())),
-                     desc=desc, leave=leave))
+def parse_files(files):
+    out = []
+
+    for file in sorted(files):
+        filename = path.basename(file)
+        dataset, model, seed, measure, riemann_samples = re.match(r'([0-9a-z-]+)_([a-z]+)-pre_s-(\d+)_m-([a-z])_rs-(\d+)', filename).groups()
+        if (measure == 'i' and riemann_samples != '50') or measure == 'm':
+            continue
+        out.append((file, (dataset, model, int(seed), measure)))
+
+    return out
+
+def process_csv(args):
+    file, key = args
+
+    try:
+        df_partial = pd.read_csv(file, usecols=['split', 'observation', 'importance'], dtype={
+            'split': pd.CategoricalDtype(categories=["train", "val", "test"], ordered=True),
+            'observation': np.int32,
+            'importance': np.float32,
+        })
+    except gzip.BadGzipFile as e:
+        print(f'Bad file: {file}', flush=True)
+        raise e
+
+    df_partial = df_partial \
+            .loc[df_partial['split'] == 'val', :] \
+            .groupby(['observation']) \
+            .apply(_aggregate_importance) \
+            .reset_index() \
+            .drop(['observation'], axis=1) \
+            .mean() \
+            .to_frame().T \
+            .reset_index() \
+            .drop(['index'], axis=1)
+
+    return (key, df_partial)
 
 if __name__ == "__main__":
     pd.set_option('display.max_rows', None)
@@ -112,40 +152,35 @@ if __name__ == "__main__":
         {"dataset": "mimic-a", "dataset_pretty": "Anemia"},
         {"dataset": "mimic-d", "dataset_pretty": "Diabetes"},
     ])
+
+    model_mapping = pd.DataFrame([
+        {'model_type': 'rnn', 'model_type_pretty': 'BiLSTM-Attention'},
+        {'model_type': 'roberta', 'model_type_pretty': 'RoBERTa'}
+    ])
+
     importance_measure_mapping = pd.DataFrame([
         {'importance_measure': 'a', 'importance_measure_pretty': 'Attention'},
         {'importance_measure': 'g', 'importance_measure_pretty': 'Gradient'},
+        {'importance_measure': 't', 'importance_measure_pretty': 'Input times Gradient'},
         {'importance_measure': 'i', 'importance_measure_pretty': 'Integrated Gradient'},
         {'importance_measure': 'r', 'importance_measure_pretty': 'Random'}
     ])
 
     if args.stage in ['both', 'preprocess']:
         # Read CSV files into a dataframe and progressively aggregate the data
-        df_partials = []
         df_partials_keys = []
-        for file in tqdm(sorted(glob.glob(f'{args.persistent_dir}/results/importance_measure/*.csv.gz')),
-                         desc='Parsing and summarzing CSVs'):
-            filename = path.basename(file)
+        df_partials = []
 
-            dataset, seed, measure, riemann_samples = re.match(r'([0-9A-Za-z-]+)_s-(\d+)_m-([a-z])_rs-(\d+)', filename).groups()
-            if (measure == 'i' and riemann_samples != '50') or measure == 'm':
-                continue
+        with Pool(args.num_workers) as pool:
+            files = parse_files(glob.glob(f'{args.persistent_dir}/results/importance_measure/*-pre*.csv.gz'))
+            for key, df_partial in tqdm(pool.imap_unordered(process_csv, files),
+                                        total=len(files), desc='Parsing and summarzing CSVs'):
+                df_partials_keys.append(key)
+                df_partials.append(df_partial)
 
-            df_partial = _read_csv_tqdm(file, desc=f'Reading {filename}', leave=False, dtype={
-                'split': pd.CategoricalDtype(categories=["train", "val", "test"], ordered=True),
-                'observation': np.int32,
-                'index': np.int32,
-                'token': np.int32,
-                'importance': np.float32,
-                'walltime': np.float32
-            })
-
-            tqdm.pandas(desc=f"Aggregating {filename}", leave=False)
-            df_partial = df_partial.groupby(['split', 'observation'], observed=True).progress_apply(_aggregate_importance)
-            df_partials.append(df_partial)
-            df_partials_keys.append((dataset[:-4], int(seed), measure))
-
-        df = pd.concat(df_partials, keys=df_partials_keys, names=['dataset', 'seed', 'importance_measure'])
+        df = pd.concat(df_partials, keys=df_partials_keys, names=['dataset', 'model_type', 'seed', 'importance_measure']) \
+            .reset_index() \
+            .drop(['level_4'], axis=1)
 
     if args.stage in ['preprocess']:
         os.makedirs(f'{args.persistent_dir}/pandas', exist_ok=True)
@@ -154,28 +189,21 @@ if __name__ == "__main__":
         df = pd.read_pickle(f'{args.persistent_dir}/pandas/sparsity.pd.pkl.xz')
 
     if args.stage in ['both', 'plot']:
-        df = (
-            df.loc[pd.IndexSlice[:, :, :, 'train', :]]
-                .melt(value_vars=["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "c10",
+        df = (df.merge(dataset_mapping, on='dataset')
+               .merge(model_mapping, on='model_type')
+               .merge(importance_measure_mapping, on='importance_measure')
+               .drop(['dataset', 'model_type', 'importance_measure'], axis=1)
+               .melt(value_vars=["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "c10",
                                 "q10", "q20", "q30", "q40", "q50", "q60", "q70", "q80", "q90"],
+                    id_vars=['dataset_pretty', 'model_type_pretty', 'importance_measure_pretty', 'seed'],
                     value_name="mass",
-                    var_name="k",
-                    ignore_index=False)
+                    var_name="k")
                 .assign(
                     strategy=lambda x: np.where(x['k'].str.startswith('c'), 'count', 'quantile'),
                     k=lambda x: pd.to_numeric(x['k'].str.slice(1))
                 )
-                .groupby(["dataset", "seed", "importance_measure", "strategy", "k"])
-                .agg({ 'mass': 'mean' })
-                .reset_index()
-                .groupby(["dataset", "importance_measure", "strategy", "k"])
+                .groupby(["dataset_pretty", "model_type_pretty", "importance_measure_pretty", "strategy", "k"])
                 .apply(ratio_confint)
-                .reset_index()
-                .merge(dataset_mapping, on='dataset')
-                .drop(['dataset'], axis=1)
-                .merge(importance_measure_mapping, on='importance_measure')
-                .drop(['importance_measure'], axis=1)
-                .set_index(['dataset_pretty', 'strategy', 'k', 'importance_measure_pretty'])
         )
 
         # Generate result table
@@ -183,22 +211,25 @@ if __name__ == "__main__":
             experiment_id = generate_experiment_id('sparsity', strategy=strategy)
 
             # Generate plot
-            p = (p9.ggplot(df.loc[pd.IndexSlice[:, strategy, :, :]].reset_index(), p9.aes(x='k'))
+            p = (p9.ggplot(df.loc[pd.IndexSlice[:, :, :, strategy, :]].reset_index(), p9.aes(x='k'))
                 + p9.geom_ribbon(p9.aes(ymin='lower', ymax='upper', fill='importance_measure_pretty'), alpha=0.35)
                 + p9.geom_line(p9.aes(y='mean', color='importance_measure_pretty'))
                 + p9.geom_point(p9.aes(y='mean', color='importance_measure_pretty', shape='importance_measure_pretty'))
-                + p9.facet_grid('dataset_pretty ~ .', scales='free_x')
+                + p9.facet_grid('dataset_pretty ~ model_type_pretty', scales='free_y')
                 + p9.labs(y='', color='', shape='')
-                + p9.scale_y_continuous(labels = lambda ticks: [f'{tick:.0%}' for tick in ticks])
                 + p9.scale_color_manual(
-                    values = ['#F8766D', '#A3A500', '#00BF7D', '#00B0F6'],
-                    breaks = ['Attention', 'Gradient', 'Integrated Gradient', 'Random']
+                    values = ['#F8766D', '#A3A500', '#00BF7D', '#00B0F6', '#E76BF3'],
+                    breaks = ['Attention', 'Gradient', 'Input times Gradient', 'Integrated Gradient', 'Random']
+                )
+                + p9.scale_fill_manual(
+                    values = ['#F8766D', '#A3A500', '#00BF7D', '#00B0F6', '#E76BF3'],
+                    breaks = ['Attention', 'Gradient', 'Input times Gradient', 'Integrated Gradient', 'Random']
                 )
                 + p9.scale_shape_manual(
-                    values = ['o', '^', 's', 'v'],
-                    breaks = ['Attention', 'Gradient', 'Integrated Gradient', 'Random']
+                    values = ['o', '^', 's', 'D', 'v'],
+                    breaks = ['Attention', 'Gradient', 'Input times Gradient', 'Integrated Gradient', 'Random']
                 )
-                + p9.guides(fill=False, color = p9.guide_legend(nrow = 2))
+                + p9.guides(fill=False)
                 + p9.theme(plot_margin=0,
                         legend_box = "vertical", legend_position="bottom",
                         text=p9.element_text(size=12))
@@ -206,33 +237,10 @@ if __name__ == "__main__":
 
             if strategy == 'count':
                 p += p9.scale_x_continuous(name='nb. tokens', breaks=range(0, 11, 2))
+                p += p9.scale_y_continuous(limits=[0, None], labels = lambda ticks: [f'{tick:.0%}' for tick in ticks])
             elif strategy == 'quantile':
                 p += p9.scale_x_continuous(name='% tokens', breaks=range(0, 91, 20))
+                p += p9.scale_y_continuous(limits=[0, 1], labels = lambda ticks: [f'{tick:.0%}' for tick in ticks])
 
-            p.save(f'{args.persistent_dir}/plots/{experiment_id}.pdf', width=3.03209, height=7, units='in')
-            p.save(f'{args.persistent_dir}/plots/{experiment_id}.png', width=3.03209, height=7, units='in')
-
-        df_latex = (
-            df
-                .loc[pd.IndexSlice[:, 'count', [1, 10], ['Attention', 'Gradient', 'Integrated Gradient']]]
-                .droplevel(['strategy'])
-                .assign(**{
-                    'total importance': lambda x: [
-                        f'${mean:.0%}^{{+{upper-mean:.1%}}}_{{-{mean-lower:.1%}}}$'.replace('%', '\\%')
-                        for mean, lower, upper
-                        in zip(x['mean'], x['lower'], x['upper'])
-                    ]
-                })
-                .drop(['mean', 'lower', 'upper', 'n'], axis=1)
-                .reset_index()
-                .rename(columns={
-                    'dataset_pretty': 'dataset',
-                    'importance_measure_pretty': 'importance measure'
-                })
-                .pivot(
-                    index=['dataset', 'importance measure'],
-                    columns=['k']
-                )
-        )
-        os.makedirs(f"{args.persistent_dir}/tables", exist_ok=True)
-        df_latex.to_latex(f'{args.persistent_dir}/tables/sparsity.tex', escape=False, multirow=True)
+            p.save(f'{args.persistent_dir}/plots/{experiment_id}.pdf', width=6.30045 + 0.2, height=7, units='in')
+            p.save(f'{args.persistent_dir}/plots/{experiment_id}.png', width=6.30045 + 0.2, height=7, units='in')

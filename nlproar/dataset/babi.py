@@ -7,7 +7,8 @@ import tarfile
 
 from sklearn.model_selection import train_test_split
 
-from ._tokenizer import Tokenizer
+from ._choose_tokenizer import choose_tokenizer
+from ._vocab_tokenizer import VocabTokenizer
 from ._paired_sequence_dataset import PairedSequenceDataset
 
 IDX_TO_TASK_MAP = {1: 'qa1_single-supporting-fact_',
@@ -31,13 +32,13 @@ def _parse_babi_txtfile(file):
                 data.append({"paragraph": substory, "question": query[:-1], "answer": answer})
     return data
 
-class BabiTokenizer(Tokenizer):
+class BabiTokenizer(VocabTokenizer):
     def tokenize(self, sentence):
         return sentence.split()
 
 
 class BabiDataset(PairedSequenceDataset):
-    def __init__(self, cachedir, task=1, batch_size=50, **kwargs):
+    def __init__(self, cachedir, model_type, task=1, batch_size=50, **kwargs):
         """Creates an bAbI dataset instance
 
         Args:
@@ -50,7 +51,8 @@ class BabiDataset(PairedSequenceDataset):
         if task not in [1, 2, 3]:
             raise ValueError('task must be either 1, 2, or 3')
 
-        super().__init__(cachedir, f'babi-{task}', BabiTokenizer(), batch_size=batch_size, **kwargs)
+        tokenizer = choose_tokenizer(cachedir, model_type, BabiTokenizer)
+        super().__init__(cachedir, f'babi-{task}', model_type, tokenizer, batch_size=batch_size, **kwargs)
         self._task = task
         self.label_names = ['put', 'picked', 'down', '.', 'travelled', 'was',
                             'football', 'got', 'garden', 'milk', 'discarded', 'is',
@@ -65,6 +67,9 @@ class BabiDataset(PairedSequenceDataset):
         Returns:
             np.array: shape = (vocabulary, 300)
         """
+        if self.model_type != 'rnn':
+            return None
+
         # Random embeddings of size 50
         # https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/model/modules/Encoder.py#L26
         # https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/Trainers/DatasetQA.py#L112
@@ -138,7 +143,7 @@ class BabiDataset(PairedSequenceDataset):
             self.tokenizer.from_file(f'{self._cachedir}/vocab/{self.name}.vocab')
 
         # Encoded dataset
-        if not path.exists(f'{self._cachedir}/encoded/{self.name}.pkl'):
+        if not path.exists(f'{self._cachedir}/encoded/{self.name}_{self.model_type}.pkl'):
             os.makedirs(f'{self._cachedir}/encoded', exist_ok=True)
 
             data = {}
@@ -151,5 +156,5 @@ class BabiDataset(PairedSequenceDataset):
                     'label': instance['label']
                 } for instance in dataset]
 
-            with open(f'{self._cachedir}/encoded/{self.name}.pkl', 'wb') as fp:
+            with open(f'{self._cachedir}/encoded/{self.name}_{self.model_type}.pkl', 'wb') as fp:
                 pickle.dump(data, fp)

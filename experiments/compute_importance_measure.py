@@ -12,7 +12,7 @@ import torch
 from tqdm import tqdm
 
 from nlproar.dataset import SNLIDataset, SSTDataset, IMDBDataset, BabiDataset, MimicDataset
-from nlproar.model import SingleSequenceToClass, MultipleSequenceToClass
+from nlproar.model import select_multiple_sequence_to_class, select_single_sequence_to_class
 from nlproar.util import generate_experiment_id, optimal_roar_batch_size
 from nlproar.explain import ImportanceMeasure
 
@@ -23,6 +23,12 @@ parser.add_argument("--persistent-dir",
                     default=os.path.realpath(os.path.join(thisdir, "..")),
                     type=str,
                     help="Directory where all persistent data will be stored")
+parser.add_argument("--model-type",
+                    action="store",
+                    default='rnn',
+                    type=str,
+                    choices=['roberta', 'xlnet', 'rnn'],
+                    help="The model to use either rnn, roberta, or xlnet.")
 parser.add_argument("--seed",
                     action="store",
                     default=0,
@@ -66,11 +72,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print("Computing attention distributions:")
+    print(f' - model_type: {args.model_type}')
     print(f" - seed: {args.seed}")
     print(f' - dataset: {args.dataset}')
     print(f' - importance_measure: {args.importance_measure}')
 
     # Get dataset class and model class
+    SingleSequenceToClass = select_single_sequence_to_class(args.model_type)
+    MultipleSequenceToClass = select_multiple_sequence_to_class(args.model_type)
+
     dataset_cls, model_cls = ({
         'sst': (SSTDataset, SingleSequenceToClass.load_from_checkpoint),
         'snli': (SNLIDataset, MultipleSequenceToClass.load_from_checkpoint),
@@ -78,20 +88,21 @@ if __name__ == "__main__":
         'babi-1': (partial(BabiDataset, task=1), partial(MultipleSequenceToClass.load_from_checkpoint, hidden_size=32)),
         'babi-2': (partial(BabiDataset, task=2), partial(MultipleSequenceToClass.load_from_checkpoint, hidden_size=32)),
         'babi-3': (partial(BabiDataset, task=3), partial(MultipleSequenceToClass.load_from_checkpoint, hidden_size=32)),
-        'mimic-d': (partial(MimicDataset, subset='diabetes', mimicdir=f'{args.persistent_dir}/mimic', batch_size=8), SingleSequenceToClass.load_from_checkpoint),
-        'mimic-a': (partial(MimicDataset, subset='anemia', mimicdir=f'{args.persistent_dir}/mimic', batch_size=8), SingleSequenceToClass.load_from_checkpoint)
+        'mimic-d': (partial(MimicDataset, subset='diabetes', mimicdir=f'{args.persistent_dir}/mimic'), SingleSequenceToClass.load_from_checkpoint),
+        'mimic-a': (partial(MimicDataset, subset='anemia', mimicdir=f'{args.persistent_dir}/mimic'), SingleSequenceToClass.load_from_checkpoint)
     })[args.dataset]
 
     # Load dataset
-    dataset = dataset_cls(cachedir=f"{args.persistent_dir}/cache",
-                            num_workers=args.num_workers)
+    dataset = dataset_cls(cachedir=f"{args.persistent_dir}/cache", model_type=args.model_type,
+                          num_workers=args.num_workers)
     dataset.prepare_data()
 
     # Load model
-    experiment_id = generate_experiment_id(dataset.name, args.seed, k=0)
+    experiment_id = generate_experiment_id(f'{dataset.name}_{dataset.model_type}', args.seed, k=0)
     model = model_cls(checkpoint_path=f'{args.persistent_dir}/checkpoints/{experiment_id}/checkpoint.ckpt',
-                    embedding=dataset.embedding(),
-                    num_of_classes=len(dataset.label_names))
+                      cachedir=f'{args.persistent_dir}/cache',
+                      embedding=dataset.embedding(),
+                      num_of_classes=len(dataset.label_names))
 
     # Load importance measure
     importance_measure = ImportanceMeasure(
@@ -99,7 +110,7 @@ if __name__ == "__main__":
         riemann_samples=args.riemann_samples,
         use_gpu=args.use_gpu,
         num_workers=args.num_workers,
-        batch_size=optimal_roar_batch_size(dataset.name, args.importance_measure, args.use_gpu),
+        batch_size=optimal_roar_batch_size(dataset.name, args.model_type, args.importance_measure, args.use_gpu),
         seed=args.seed,
         caching=args.importance_caching,
         cachedir=f'{args.persistent_dir}/cache'
@@ -108,7 +119,7 @@ if __name__ == "__main__":
     # Write to /tmp to avoid high IO on a HPC system
     os.makedirs(f'/tmp/results/importance_measure', exist_ok=True)
     os.makedirs(f'{args.persistent_dir}/results/importance_measure', exist_ok=True)
-    csv_name = generate_experiment_id(f'{dataset.name}-pre', args.seed,
+    csv_name = generate_experiment_id(f'{dataset.name}_{dataset.model_type}-pre', args.seed,
                                       importance_measure=args.importance_measure,
                                       riemann_samples=args.riemann_samples)
     with gzip.open(f'/tmp/results/importance_measure/{csv_name}.csv.gz', 'wt', newline='') as fp:

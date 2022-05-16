@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account=rrg-bengioy-ad
-#SBATCH --cpus-per-task=4
-#SBATCH --gres=gpu:v100:1
+#SBATCH --cpus-per-task=6
+#SBATCH --gres=gpu:1
 #SBATCH --mem=24G
 #SBATCH --time=2:00:00
 
@@ -21,12 +21,13 @@ python -m pip install --no-index 'chardet<4.0,>=2.0' 'click<7.2.0,>=7.1.1'
 mkdir $SLURM_TMPDIR/nlproar
 cp -r -t $SLURM_TMPDIR/nlproar $HOME/workspace/nlproar/setup.py $HOME/workspace/nlproar/nlproar
 cd $SLURM_TMPDIR/nlproar
-python -m pip install --no-index -e .
+python -m pip install --no-index --find-links $HOME/python_wheels -e .
 
 # Enable offline model
 export HF_DATASETS_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export NO_GCE_CHECK=true
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 # Run code
 cd $SLURM_TMPDIR

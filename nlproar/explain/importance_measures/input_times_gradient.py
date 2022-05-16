@@ -19,6 +19,7 @@ class InputTimesGradientImportanceMeasure(ImportanceMeasureModule):
             yc_wrt_embedding, = torch.autograd.grad([yc_batch], (embedding, )) # (B, T, Z)
             if yc_wrt_embedding is None:
                 raise ValueError('Could not compute gradient')
+            yc_wrt_embedding = yc_wrt_embedding[:, :batch.sentence.size(1), :]
 
             # This is a fast and memory-efficient version of sum(one_hot(x) * dy/dz @ W.T)
             # We can do this because x is one_hot, hence there is no need to
@@ -28,11 +29,11 @@ class InputTimesGradientImportanceMeasure(ImportanceMeasureModule):
             # does not affect anything, as x remains the same for all
             # # Riemann steps.
             yc_wrt_x_compact = torch.bmm(
-                yc_wrt_embedding.view(
+                yc_wrt_embedding.reshape(
                     embedding_matrix_compact.shape[0], 1, embedding_matrix_compact.shape[1]
                 ), # (B * T, 1, Z)
                 embedding_matrix_compact, # (B * T, Z, 1)
-            ).view_as(batch.sentence) # (B*T, 1, 1) -> (B, T)
+            ).reshape_as(batch.sentence) # (B*T, 1, 1) -> (B, T)
 
         # Abs is equivalent to 2-norm, because the naive sum is essentially
         # sqrt(0^2 + ... + 0^2 + y_wrt_x^2 + 0^2 + ... + 0^2) = abs(y_wrt_x)

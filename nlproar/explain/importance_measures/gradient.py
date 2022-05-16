@@ -24,6 +24,7 @@ class GradientImportanceMeasure(ImportanceMeasureModule):
             yc_wrt_embedding, = torch.autograd.grad([yc_batch], (embedding, ))
             if yc_wrt_embedding is None:
                 raise ValueError('Could not compute gradient')
+            yc_wrt_embedding = yc_wrt_embedding[:, :batch.sentence.size(1), :]
 
             # We need the gradient wrt. x. However, to compute that directly with .grad would
             # require the model input to be a one_hot encoding. Creating a one_hot encoding

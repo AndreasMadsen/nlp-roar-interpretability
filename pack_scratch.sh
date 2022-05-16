@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --account=def-bengioy
+#SBATCH --account=rrg-bengioy-ad
 #SBATCH -J pack-scratch
 #SBATCH -o /home/anmadc/logs/%x.%j.out
 #SBATCH -e /home/anmadc/logs/%x.%j.err

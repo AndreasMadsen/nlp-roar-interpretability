@@ -4,9 +4,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchmetrics
 import pytorch_lightning as pl
 
-from ._total_ce_loss import TotalCrossEntropyLoss
+from ._base_multiple_sequence_to_class import BaseMultipleSequenceToClass
 from ..dataset import SequenceBatch
 
 class _Decoder(nn.Module):
@@ -87,9 +88,8 @@ class _Attention(nn.Module):
         return context_t, alpha_t
 
 
-class MultipleSequenceToClass(pl.LightningModule):
-
-    def __init__(self, embedding, hidden_size=128, num_of_classes=3):
+class RNNMultipleSequenceToClass(BaseMultipleSequenceToClass):
+    def __init__(self, cachedir, embedding, hidden_size=128, num_of_classes=3):
         """Creates a model instance that maps from a sequence pair to a class
 
         Args:
@@ -97,21 +97,12 @@ class MultipleSequenceToClass(pl.LightningModule):
             hidden_size (int, optional): The hidden size used in the attention mechanism. Defaults to 128.
             num_of_classes (int, optional): The number of output classes. Defaults to 3.
         """
-        super().__init__()
+        super().__init__(num_of_classes=num_of_classes)
         self.encoder_premise = _Encoder(embedding, hidden_size)
         self.encoder_hypothesis = _Encoder(embedding, hidden_size)
         self.attention = _Attention(
             2 * hidden_size, hidden_size)
         self.decoder = _Decoder(hidden_size, num_of_classes)
-        self.ce_loss = nn.CrossEntropyLoss()
-
-        self.val_metric_acc = pl.metrics.Accuracy(compute_on_step=False)
-        self.val_metric_f1 = pl.metrics.F1(num_classes=num_of_classes, average='micro', compute_on_step=False)
-        self.val_metric_ce = TotalCrossEntropyLoss()
-
-        self.test_metric_acc = pl.metrics.Accuracy(compute_on_step=False)
-        self.test_metric_f1 = pl.metrics.F1(num_classes=num_of_classes, average='micro', compute_on_step=False)
-        self.test_metric_ce = TotalCrossEntropyLoss()
 
     @property
     def embedding_matrix(self):
@@ -129,42 +120,6 @@ class MultipleSequenceToClass(pl.LightningModule):
             h1_premise, last_hidden_hypothesis, batch.mask)
         predict = self.decoder(h2, last_hidden_hypothesis)
         return predict, alpha, embedding
-
-    def training_step(self, batch: SequenceBatch, batch_idx):
-        y, _, _ = self.forward(batch)
-        train_loss = self.ce_loss(y, batch.label)
-        self.log('loss_train', train_loss, on_step=True)
-        return train_loss
-
-    def validation_step(self, batch: SequenceBatch, batch_nb):
-        y, _, _ = self.forward(batch)
-        predict = torch.argmax(y, dim=1)
-        self.val_metric_acc.update(predict, batch.label)
-        self.val_metric_f1.update(predict, batch.label)
-        self.val_metric_ce.update(y, batch.label)
-
-    def test_step(self, batch: SequenceBatch, batch_nb):
-        y, _, _ = self.forward(batch)
-        predict = torch.argmax(y, dim=1)
-        self.test_metric_acc.update(predict, batch.label)
-        self.test_metric_f1.update(predict, batch.label)
-        self.test_metric_ce.update(y, batch.label)
-
-    def validation_epoch_end(self, outputs):
-        self.log('acc_val', self.val_metric_acc.compute(), on_epoch=True)
-        self.log('f1_val', self.val_metric_f1.compute(), on_epoch=True, prog_bar=True)
-        self.log('ce_val', self.val_metric_ce.compute(), on_epoch=True)
-        self.val_metric_acc.reset()
-        self.val_metric_f1.reset()
-        self.val_metric_ce.reset()
-
-    def test_epoch_end(self, outputs):
-        self.log('acc_test', self.test_metric_acc.compute(), on_epoch=True)
-        self.log('f1_test', self.test_metric_f1.compute(), on_epoch=True, prog_bar=True)
-        self.log('ce_test', self.test_metric_ce.compute(), on_epoch=True)
-        self.test_metric_acc.reset()
-        self.test_metric_f1.reset()
-        self.test_metric_ce.reset()
 
     def configure_optimizers(self):
         '''

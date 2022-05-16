@@ -3,6 +3,7 @@ import os.path as path
 import shutil
 import json
 import os
+import tempfile
 
 import torch
 from pytorch_lightning import Trainer, seed_everything
@@ -10,7 +11,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from nlproar.dataset import SNLIDataset, ROARDataset
-from nlproar.model import MultipleSequenceToClass
+from nlproar.model import select_multiple_sequence_to_class
 from nlproar.util import generate_experiment_id, optimal_roar_batch_size
 
 # On compute canada the ulimit -n is reached, unless this strategy is used.
@@ -23,6 +24,12 @@ parser.add_argument('--persistent-dir',
                     default=path.realpath(path.join(thisdir, '..')),
                     type=str,
                     help='Directory where all persistent data will be stored')
+parser.add_argument("--model-type",
+                    action="store",
+                    default='rnn',
+                    type=str,
+                    choices=['roberta', 'xlnet', 'rnn'],
+                    help="The model to use either rnn or roberta.")
 parser.add_argument("--k",
                     action="store",
                     default=0,
@@ -63,9 +70,14 @@ parser.add_argument("--num-workers",
 # epochs = 25 (https://github.com/successar/AttentionExplanation/blob/425a89a49a8b3bffc3f5e8338287e2ecd0cf1fa2/ExperimentsQA.py#L10)
 parser.add_argument("--max-epochs",
                     action="store",
-                    default=25,
+                    default=None,
                     type=int,
                     help="The max number of epochs to use")
+parser.add_argument('--batch-size',
+                    action='store',
+                    default=None,
+                    type=int,
+                    help='The batch size to use')
 parser.add_argument("--importance-caching",
                     action="store",
                     default=None,
@@ -80,9 +92,16 @@ parser.add_argument("--use-gpu",
 
 if __name__ == "__main__":
     args = parser.parse_args()
+    if args.max_epochs is None:
+        args.max_epochs = ({ 'rnn': 25, 'roberta': 3, 'longformer': 3, 'xlnet': 3 })[args.model_type]
+    if args.batch_size is None:
+        args.batch_size = ({ 'rnn': 128, 'roberta': 16, 'longformer': 8, 'xlnet': 8 })[args.model_type]
+
     torch.set_num_threads(max(1, args.num_workers))
-    seed_everything(args.seed)
-    experiment_id = generate_experiment_id('snli', args.seed,
+    seed_everything(args.seed, workers=True)
+
+    MultipleSequenceToClass = select_multiple_sequence_to_class(args.model_type)
+    experiment_id = generate_experiment_id(f'snli_{args.model_type}', args.seed,
                                            k=args.k,
                                            strategy=args.roar_strategy,
                                            importance_measure=args.importance_measure,
@@ -90,6 +109,7 @@ if __name__ == "__main__":
                                            riemann_samples=args.riemann_samples)
 
     print('Running SNLI-ROAR experiment:')
+    print(f' - model_type: {args.model_type}')
     print(f' - k: {args.k}')
     print(f' - seed: {args.seed}')
     print(f' - strategy: {args.roar_strategy}')
@@ -99,7 +119,10 @@ if __name__ == "__main__":
 
     # Create ROAR dataset
     base_dataset = SNLIDataset(
-        cachedir=f'{args.persistent_dir}/cache', num_workers=args.num_workers
+        cachedir=f'{args.persistent_dir}/cache',
+        model_type=args.model_type,
+        num_workers=args.num_workers,
+        batch_size=args.batch_size
     )
     base_dataset.prepare_data()
 
@@ -107,7 +130,7 @@ if __name__ == "__main__":
     if args.k == 0:
         main_dataset = base_dataset
     else:
-        base_experiment_id = generate_experiment_id('snli', args.seed,
+        base_experiment_id = generate_experiment_id(f'snli_{args.model_type}', args.seed,
                                                     k=args.k-args.recursive_step_size if args.recursive else 0,
                                                     strategy=args.roar_strategy,
                                                     importance_measure=args.importance_measure,
@@ -117,6 +140,7 @@ if __name__ == "__main__":
             cachedir=f'{args.persistent_dir}/cache',
             model=MultipleSequenceToClass.load_from_checkpoint(
                 checkpoint_path=f'{args.persistent_dir}/checkpoints/{base_experiment_id}/checkpoint.ckpt',
+                cachedir=f'{args.persistent_dir}/cache',
                 embedding=base_dataset.embedding()
             ),
             base_dataset=base_dataset,
@@ -127,7 +151,9 @@ if __name__ == "__main__":
             importance_measure=args.importance_measure,
             riemann_samples=args.riemann_samples,
             use_gpu=args.use_gpu,
-            build_batch_size=optimal_roar_batch_size(base_dataset.name, args.importance_measure, args.use_gpu),
+            build_batch_size=optimal_roar_batch_size(
+                base_dataset.name, base_dataset.model_type,
+                args.importance_measure, args.use_gpu),
             importance_caching=args.importance_caching,
             seed=args.seed,
             num_workers=args.num_workers,
@@ -135,7 +161,7 @@ if __name__ == "__main__":
         main_dataset.prepare_data()
 
     logger = TensorBoardLogger(f'{args.persistent_dir}/tensorboard', name=experiment_id)
-    model = MultipleSequenceToClass(main_dataset.embedding())
+    model = MultipleSequenceToClass(f'{args.persistent_dir}/cache', main_dataset.embedding())
 
     """
     Original implementation chooses the best checkpoint on the basis of accuracy
@@ -143,7 +169,7 @@ if __name__ == "__main__":
     """
     checkpoint_callback = ModelCheckpoint(
         monitor="acc_val",
-        dirpath=f'{args.persistent_dir}/checkpoints/{experiment_id}',
+        dirpath=tempfile.mkdtemp(),
         filename="checkpoint-{epoch:02d}-{acc_val:.2f}",
         mode="max",
     )
@@ -158,6 +184,7 @@ if __name__ == "__main__":
     trainer.fit(model, main_dataset)
     main_dataset.clean('fit')
 
+    os.makedirs(f'{args.persistent_dir}/checkpoints/{experiment_id}', exist_ok=True)
     shutil.copyfile(
         checkpoint_callback.best_model_path,
         f'{args.persistent_dir}/checkpoints/{experiment_id}/checkpoint.ckpt',
@@ -173,6 +200,8 @@ if __name__ == "__main__":
 
     os.makedirs(f'{args.persistent_dir}/results/roar', exist_ok=True)
     with open(f'{args.persistent_dir}/results/roar/{experiment_id}.json', "w") as f:
-        json.dump({"seed": args.seed, "dataset": main_dataset.name, "strategy": args.roar_strategy,
-                   "k": args.k, "recursive": args.recursive, "importance_measure": args.importance_measure,
+        json.dump({"seed": args.seed,
+                   "dataset": main_dataset.name, "model_type": main_dataset.model_type,
+                   "strategy": args.roar_strategy, "k": args.k, "recursive": args.recursive,
+                   "importance_measure": args.importance_measure,
                    **results}, f)
